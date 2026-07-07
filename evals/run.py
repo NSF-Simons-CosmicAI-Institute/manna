@@ -47,9 +47,12 @@ async def _run_one(
     judge: ModelConfig | None,
     sem: asyncio.Semaphore,
     inject_notes: bool = False,
+    no_discovery: bool = False,
 ) -> tuple[TaskRun, TaskScore]:
     async with sem:
-        run = await run_task(task, cfg, condition, inject_notes=inject_notes)
+        run = await run_task(
+            task, cfg, condition, inject_notes=inject_notes, no_discovery=no_discovery
+        )
     score = await score_task(task, run, judge)
     status = "PASS" if score.passed else "FAIL"
     unscored = " (has unscored checks)" if score.has_unscored else ""
@@ -156,9 +159,19 @@ async def _main_async(args: argparse.Namespace) -> int:
 
     if args.inject_notes:
         print("Experiment (a): archive quirks INJECTED into vo_tap_query description")
+    if args.no_discovery:
+        print("No-discovery: vo_archive_list + vo_schema_describe withheld from the model")
     sem = asyncio.Semaphore(args.concurrency)
     coros = [
-        _run_one(t, cond, cfg, judge, sem, inject_notes=args.inject_notes)
+        _run_one(
+            t,
+            cond,
+            cfg,
+            judge,
+            sem,
+            inject_notes=args.inject_notes,
+            no_discovery=args.no_discovery,
+        )
         for t in tasks
         for cond in _conditions_for(t, args.condition)
     ]
@@ -219,6 +232,11 @@ def main() -> int:
         "--inject-notes",
         action="store_true",
         help="experiment (a): inject archive quirks into the vo_tap_query description.",
+    )
+    p.add_argument(
+        "--no-discovery",
+        action="store_true",
+        help="withhold vo_archive_list + vo_schema_describe (isolate description-injection).",
     )
     args = p.parse_args()
     return asyncio.run(_main_async(args))

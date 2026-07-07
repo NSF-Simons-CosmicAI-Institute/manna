@@ -28,13 +28,15 @@ if TYPE_CHECKING:
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
 # Async TAP lifecycles poll vo_tap_status repeatedly, so this must be generous.
-MAX_STEPS = 20
+# Env-overridable so trap experiments (which only need the SUBMITTED query, not job
+# completion) can cap polling and run fast.
+MAX_STEPS = int(os.getenv("EVAL_MAX_STEPS", "20"))
 DEFAULT_MAX_TOKENS = 4096
 
 # When a status poll comes back non-terminal, wait before handing control back to
 # the model so the upstream job actually has wall-clock time to progress — otherwise
 # the model burns its whole step budget on back-to-back polls of a QUEUED job.
-ASYNC_POLL_SLEEP_S = 6.0
+ASYNC_POLL_SLEEP_S = float(os.getenv("EVAL_ASYNC_POLL_SLEEP", "6.0"))
 _NONTERMINAL_PHASES = {"PENDING", "QUEUED", "EXECUTING", "HELD", "SUSPENDED", "UNKNOWN"}
 
 # Cap the size of a single tool result fed back to the model. A large
@@ -192,15 +194,27 @@ def _archive_notes_blob() -> str:
     return _SILENT_TRAP_CHEATSHEET
 
 
-def _anthropic_tools(mcp_tools, inject_notes: bool = False) -> list[dict[str, Any]]:
+# Tools that surface the server's CURATED archive knowledge. Withholding them
+# (no_discovery) forces the quirks to reach the model only via injected tool
+# descriptions or the model's own priors — the clean test for experiment (a).
+_DISCOVERY_TOOLS = {"vo_archive_list", "vo_schema_describe"}
+
+
+def _anthropic_tools(
+    mcp_tools, inject_notes: bool = False, no_discovery: bool = False
+) -> list[dict[str, Any]]:
     """Convert FastMCP tool descriptors to Anthropic tool-use format.
 
-    If ``inject_notes`` is set, append the archive-quirk blob to vo_tap_query's
-    description (experiment (a) — context-in-tool-descriptions).
+    - ``inject_notes``: append the archive-quirk cheatsheet to vo_tap_query's
+      description (experiment (a) — context-in-tool-descriptions).
+    - ``no_discovery``: withhold the curated-knowledge tools (vo_archive_list,
+      vo_schema_describe) so the model can't consult them.
     """
     blob = _archive_notes_blob() if inject_notes else ""
     out = []
     for t in mcp_tools:
+        if no_discovery and t.name in _DISCOVERY_TOOLS:
+            continue
         desc = t.description or ""
         if inject_notes and t.name == "vo_tap_query":
             desc = f"{desc}\n\n{blob}"
@@ -258,7 +272,11 @@ def _assistant_content(blocks) -> list[dict[str, Any]]:
 
 
 async def run_task(
-    task: dict[str, Any], cfg: ModelConfig, condition: str, inject_notes: bool = False
+    task: dict[str, Any],
+    cfg: ModelConfig,
+    condition: str,
+    inject_notes: bool = False,
+    no_discovery: bool = False,
 ) -> TaskRun:
     """Run one task end-to-end under the given context condition."""
     run = TaskRun(
@@ -273,7 +291,11 @@ async def run_task(
         with ctx():
             mcp = build_mcp()
             async with Client(mcp) as mcp_client, cfg.client() as model:
-                tools = _anthropic_tools(await mcp_client.list_tools(), inject_notes=inject_notes)
+                tools = _anthropic_tools(
+                    await mcp_client.list_tools(),
+                    inject_notes=inject_notes,
+                    no_discovery=no_discovery,
+                )
                 messages: list[dict[str, Any]] = [{"role": "user", "content": task["prompt"]}]
                 for step in range(MAX_STEPS):
                     run.steps = step + 1
