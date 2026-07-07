@@ -1,8 +1,17 @@
-# MCP evaluation plan — NOIRLab + ALMA
+# ALMA + NOIRLab question bank
 
-Benchmark suites for exercising `astro-archives-mcp` end-to-end against the two
-archives we care about: **NOIRLab Astro Data Lab** (catalog TAP + `q3c` + SIA)
-and the **ALMA Science Archive** (`ivoa.obscore` observation metadata).
+A curated, live-verified set of science questions for exercising
+`astro-archives-mcp` against the two archives we care about: **NOIRLab Astro
+Data Lab** (catalog TAP + `q3c` + SIA) and the **ALMA Science Archive**
+(`ivoa.obscore` observation metadata).
+
+**Scope of this doc:** it is a *question bank*, not the harness design. The
+agentic eval harness + scoring + the versioned `evals/tasks.yaml` task schema
+live on the concurrent `dpg/mcp-eval-harness` branch (`docs/mcp-eval-plan.md`
+there). These questions are the raw material to be ported into that
+`tasks.yaml` — §3 below already carries the verified `ground_truth` counts and
+the `arg_checks`-worthy gotchas each task needs. Kept on a separate path
+(`docs/alma-question-bank.md`) to avoid colliding with that harness doc.
 
 Source questions live in `nrao_vault/Astro Docs/Benchmarking Questions/`. This
 doc reframes them for what the server actually exposes and adds a tiered ALMA
@@ -218,8 +227,25 @@ programs, rank, then optionally a datalink/preview per top candidate.
   the suite depends on — `proposal_id`→Cycle mapping (incl. the missing
   `2020.1`), `antenna_arrays` pad-prefix→array-type, `spatial_resolution` units,
   `science_keyword` delimiter/vocabulary, and the in-table bibliography columns.
-- `docs/mcp-eval-plan.md`: this plan.
+  This is additive to (and independent of) the `dpg/mcp-eval-harness` branch,
+  which does not touch `src/`.
+- `docs/alma-question-bank.md`: this question bank.
 
-Open follow-ups: turn A1–A11 into `tests/workflows/` chains (cassette-backed);
-decide whether A4's per-band probe should become a small helper; consider a
-`schema_kb` entry documenting `frequency_support` parsing for A8.
+## 5. Port-forward to the harness
+
+The `dpg/mcp-eval-harness` branch owns the runnable suite (`evals/tasks.yaml`,
+tiers: 1=tool-selection, 2=task-success, 3=ablation-trap, 4=robustness). Its
+ALMA coverage today is a single granularity trap (`t3-alma-granularity`), so
+A1–A11 fill a real gap. When porting, re-bin by *that* branch's capability
+axis (our Tier 1→7 is scientific-complexity metadata, not their tier):
+
+- A1 → their **tier 1** (schema/tool selection).
+- A2, A3, A5, A6, A7, A9 → their **tier 2** (task success); use the verified
+  counts here as `ground_truth` (`≈` for count-drift, `✔` for stable facts).
+- Natural **tier-3 ablation traps** (does curated context prevent the mistake):
+  the `band_list` 1-vs-10 collision (A4), the `2020.1` Cycle gap (A5/A6), and
+  ALMA per-spectral-window granularity (already `t3-alma-granularity`).
+- A8, A10, A11 are open-ended → `rubric`-scored, LLM-judge.
+
+Other follow-ups: A4's per-band probe could become a small helper; consider a
+`schema_kb` note documenting `frequency_support` parsing for A8.
