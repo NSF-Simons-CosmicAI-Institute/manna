@@ -102,7 +102,10 @@ concurrency-friendly. Tool-call parser: `qwen3_coder`. Runner-up to A/B later:
 > de-risking PoC — same command, smaller model — used 2026-06-30 to prove vLLM runs on
 > sm_120 and the Anthropic path carries tool calls before committing to the big download.
 
-Launch (weights cache to `/mlhome`; ~122 GB pull first time, then loads from cache):
+Launch (weights cache to `/mlhome`; ~122 GB pull first time, then loads from cache).
+**For day-to-day operation prefer the durable compose service** (`dlai01-vllm/docker-compose.yml`,
+`restart: unless-stopped` — survives reboots): `cd deploy/dlai01-vllm && docker compose up -d`.
+The raw `docker run` below is the equivalent one-shot for reference / first bring-up:
 
 ```bash
 docker rm -f vllm 2>/dev/null
@@ -261,13 +264,18 @@ with Claude" (Gotcha 4c). Fixed on both sides: `--max-model-len` raised to 13107
 MCP server now spills large tabular results to the Parquet Resource tier at much lower inline
 caps (`STABLE_INLINE_ROW_LIMIT=200`, `STABLE_INLINE_BYTE_LIMIT=48 KB`).
 
+**Done (2026-07-07) — persistence.** vLLM is now a durable compose service
+(`dlai01-vllm/docker-compose.yml`, `restart: unless-stopped`) instead of a bare
+`docker run`, so it comes back after dlai01's periodic reboots:
+`cd deploy/dlai01-vllm && docker compose up -d`. Model / context-length / api-key are
+overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
+
 **Next (not yet started):**
-- **Harden the exposed endpoint.** vLLM now binds `0.0.0.0:8002` **keyless** — anything
+- **Harden the exposed endpoint.** vLLM binds `0.0.0.0:8002` **keyless** — anything
   that can reach `dlai01:8002` directly bypasses nginx's Basic auth. Confirm with Randy
-  that the firewall restricts 8002 to the proxy host only; if it's broader, add
-  `vllm --api-key <secret>` and have Chadd inject it upstream.
-- **Persistence.** The `docker run` won't survive a reboot (and dlai01 reboots
-  periodically). Wrap vLLM in a `restart: unless-stopped` compose service or systemd unit.
+  that the firewall restricts 8002 to the proxy host only; if it's broader, set
+  `VLLM_API_KEY` (uncomment the `--api-key` line in the compose) and have Chadd inject it
+  upstream.
 - **`hub` mode against vLLM** — re-validate JupyterHub + DockerSpawner with the same `.env`.
 - **Thinking-off** cleanup (Gotcha 5) for clean chat UX.
 - **Concurrency load test** at agentic context lengths (KV cache is the limiter;
