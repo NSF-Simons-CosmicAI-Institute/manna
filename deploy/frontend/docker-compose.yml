@@ -1,0 +1,70 @@
+# Frontend stack — MCP tool server + Jupyter AI persona, in two modes.
+#
+#   cp .env.example .env    # then edit (model endpoint, token, hub password)
+#
+#   # chat mode: MCP + single JupyterLab (AI chat panel, no Hub) → http://localhost:8888
+#   docker compose --profile chat up --build
+#
+#   # hub mode: MCP + JupyterHub (spawns the frontend image per user) → http://localhost:8081
+#   docker compose build lab          # build the single-user image DockerSpawner needs
+#   docker compose --profile hub up --build
+#
+# The `mcp` service has no profile, so it starts in BOTH modes. Pick exactly one
+# of chat/hub. Model backend (dlai01 vLLM over 443, or hosted Claude) is set in .env.
+
+services:
+  # ── MCP tool server (shared; built from the repo root Dockerfile) ────────────
+  mcp:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: astro-archives-mcp:dev
+    environment:
+      STABLE_HOST: 0.0.0.0        # bind all interfaces so other containers can reach it
+      STABLE_PORT: "8000"
+      STABLE_DEPLOYMENT: adl
+    ports:
+      - "127.0.0.1:18000:8000"    # host debug access (optional); containers use http://mcp:8000
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  # ── chat mode: one JupyterLab with the Jupyter AI chat panel ─────────────────
+  lab:
+    profiles: ["chat"]
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    image: ${FRONTEND_IMAGE:-astro-frontend:dev}
+    command: ["start-notebook.py", "--IdentityProvider.token="]  # no token, local only
+    # JUPYTER_PORT (from .env) is honored by docker-stacks as the IN-container port,
+    # so map it 1:1 host↔container (not host:8888) or the mapping misses the server.
+    ports:
+      - "127.0.0.1:${JUPYTER_PORT:-8888}:${JUPYTER_PORT:-8888}"
+    env_file: .env
+    depends_on:
+      mcp:
+        condition: service_healthy
+
+  # ── hub mode: JupyterHub + DockerSpawner (spawns ${FRONTEND_IMAGE} per user) ──
+  hub:
+    profiles: ["hub"]
+    build:
+      context: .
+      dockerfile: hub.Dockerfile
+    image: astro-hub:dev
+    ports:
+      - "127.0.0.1:8081:8000"
+    env_file: .env
+    environment:
+      HUB_SERVICE_NAME: hub
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # DockerSpawner needs the daemon
+      - ./jupyterhub_config.py:/srv/jupyterhub/jupyterhub_config.py:ro  # edit → restart, no rebuild
+    depends_on:
+      mcp:
+        condition: service_healthy

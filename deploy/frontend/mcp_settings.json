@@ -1,0 +1,9 @@
+{
+  "mcp_servers": [
+    {
+      "type": "http",
+      "name": "astro-archives",
+      "url": "http://mcp:8000/mcp/"
+    }
+  ]
+}

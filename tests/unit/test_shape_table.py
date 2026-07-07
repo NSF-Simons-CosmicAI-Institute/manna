@@ -6,12 +6,16 @@ import pytest
 from astropy.table import Table
 
 from astro_archives_mcp import result_store
+from astro_archives_mcp.config import get_settings
 from astro_archives_mcp.shaper import (
-    INLINE_ROW_LIMIT,
     TRUNCATION_REASON_OVERSIZE,
     shape_inline_table,
     shape_table,
 )
+
+# Effective inline row cap shape_table actually enforces (schema default unless
+# STABLE_INLINE_ROW_LIMIT is set). Boundary tests key off this.
+INLINE_ROW_LIMIT = get_settings().inline_row_limit
 
 
 @pytest.fixture(autouse=True)
@@ -80,6 +84,21 @@ def test_edge_inline_limit_plus_one():
     t = _table(INLINE_ROW_LIMIT + 1)
     out = shape_table(t, archive="datalab", maxrec=10_000)
     assert out["resource_uri"] is not None
+
+
+def test_wide_table_under_row_limit_spills_on_byte_limit():
+    # Rows well under INLINE_ROW_LIMIT, but a fat string column pushes the
+    # JSON payload over INLINE_BYTE_LIMIT — must spill to the Resource tier
+    # rather than inlining. Guards small-context backends (e.g. a 64K vLLM)
+    # against a single oversized inline result overflowing the model window.
+    n_rows = INLINE_ROW_LIMIT - 1
+    wide = "x" * 512
+    t = Table({"blob": [wide] * n_rows})
+    assert len(t) <= INLINE_ROW_LIMIT
+    out = shape_table(t, archive="datalab", maxrec=10_000)
+    assert out["resource_uri"] is not None
+    assert out["rows"] is None
+    assert out["preview"] is not None
 
 
 def test_resource_tier_parquet_roundtrips():

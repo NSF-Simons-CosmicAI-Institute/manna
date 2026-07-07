@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     # Slice 5: async TAP family.
     tap_sync_timeout_seconds: float = 20.0
     job_ttl_seconds: int = 3600
+    # Inline-tier response caps (shaper.py). A tabular result larger than
+    # EITHER limit spills to the Parquet Resource tier (a small envelope with
+    # a resource_uri + 50-row preview) instead of inlining every row. Defaults
+    # are sized for small-context backends (e.g. a 64K-token local vLLM), where
+    # a single fat inline result can overflow the model window. Raise them for
+    # frontier models with large context windows.
+    inline_row_limit: int = 200
+    inline_byte_limit: int = 48 * 1024
 
 
 @lru_cache(maxsize=1)

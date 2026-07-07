@@ -10,9 +10,10 @@ import pyarrow.parquet as pq
 from astropy.table import Column, Table
 
 from astro_archives_mcp import result_store
+from astro_archives_mcp.config import get_settings
 
-INLINE_ROW_LIMIT = 1_000
-INLINE_BYTE_LIMIT = 512 * 1024
+# The inline caps (rows / bytes) are read from get_settings() in shape_table,
+# env-overridable via STABLE_INLINE_ROW_LIMIT / STABLE_INLINE_BYTE_LIMIT.
 RESOURCE_ROW_LIMIT = 100_000
 TRUNCATION_REASON_MAXREC = "maxrec_exceeded"
 TRUNCATION_REASON_OVERSIZE = "oversize_for_resource_tier"
@@ -74,10 +75,11 @@ def shape_table(table: Table, *, archive: str, maxrec: int) -> dict[str, Any]:
     - shape_inline_table for small results (unchanged behavior)
     - _shape_resource for results above the inline threshold
     """
+    settings = get_settings()
     n_rows = len(table)
-    if n_rows <= INLINE_ROW_LIMIT:
+    if n_rows <= settings.inline_row_limit:
         envelope = shape_inline_table(table, archive=archive, maxrec=maxrec)
-        if _estimate_payload_bytes(envelope) <= INLINE_BYTE_LIMIT:
+        if _estimate_payload_bytes(envelope) <= settings.inline_byte_limit:
             return envelope
     return _shape_resource(table, archive=archive, maxrec=maxrec)
 
