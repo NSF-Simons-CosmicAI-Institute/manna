@@ -33,6 +33,12 @@ dev = [
     "pyright>=1.1.380",
     "pre-commit>=3.7",
 ]
+# Agentic evaluation harness (evals/). Not needed to run the server.
+#   uv sync --group eval
+eval = [
+    "anthropic>=0.40",
+    "pyyaml>=6.0",
+]
 
 [build-system]
 requires = ["hatchling"]
