@@ -167,26 +167,27 @@ class TaskRun:
         }
 
 
+# Distilled to the behavior-changing bits of the SILENT-failure traps — the ones
+# that return wrong data with no error, so the model can't self-correct reactively
+# and genuinely needs preventive guidance. Loud traps (LOWER/UPPER, sync 5xx) throw,
+# so they belong in the error `hint`, not here — keeping this ~10% the size of the
+# raw usage_notes it replaces (a tool description is re-sent every turn). A real
+# server-side version would derive this from tagged notes in KNOWN_ARCHIVES.
+_SILENT_TRAP_CHEATSHEET = (
+    "Archive quirks that FAIL SILENTLY (wrong results, no error) — apply before querying:\n"
+    "- Astro Data Lab (datalab.noirlab): ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT "
+    "translated; use a ra/dec BETWEEN bounding box instead.\n"
+    "- ALMA (almascience): rows are per spectral-window; count observations with "
+    "COUNT(DISTINCT member_ous_uid), not COUNT(*).\n"
+    "- NRAO (data-query.nrao): obscore table is tap_schema.obscore (not ivoa.obscore); "
+    "data reads need mode='async'."
+)
+
+
 def _archive_notes_blob() -> str:
-    """Compact archive-quirk summary built from KNOWN_ARCHIVES usage_notes.
-
-    Same curated content vo_archive_list surfaces, relocated so it rides in the
-    vo_tap_query description the model always sees (experiment: does putting the
-    notes where the model looks — vs. behind a tool it must choose to call —
-    raise trap avoidance?).
-    """
-    from astro_archives_mcp.known_archives import KNOWN_ARCHIVES
-
-    lines = [
-        "CRITICAL archive-specific ADQL quirks — heed these BEFORE composing a query "
-        "for the matching TAP endpoint:"
-    ]
-    for a in KNOWN_ARCHIVES:
-        if a.tap_url and a.usage_notes:
-            host = a.host_substrings[0] if a.host_substrings else a.short_name
-            notes = " ".join(f"({i + 1}) {n}" for i, n in enumerate(a.usage_notes))
-            lines.append(f"- {a.display_name} [{host}]: {notes}")
-    return "\n".join(lines)
+    """Compact, preventive archive-quirk cheatsheet injected into the vo_tap_query
+    description (experiment (a)). Deliberately tiny — see the constant's rationale."""
+    return _SILENT_TRAP_CHEATSHEET
 
 
 def _anthropic_tools(mcp_tools, inject_notes: bool = False) -> list[dict[str, Any]]:
