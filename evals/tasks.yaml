@@ -166,9 +166,11 @@
   expect_tools: [vo_target_resolve, vo_tap_query]
   arg_checks:
     vo_tap_query:
-      # Data Lab does not translate ADQL geometry -> must use bounding box, not CONTAINS
-      - { arg: adql, op: icontains, value: "between", match: all }
+      # Data Lab does not translate ADQL geometry -> avoid raw CONTAINS/CIRCLE; use
+      # q3c_radial_query (preferred true cone) OR a ra/dec BETWEEN bounding box.
       - { arg: adql, op: not_contains, value: "CONTAINS(", match: all }
+      - { arg: adql, op: not_contains, value: "CIRCLE(", match: all }
+      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
 
 # =====================================================================
 # Tier 3 — contextual-value ablation (trap avoidance)
@@ -197,7 +199,7 @@
 
 - id: t3-datalab-geometry
   tier: 3
-  probes_trap: "Data Lab does not translate ADQL geometry -> use bounding box"
+  probes_trap: "Data Lab does not translate ADQL geometry -> use q3c_radial_query or bounding box"
   prompt: >-
     Using Astro Data Lab, count nsc_dr2.object rows within 0.1 degrees of RA=180, Dec=-30.
   expect_tools: [vo_tap_query]
@@ -205,7 +207,7 @@
     vo_tap_query:
       - { arg: adql, op: not_contains, value: "CONTAINS(", match: all }
       - { arg: adql, op: not_contains, value: "CIRCLE(", match: all }
-      - { arg: adql, op: icontains, value: "between", match: all }
+      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
 
 - id: t3-nrao-lowerupper
   tier: 3

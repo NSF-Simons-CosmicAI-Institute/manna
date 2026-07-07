@@ -176,7 +176,9 @@ class TaskRun:
 _SILENT_TRAP_CHEATSHEET = (
     "Archive quirks that FAIL SILENTLY (wrong results, no error) — apply before querying:\n"
     "- Astro Data Lab (datalab.noirlab): ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT "
-    "translated; use a ra/dec BETWEEN bounding box instead.\n"
+    "translated (passed to PostgreSQL, errors). For a cone use "
+    "q3c_radial_query(ra, dec, <ra0>, <dec0>, <radius_deg>) = 't'; a ra/dec BETWEEN box "
+    "also works but returns a box, not a circle.\n"
     "- ALMA (almascience): rows are per spectral-window; count observations with "
     "COUNT(DISTINCT member_ous_uid), not COUNT(*).\n"
     "- NRAO (data-query.nrao): obscore table is tap_schema.obscore (not ivoa.obscore); "
