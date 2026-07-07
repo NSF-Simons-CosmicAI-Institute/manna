@@ -137,9 +137,18 @@ def _shape_resource(table: Table, *, archive: str, maxrec: int) -> dict[str, Any
 
 
 def _normalize(value: Any) -> Any:
-    """Convert astropy / numpy scalars into JSON-friendly values; NaN/masked -> None."""
+    """Convert astropy / numpy scalars into JSON-friendly values; NaN/masked -> None.
+
+    Vector-valued cells (e.g. SIA1 array columns like im_scale / im_naxis)
+    become lists, with masked / NaN elements normalized to None.
+    """
     if value is np.ma.masked:
         return None
+    # Vector-valued cell: normalize element-wise. This must precede the
+    # scalar-mask check below — bool() on a multi-element mask is ambiguous
+    # and raises. MaskedArray.tolist() already maps masked entries to None.
+    if np.ndim(value) > 0:
+        return [_normalize(v) for v in value.tolist()]
     if hasattr(value, "mask") and bool(getattr(value, "mask", False)):
         return None
     if hasattr(value, "item"):

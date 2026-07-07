@@ -60,6 +60,28 @@ def test_nan_becomes_json_null():
     assert out["rows"][1][0] is None
 
 
+def test_vector_cell_becomes_list():
+    """SIA1 (and some TAP) tables have array-valued cells. They must
+    serialize to JSON lists, not blow up _normalize's scalar mask check."""
+    t = Table()
+    t["im_scale"] = [[0.27, 0.27], [0.5, 0.5]]
+    out = shape_inline_table(t, archive="datalab", maxrec=10)
+    assert out["rows"][0][0] == [0.27, 0.27]
+    assert out["rows"][1][0] == [0.5, 0.5]
+
+
+def test_vector_cell_with_masked_and_nan_elements():
+    """Masked / NaN elements inside a vector cell normalize to None."""
+    t = Table()
+    t["v"] = np.ma.MaskedArray(
+        [[1.0, 2.0], [3.0, math.nan]],
+        mask=[[False, True], [False, False]],
+    )
+    out = shape_inline_table(t, archive="datalab", maxrec=10)
+    assert out["rows"][0][0] == [1.0, None]  # masked element -> None
+    assert out["rows"][1][0] == [3.0, None]  # NaN element -> None
+
+
 def test_string_column_normalizes_to_python_str():
     t = Table()
     t["name"] = ["alpha", "beta"]

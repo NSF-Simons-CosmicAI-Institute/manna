@@ -20,9 +20,9 @@ async def test_vo_archive_list_returns_curated_set(mcp_server):
     assert payload["count"] >= 8  # we have 8 well-known archives today
 
     # First entry should be DataLab (the canonical-example archive),
-    # second should be NRAO (primary collaborator, prioritized).
+    # second should be ALMA (prioritized to the top of the well-known set).
     assert payload["archives"][0]["short_name"] == "datalab"
-    assert payload["archives"][1]["short_name"] == "nrao"
+    assert payload["archives"][1]["short_name"] == "alma"
 
 
 @pytest.mark.asyncio

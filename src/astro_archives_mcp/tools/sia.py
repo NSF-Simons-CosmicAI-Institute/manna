@@ -1,6 +1,6 @@
 """Tools for IVOA Simple Image Access."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -57,13 +57,27 @@ def vo_sia_search(
     maxrec: Annotated[
         int, Field(ge=1, le=10_000, description="Hard cap on rows returned. Default 1_000.")
     ] = 1_000,
+    version: Annotated[
+        Literal["auto", "1", "2"],
+        Field(
+            description=(
+                "SIA protocol version. 'auto' (default) tries SIA 2.0 and "
+                "falls back to SIA 1.0 when the endpoint isn't SIA2 (e.g. "
+                "NOIRLab Data Lab is SIA 1.0). Force with '2' or '1'. The "
+                "'band' filter applies to SIA2 only."
+            ),
+        ),
+    ] = "auto",
 ) -> dict:
-    """Discover images at a sky position via Simple Image Access (SIA 2.0).
+    """Discover images at a sky position via Simple Image Access (SIA 2.0 or 1.0).
 
     Returns the inline tabular envelope. Each row is image metadata; the
-    `access_url` column points at a FITS file you can fetch directly.
-    Slice 2: no server-side image fetching — that arrives with the
-    Resource tier in Slice 3.
+    `access_url` column points at the image (a FITS file, or a cutout-service
+    URL for archives like Data Lab). Fetch one with vo_sia_fetch.
+
+    Most archives speak SIA2; NOIRLab Data Lab speaks SIA1. With the default
+    version='auto' you don't need to know which — SIA2 is tried first and
+    SIA1 is used as a fallback.
 
     For all-sky discovery first, see vo_registry_search with
     servicetype='sia'.
@@ -76,6 +90,7 @@ def vo_sia_search(
         band=band,
         fmt=fmt,
         maxrec=maxrec,
+        version=version,
     )
     return shape_table(table, archive=archive_label(endpoint), maxrec=maxrec)
 

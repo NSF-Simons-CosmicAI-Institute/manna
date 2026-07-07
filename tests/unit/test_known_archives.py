@@ -112,8 +112,23 @@ def test_datalab_usage_notes_cover_known_adql_quirks():
     notes_joined = " ".join(datalab.usage_notes).lower()
     # ADQL geometric function gap (D-02 + D-03)
     assert "bounding-box" in notes_joined or "bounding box" in notes_joined
+    # ...but the verified-live remedy is Q3C, not just client-side trimming.
+    assert "q3c_radial_query" in notes_joined
+    # Image access is SIAv1 — vo_sia_search (SIA2) can't drive it.
+    assert "siav1" in notes_joined or "sia2" in notes_joined
     # NSC blend flags on bright sources (D-04)
     assert "blend" in notes_joined or "flags" in notes_joined
+
+
+def test_datalab_schema_kb_nsc_recommends_q3c():
+    """The nsc_dr2.object curated entry should steer toward the Q3C cone
+    filter that actually works (ADQL CONTAINS does not)."""
+    from astro_archives_mcp.schema_kb import lookup_schema
+
+    s = lookup_schema(archive="datalab", table="nsc_dr2.object")
+    assert s is not None
+    notes_joined = " ".join(s.notes).lower()
+    assert "q3c_radial_query" in notes_joined
 
 
 def test_nrao_label_resolves_to_nrao_not_alma_for_data_nrao_host():
@@ -128,13 +143,40 @@ def test_nrao_label_resolves_to_nrao_not_alma_for_data_nrao_host():
     assert archive_label("https://almascience.nrao.edu/tap") == "alma"
 
 
-def test_nrao_appears_before_alma_in_known_archives():
-    """Priority ordering: NOIRLab and NRAO (primary collaborators) come
-    first; ALMA follows. The first TAP-having archives surface as the
-    schema examples shown to the LLM."""
+def test_alma_appears_before_nrao_in_known_archives():
+    """Priority ordering: NOIRLab leads, then ALMA, then NRAO. The first
+    TAP-having archives surface as the endpoint examples shown to the LLM,
+    so the top of the list is the well-known set we steer toward."""
     order = [a.short_name for a in KNOWN_ARCHIVES]
-    assert order.index("datalab") < order.index("nrao")
-    assert order.index("nrao") < order.index("alma")
+    assert order.index("datalab") < order.index("alma")
+    assert order.index("alma") < order.index("nrao")
+
+
+def test_alma_usage_notes_capture_critical_gotchas():
+    """ALMA's notes must encode the verified-against-live facts: spatial
+    queries work (INTERSECTS on s_region), member_ous_uid is the dataset
+    key, and science_observation filters out calibration scans."""
+    alma = by_short_name("alma")
+    assert alma is not None
+    notes_joined = " ".join(alma.usage_notes).lower()
+    # Spatial filtering works — INTERSECTS against the s_region footprint.
+    assert "intersects" in notes_joined and "s_region" in notes_joined
+    # member_ous_uid is the canonical downloadable-dataset key.
+    assert "member_ous_uid" in notes_joined
+    # Science-vs-calibration filtering.
+    assert "science_observation" in notes_joined
+    # ALMA exposes more than TAP — SIAv2 and DataLink must be surfaced.
+    assert "siav2" in notes_joined or "sia2" in notes_joined
+    assert "datalink" in notes_joined
+
+
+def test_alma_exposes_sia2_endpoint():
+    """ALMA publishes a SIAv2 image-discovery service in addition to TAP;
+    the entry must carry its sia_url so vo_sia_search can reach it."""
+    alma = by_short_name("alma")
+    assert alma is not None
+    assert alma.sia_url == "https://almascience.nrao.edu/sia2"
+    assert alma.sia_url in sia_endpoint_urls()
 
 
 def test_tap_endpoint_urls_has_alma_and_datalab():
