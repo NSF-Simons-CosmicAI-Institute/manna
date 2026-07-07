@@ -215,9 +215,33 @@ def score_programmatic(task: dict[str, Any], run: TaskRun) -> TaskScore:
 _JUDGE_SYSTEM = (
     "You are a strict evaluator of an AI astronomy assistant. Given the user's "
     "request, a grading rubric, the assistant's final answer, and its tool-call "
-    "trace, decide whether the answer satisfies the rubric. Respond with ONLY a "
-    'JSON object: {"pass": bool, "quality": 1-5, "reason": "one sentence"}.'
+    "trace, decide whether the answer satisfies the rubric.\n"
+    "Output ONLY a single-line JSON object and NOTHING else — no reasoning, no "
+    "preamble, no markdown, no thinking. The very first character of your reply "
+    'must be "{". Schema: {"pass": true|false, "quality": 1-5, "reason": "one sentence"}.'
 )
+
+
+def _extract_verdict(text: str) -> dict | None:
+    """Pull the JSON verdict out of a judge reply, tolerating preamble/reasoning.
+
+    Reasoning models (e.g. Qwen3.5) often emit a "Thinking Process:" preamble
+    before the JSON. Scan for balanced {...} objects and return the last one that
+    parses and carries a "pass" key.
+    """
+    candidates = re.findall(r"\{[^{}]*\}", text, re.DOTALL)
+    # Also try the greedy first-to-last-brace span for nested/multiline objects.
+    greedy = re.search(r"\{.*\}", text, re.DOTALL)
+    if greedy:
+        candidates.append(greedy.group(0))
+    for cand in reversed(candidates):
+        try:
+            obj = json.loads(cand)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and "pass" in obj:
+            return obj
+    return None
 
 
 def _compact_trace(run: TaskRun) -> str:
@@ -241,18 +265,14 @@ async def score_rubric(
     async with judge.client() as client:
         resp = await client.messages.create(
             model=judge.model,
-            max_tokens=512,
+            max_tokens=1536,  # room for reasoning models to finish and still emit JSON
             system=_JUDGE_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
         )
     text = "".join(b.text for b in resp.content if b.type == "text").strip()
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if not m:
-        return None, None, f"judge returned unparseable output: {text[:120]!r}"
-    try:
-        verdict = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None, None, f"judge JSON parse failed: {text[:120]!r}"
+    verdict = _extract_verdict(text)
+    if verdict is None:
+        return None, None, f"judge returned no parseable verdict: {text[:120]!r}"
     return bool(verdict.get("pass")), verdict.get("quality"), verdict.get("reason")
 
 
