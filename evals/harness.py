@@ -11,6 +11,7 @@ is what ``score.py`` grades against ``tasks.yaml``.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -26,8 +27,21 @@ if TYPE_CHECKING:
     from anthropic import AsyncAnthropic
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
-MAX_STEPS = 12
+# Async TAP lifecycles poll vo_tap_status repeatedly, so this must be generous.
+MAX_STEPS = 20
 DEFAULT_MAX_TOKENS = 4096
+
+# When a status poll comes back non-terminal, wait before handing control back to
+# the model so the upstream job actually has wall-clock time to progress — otherwise
+# the model burns its whole step budget on back-to-back polls of a QUEUED job.
+ASYNC_POLL_SLEEP_S = 6.0
+_NONTERMINAL_PHASES = {"PENDING", "QUEUED", "EXECUTING", "HELD", "SUSPENDED", "UNKNOWN"}
+
+# Cap the size of a single tool result fed back to the model. A large
+# vo_registry_describe / preview payload can otherwise blow the model's context
+# window in one shot. The FULL result is still recorded in the trace for scoring;
+# only what the model sees is trimmed (a real client would manage context too).
+MAX_TOOL_RESULT_CHARS = 24000
 
 SYSTEM_PROMPT = (
     "You are an assistant for professional astronomers with access to a set of "
@@ -122,6 +136,7 @@ class TaskRun:
     input_tokens: int = 0
     output_tokens: int = 0
     error: str | None = None  # harness-level failure (not a tool error)
+    async_incomplete: bool = False  # ran out of budget polling a live async job
 
     @property
     def num_tool_calls(self) -> int:
@@ -139,6 +154,7 @@ class TaskRun:
             "latency_s": round(self.latency_s, 2),
             "tokens": {"input": self.input_tokens, "output": self.output_tokens},
             "error": self.error,
+            "async_incomplete": self.async_incomplete,
             "trace": [
                 {
                     "tool": c.tool,
@@ -175,6 +191,26 @@ def _result_payload(result) -> tuple[Any, bool]:
         texts = [getattr(b, "text", "") for b in blocks]
         payload = {"text": "".join(texts)}
     return payload, is_error
+
+
+def _tool_result_content(payload: Any) -> str:
+    """Serialize a tool result for the model, capping size to protect its context."""
+    content = json.dumps(payload, default=str)
+    if len(content) > MAX_TOOL_RESULT_CHARS:
+        omitted = len(content) - MAX_TOOL_RESULT_CHARS
+        content = (
+            content[:MAX_TOOL_RESULT_CHARS]
+            + f"... [truncated by eval harness: {omitted} chars omitted]"
+        )
+    return content
+
+
+def _is_nonterminal_poll(tool: str, payload: Any) -> bool:
+    return (
+        tool == "vo_tap_status"
+        and isinstance(payload, dict)
+        and str(payload.get("phase", "")).upper() in _NONTERMINAL_PHASES
+    )
 
 
 def _assistant_content(blocks) -> list[dict[str, Any]]:
@@ -226,21 +262,37 @@ async def run_task(task: dict[str, Any], cfg: ModelConfig, condition: str) -> Ta
                         ).strip()
                         break
                     tool_results = []
+                    should_pace = False
                     for tu in tool_uses:
                         result = await mcp_client.call_tool(tu.name, tu.input, raise_on_error=False)
                         payload, is_error = _result_payload(result)
                         run.trace.append(ToolCall(tu.name, dict(tu.input), payload, is_error))
+                        should_pace = should_pace or _is_nonterminal_poll(tu.name, payload)
                         tool_results.append(
                             {
                                 "type": "tool_result",
                                 "tool_use_id": tu.id,
-                                "content": json.dumps(payload, default=str),
+                                "content": _tool_result_content(payload),
                                 "is_error": is_error,
                             }
                         )
                     messages.append({"role": "user", "content": tool_results})
+                    # Let a still-running async job make progress before the next poll.
+                    if should_pace:
+                        await asyncio.sleep(ASYNC_POLL_SLEEP_S)
                 else:
-                    run.error = f"hit MAX_STEPS ({MAX_STEPS}) without a final answer"
+                    # Distinguish "model got stuck" from "an upstream async job never
+                    # finished in our polling budget" — the latter is an environment
+                    # latency outcome, not a model/server failure.
+                    last = run.trace[-1] if run.trace else None
+                    if last and _is_nonterminal_poll(last.tool, last.result):
+                        run.async_incomplete = True
+                        run.error = (
+                            f"async job still {last.result.get('phase')} after "
+                            f"{MAX_STEPS} steps (upstream latency, not a model failure)"
+                        )
+                    else:
+                        run.error = f"hit MAX_STEPS ({MAX_STEPS}) without a final answer"
     except Exception as exc:  # harness-level failure; keep going with other tasks
         run.error = f"{type(exc).__name__}: {exc}"
     finally:

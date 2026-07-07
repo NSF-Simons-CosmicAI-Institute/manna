@@ -92,14 +92,16 @@
 
 - id: t2-resolve-cone
   tier: 2
+  # A positional query may legitimately go through cone search OR a TAP spatial
+  # cut — the server's own guidance even prefers TAP ("SCS is legacy"). So we
+  # require the resolve step + any positional query tool, not cone specifically.
   prompt: "Find catalog sources within 3 arcminutes of the galaxy M87."
-  expect_tools: [vo_target_resolve, vo_cone_search]
-  sequence: true
-  arg_checks:
-    vo_cone_search:
-      # M87 = 187.70593 / +12.39112; 3 arcmin = 0.05 deg
-      - { arg: ra, op: near, value: 187.706, tol: 0.05 }
-      - { arg: dec, op: near, value: 12.391, tol: 0.05 }
+  expect_tools: [vo_target_resolve]
+  expect_any_of: [vo_cone_search, vo_tap_query]
+  rubric: >-
+    Passes if the model resolved M87 to ~RA 187.706 / Dec +12.391 and then ran a
+    positional query (cone search or a TAP query with a spatial cut) centered there
+    with a ~3 arcmin (0.05 deg) radius, returning a plausible set of catalog sources.
 
 - id: t2-list-then-query
   tier: 2

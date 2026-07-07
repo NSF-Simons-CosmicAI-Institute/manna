@@ -117,7 +117,12 @@ def _print_report(summary: dict[str, Any], runs: list[TaskRun]) -> None:
             f"\nEfficiency: {avg_calls:.1f} tool-calls/task, "
             f"{avg_lat:.1f}s/task, {tot_out} output tokens total"
         )
-    errored = [r for r in runs if r.error]
+    incomplete = [r for r in runs if r.async_incomplete]
+    if incomplete:
+        print(f"\nAsync-incomplete ({len(incomplete)}) — upstream job latency, not model failures:")
+        for r in incomplete:
+            print(f"  {r.task_id} [{r.condition}]: {r.error}")
+    errored = [r for r in runs if r.error and not r.async_incomplete]
     if errored:
         print(f"\nHarness errors ({len(errored)}):")
         for r in errored:

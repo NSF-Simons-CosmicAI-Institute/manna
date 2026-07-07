@@ -185,6 +185,8 @@ def score_programmatic(task: dict[str, Any], run: TaskRun) -> TaskScore:
 
     if "expect_tools" in task:
         score.checks["expect_tools"] = all(t in trace_tools for t in task["expect_tools"])
+    if "expect_any_of" in task:
+        score.checks["expect_any_of"] = any(t in trace_tools for t in task["expect_any_of"])
     if "forbid_tools" in task:
         score.checks["forbid_tools"] = not any(t in trace_tools for t in task["forbid_tools"])
     if task.get("sequence"):
