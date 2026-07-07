@@ -46,9 +46,10 @@ async def _run_one(
     cfg: ModelConfig,
     judge: ModelConfig | None,
     sem: asyncio.Semaphore,
+    inject_notes: bool = False,
 ) -> tuple[TaskRun, TaskScore]:
     async with sem:
-        run = await run_task(task, cfg, condition)
+        run = await run_task(task, cfg, condition, inject_notes=inject_notes)
     score = await score_task(task, run, judge)
     status = "PASS" if score.passed else "FAIL"
     unscored = " (has unscored checks)" if score.has_unscored else ""
@@ -153,9 +154,11 @@ async def _main_async(args: argparse.Namespace) -> int:
     print(f"Judge            : {judge.label if judge else 'none (rubric tasks unscored)'}")
     print(f"Running {len(tasks)} task(s), concurrency={args.concurrency}\n")
 
+    if args.inject_notes:
+        print("Experiment (a): archive quirks INJECTED into vo_tap_query description")
     sem = asyncio.Semaphore(args.concurrency)
     coros = [
-        _run_one(t, cond, cfg, judge, sem)
+        _run_one(t, cond, cfg, judge, sem, inject_notes=args.inject_notes)
         for t in tasks
         for cond in _conditions_for(t, args.condition)
     ]
@@ -211,6 +214,11 @@ def main() -> int:
         "--dry-run",
         action="store_true",
         help="validate tasks.yaml and print the plan without calling any model.",
+    )
+    p.add_argument(
+        "--inject-notes",
+        action="store_true",
+        help="experiment (a): inject archive quirks into the vo_tap_query description.",
     )
     args = p.parse_args()
     return asyncio.run(_main_async(args))

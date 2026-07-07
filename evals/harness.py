@@ -167,14 +167,44 @@ class TaskRun:
         }
 
 
-def _anthropic_tools(mcp_tools) -> list[dict[str, Any]]:
-    """Convert FastMCP tool descriptors to Anthropic tool-use format."""
+def _archive_notes_blob() -> str:
+    """Compact archive-quirk summary built from KNOWN_ARCHIVES usage_notes.
+
+    Same curated content vo_archive_list surfaces, relocated so it rides in the
+    vo_tap_query description the model always sees (experiment: does putting the
+    notes where the model looks — vs. behind a tool it must choose to call —
+    raise trap avoidance?).
+    """
+    from astro_archives_mcp.known_archives import KNOWN_ARCHIVES
+
+    lines = [
+        "CRITICAL archive-specific ADQL quirks — heed these BEFORE composing a query "
+        "for the matching TAP endpoint:"
+    ]
+    for a in KNOWN_ARCHIVES:
+        if a.tap_url and a.usage_notes:
+            host = a.host_substrings[0] if a.host_substrings else a.short_name
+            notes = " ".join(f"({i + 1}) {n}" for i, n in enumerate(a.usage_notes))
+            lines.append(f"- {a.display_name} [{host}]: {notes}")
+    return "\n".join(lines)
+
+
+def _anthropic_tools(mcp_tools, inject_notes: bool = False) -> list[dict[str, Any]]:
+    """Convert FastMCP tool descriptors to Anthropic tool-use format.
+
+    If ``inject_notes`` is set, append the archive-quirk blob to vo_tap_query's
+    description (experiment (a) — context-in-tool-descriptions).
+    """
+    blob = _archive_notes_blob() if inject_notes else ""
     out = []
     for t in mcp_tools:
+        desc = t.description or ""
+        if inject_notes and t.name == "vo_tap_query":
+            desc = f"{desc}\n\n{blob}"
         out.append(
             {
                 "name": t.name,
-                "description": t.description or "",
+                "description": desc,
                 "input_schema": t.inputSchema or {"type": "object", "properties": {}},
             }
         )
@@ -224,7 +254,9 @@ def _assistant_content(blocks) -> list[dict[str, Any]]:
     return content
 
 
-async def run_task(task: dict[str, Any], cfg: ModelConfig, condition: str) -> TaskRun:
+async def run_task(
+    task: dict[str, Any], cfg: ModelConfig, condition: str, inject_notes: bool = False
+) -> TaskRun:
     """Run one task end-to-end under the given context condition."""
     run = TaskRun(
         task_id=task["id"],
@@ -238,7 +270,7 @@ async def run_task(task: dict[str, Any], cfg: ModelConfig, condition: str) -> Ta
         with ctx():
             mcp = build_mcp()
             async with Client(mcp) as mcp_client, cfg.client() as model:
-                tools = _anthropic_tools(await mcp_client.list_tools())
+                tools = _anthropic_tools(await mcp_client.list_tools(), inject_notes=inject_notes)
                 messages: list[dict[str, Any]] = [{"role": "user", "content": task["prompt"]}]
                 for step in range(MAX_STEPS):
                     run.steps = step + 1
