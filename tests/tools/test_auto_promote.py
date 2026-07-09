@@ -182,6 +182,62 @@ async def test_mode_sync_propagates_timeout_as_archive_error(mcp_server, fake_ta
     assert fake_tap.submit_calls == 0
 
 
+def _oversize_table() -> Table:
+    """A table guaranteed to exceed the inline row cap."""
+    from astro_archives_mcp.config import get_settings
+
+    n = get_settings().inline_row_limit + 1
+    return Table({"ra": list(range(n)), "dec": list(range(n))})
+
+
+@pytest.mark.asyncio
+async def test_mode_sync_oversize_raises_validation_error(mcp_server, fake_tap):
+    # A sync result too large to inline does NOT auto-promote — it tells the
+    # LLM to re-run with mode='async'. No job is submitted.
+    fake_tap.query_table = _oversize_table()
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "vo_tap_query",
+            {
+                "endpoint": "https://datalab.noirlab.edu/tap",
+                "adql": "SELECT * FROM big",
+                "mode": "sync",
+            },
+        )
+        payload = result.structured_content
+        assert payload["error_class"] == "validation_error"
+        assert payload["retry_strategy"] == "fix_and_retry"
+        assert "async" in payload["message"]
+
+    assert fake_tap.submit_calls == 0
+    assert job_store.size_estimate()["entries"] == 0
+
+
+@pytest.mark.asyncio
+async def test_mode_auto_oversize_promotes_to_async(mcp_server, fake_tap):
+    # In auto mode, a sync result too large to inline is re-submitted as an
+    # async job so the archive holds the bytes and we hand back a job_url.
+    fake_tap.query_table = _oversize_table()
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "vo_tap_query",
+            {
+                "endpoint": "https://datalab.noirlab.edu/tap",
+                "adql": "SELECT * FROM big",
+                "mode": "auto",
+            },
+        )
+        payload = result.structured_content
+        assert payload["mode"] == "async"
+        assert payload["job_url"].endswith("/async/auto-promoted")
+        assert payload["job_url"] in payload["fetch_recipe"]["code"]
+
+    assert fake_tap.submit_calls == 1
+    assert job_store.size_estimate()["entries"] == 1
+
+
 @pytest.mark.asyncio
 async def test_mode_async_skips_sync_and_returns_promotion(mcp_server, fake_tap):
     fake_tap.query_raises = RuntimeError("query() must not be called in mode=async")

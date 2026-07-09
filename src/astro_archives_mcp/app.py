@@ -6,19 +6,17 @@ from starlette.middleware import Middleware
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
-from astro_archives_mcp import __version__, job_store, result_store
+from astro_archives_mcp import __version__, job_store
 from astro_archives_mcp.observability import (
     current_request_id,
     new_request_id,
 )
-from astro_archives_mcp.resources import register_resources
 from astro_archives_mcp.tools import (
     vo_archive_list,
     vo_cone_search,
     vo_registry_describe,
     vo_registry_search,
     vo_schema_describe,
-    vo_sia_fetch,
     vo_sia_search,
     vo_tap_abort,
     vo_tap_query,
@@ -68,8 +66,6 @@ def build_mcp() -> FastMCP:
     mcp.tool(vo_target_resolve)
     mcp.tool(vo_cone_search)
     mcp.tool(vo_sia_search)
-    mcp.tool(vo_sia_fetch)
-    register_resources(mcp)
     return mcp
 
 
@@ -82,7 +78,6 @@ def build_app() -> Starlette:
             {
                 "status": "ok",
                 "version": __version__,
-                "store": result_store.size_estimate(),
                 "job_store": job_store.size_estimate(),
             }
         )

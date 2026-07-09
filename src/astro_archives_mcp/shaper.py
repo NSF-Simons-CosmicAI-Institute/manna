@@ -1,22 +1,17 @@
-import io
 import json
 import math
 from datetime import datetime
 from typing import Any, cast
 
 import numpy as np
-import pyarrow as pa
-import pyarrow.parquet as pq
 from astropy.table import Column, Table
 
-from astro_archives_mcp import result_store
 from astro_archives_mcp.config import get_settings
 
-# The inline caps (rows / bytes) are read from get_settings() in shape_table,
-# env-overridable via STABLE_INLINE_ROW_LIMIT / STABLE_INLINE_BYTE_LIMIT.
-RESOURCE_ROW_LIMIT = 100_000
+# The inline caps (rows / bytes) are read from get_settings(), env-overridable
+# via STABLE_INLINE_ROW_LIMIT / STABLE_INLINE_BYTE_LIMIT.
 TRUNCATION_REASON_MAXREC = "maxrec_exceeded"
-TRUNCATION_REASON_OVERSIZE = "oversize_for_resource_tier"
+TRUNCATION_REASON_INLINE_CAP = "inline_cap_exceeded"
 
 
 def shape_inline_table(
@@ -25,10 +20,12 @@ def shape_inline_table(
     archive: str,
     maxrec: int,
 ) -> dict[str, Any]:
-    """Convert an astropy.Table into the inline-tier response envelope.
+    """Convert an astropy.Table into the inline response envelope.
 
-    Inline tier only. The Resource tier is handled by _shape_resource
-    once result sizes warrant it.
+    Rows flow inline. Callers that must NOT inline large results (TAP)
+    check `is_oversize` first and route to the async/result-URL path;
+    discovery tools (cone / SIA search) inline up to the cap and let
+    `shape_table` truncate the tail.
     """
     n_in = len(table)
     truncated = n_in > maxrec
@@ -58,10 +55,8 @@ def shape_inline_table(
         "row_count": len(rows),
         "columns": columns,
         "rows": rows,
-        "preview": None,
-        "resource_uri": None,
         "truncated": truncated,
-        "truncation_reason": "maxrec_exceeded" if truncated else None,
+        "truncation_reason": TRUNCATION_REASON_MAXREC if truncated else None,
         "archive": archive,
         "next_steps": None,
         "hints": [],
@@ -69,19 +64,68 @@ def shape_inline_table(
 
 
 def shape_table(table: Table, *, archive: str, maxrec: int) -> dict[str, Any]:
-    """Pick inline or Resource tier based on size; build the envelope.
+    """Inline envelope for discovery tools (cone / SIA search).
 
-    Public entry point for tabular tools. Delegates to:
-    - shape_inline_table for small results (unchanged behavior)
-    - _shape_resource for results above the inline threshold
+    These are synchronous DAL queries with no async job or persistent
+    archive URL to hand back, so a result larger than the inline cap is
+    truncated inline with `truncated=true` and a hint to narrow the
+    search. TAP does NOT use this path — it checks `is_oversize` and
+    routes oversize results to the async / result-URL flow instead.
     """
     settings = get_settings()
-    n_rows = len(table)
-    if n_rows <= settings.inline_row_limit:
-        envelope = shape_inline_table(table, archive=archive, maxrec=maxrec)
-        if _estimate_payload_bytes(envelope) <= settings.inline_byte_limit:
-            return envelope
-    return _shape_resource(table, archive=archive, maxrec=maxrec)
+    total = len(table)
+    # Largest prefix that satisfies both the maxrec and inline row caps...
+    limit = min(total, maxrec, settings.inline_row_limit)
+    envelope = _inline_prefix(table, archive, limit)
+    # ...then shrink further until it also fits the byte cap.
+    while envelope["row_count"] > 1 and not _fits_inline_bytes(envelope):
+        limit = max(1, int(envelope["row_count"] * 0.8))
+        envelope = _inline_prefix(table, archive, limit)
+
+    shown = envelope["row_count"]
+    if shown < total:
+        envelope["truncated"] = True
+        # maxrec is the binding cap only when it alone clipped the result.
+        maxrec_bound = total > maxrec and shown == maxrec
+        envelope["truncation_reason"] = (
+            TRUNCATION_REASON_MAXREC if maxrec_bound else TRUNCATION_REASON_INLINE_CAP
+        )
+        envelope["hints"] = [
+            {
+                "kind": "tip",
+                "text": (
+                    f"Showing {shown} of {total} rows (inline cap). Narrow the "
+                    "search region or lower maxrec to see every row inline."
+                ),
+                "source": None,
+            }
+        ]
+    return envelope
+
+
+def _inline_prefix(table: Table, archive: str, n: int) -> dict[str, Any]:
+    """Inline envelope for the first `n` rows, with no truncation flags set
+    (the caller decides whether the prefix represents a truncation)."""
+    prefix = cast(Table, table[:n])
+    return shape_inline_table(prefix, archive=archive, maxrec=n)
+
+
+def is_oversize(table: Table) -> bool:
+    """True if `table` would exceed the inline row OR byte cap.
+
+    TAP tools call this to decide between inlining a result and routing
+    it to the async / result-URL flow. Cheap: the byte estimate only
+    runs when the row count is already within the row cap.
+    """
+    settings = get_settings()
+    if len(table) > settings.inline_row_limit:
+        return True
+    envelope = shape_inline_table(table, archive="", maxrec=len(table))
+    return not _fits_inline_bytes(envelope)
+
+
+def _fits_inline_bytes(envelope: dict) -> bool:
+    return _estimate_payload_bytes(envelope) <= get_settings().inline_byte_limit
 
 
 def _estimate_payload_bytes(envelope: dict) -> int:
@@ -89,50 +133,59 @@ def _estimate_payload_bytes(envelope: dict) -> int:
     return len(json.dumps(envelope, default=str))
 
 
-def _shape_resource(table: Table, *, archive: str, maxrec: int) -> dict[str, Any]:
-    """Build the Resource-tier envelope: preview + Parquet via MCP Resource URI."""
-    true_count = len(table)
-    visible = cast(Table, table[:RESOURCE_ROW_LIMIT])
-    truncated = true_count > RESOURCE_ROW_LIMIT
+def build_fetch_recipe(job_url: str, result_url: str | None = None) -> dict[str, Any]:
+    """Client-side recipe for loading an async TAP result with pyvo.
 
-    # astropy.Table -> pyarrow.Table -> Parquet bytes (no pandas dep)
-    pa_table = pa.table({name: cast(Column, visible[name]).data for name in visible.colnames})
-    buf = io.BytesIO()
-    pq.write_table(pa_table, buf)
-    uuid_hex, expires_at = result_store.put(buf.getvalue(), "application/vnd.apache.parquet")
-
-    # Reuse inline envelope shape for preview rows
-    preview_envelope = shape_inline_table(
-        cast(Table, visible[:50]),
-        archive=archive,
-        maxrec=maxrec,
+    The server never fetches the result bytes; it hands the LLM the
+    upstream job URL and the code to load it in the user's own Python
+    environment (e.g. a Jupyter kernel). Anonymous access only.
+    """
+    code = (
+        "import pyvo\n"
+        f"job = pyvo.dal.AsyncTAPJob({job_url!r})\n"
+        "job.raise_if_error()\n"
+        "table = job.fetch_result().to_table()"
     )
+    recipe: dict[str, Any] = {"module": "pyvo", "code": code}
+    if result_url:
+        recipe["alternative"] = (
+            f"from astropy.table import Table\ntable = Table.read({result_url!r}, format='votable')"
+        )
+    return recipe
 
-    hints: list[dict[str, Any]] = []
-    if truncated:
-        hints.append(
+
+def shape_result_url(
+    *,
+    job_url: str,
+    result_url: str | None,
+    archive: str,
+    phase: str = "COMPLETED",
+) -> dict[str, Any]:
+    """Envelope for a COMPLETED async TAP job.
+
+    Carries the upstream job URL, the direct result URL, and a pyvo
+    fetch recipe. No result bytes flow through the server — the client
+    loads the data itself.
+    """
+    return {
+        "phase": phase,
+        "job_url": job_url,
+        "result_url": result_url,
+        "format": "votable",
+        "archive": archive,
+        "next_steps": [
+            "Fetch the result client-side using fetch_recipe (pyvo).",
+            "Anonymous archives only — authenticated archives are not yet "
+            "supported for client-side fetch.",
+        ],
+        "fetch_recipe": build_fetch_recipe(job_url, result_url),
+        "hints": [
             {
                 "kind": "tip",
-                "text": (
-                    f"{RESOURCE_ROW_LIMIT} of {true_count} rows available at the "
-                    "resource URI. For full results, narrow the query or raise maxrec."
-                ),
+                "text": "result_url is valid until the archive expires the async job.",
                 "source": None,
             }
-        )
-
-    return {
-        "row_count": true_count,
-        "columns": preview_envelope["columns"],
-        "rows": None,
-        "preview": preview_envelope["rows"],
-        "resource_uri": f"resource://results/{uuid_hex}.parquet",
-        "resource_expires_at": expires_at.isoformat(),
-        "truncated": truncated,
-        "truncation_reason": TRUNCATION_REASON_OVERSIZE if truncated else None,
-        "archive": archive,
-        "next_steps": None,
-        "hints": hints,
+        ],
     }
 
 
@@ -190,61 +243,33 @@ def shape_registry_describe_result(described: dict) -> dict:
     return dict(described)
 
 
-def shape_blob_fetch(
-    payload: bytes,
-    *,
-    source_url: str,
-    mime_type: str,
-    archive: str,
-) -> dict:
-    """Build the envelope for vo_sia_fetch and similar blob-returning tools.
-
-    Stashes payload in result_store and returns a small JSON envelope
-    pointing at the Resource URI. The bytes themselves do NOT flow
-    inline.
-    """
-    uuid_hex, expires_at = result_store.put(payload, mime_type)
-    # Cosmetic file extension based on MIME — helps clients suggest filenames
-    ext_map = {
-        "image/fits": "fits",
-        "image/jpeg": "jpg",
-        "image/png": "png",
-        "application/vnd.apache.parquet": "parquet",
-    }
-    ext = ext_map.get(mime_type, "bin")
-    return {
-        "resource_uri": f"resource://results/{uuid_hex}.{ext}",
-        "resource_expires_at": expires_at.isoformat(),
-        "mime_type": mime_type,
-        "source_url": source_url,
-        "bytes_fetched": len(payload),
-        "archive": archive,
-        "next_steps": None,
-        "hints": [],
-    }
-
-
 def shape_promotion(
     *,
     job_id: str,
+    job_url: str,
     archive: str,
     phase: str,
     submitted_at: datetime,
 ) -> dict[str, Any]:
-    """Envelope returned when vo_tap_query goes async (explicit mode=async
-    or auto-mode timeout fallback).
+    """Envelope returned when vo_tap_query goes async (explicit mode=async,
+    auto-mode timeout fallback, or an oversize sync result).
 
-    Shape-disjoint from the inline/Resource tabular envelopes: there are
-    no rows yet. The LLM branches on the literal `mode: "async"`.
+    Shape-disjoint from the inline tabular envelope: there are no rows.
+    The LLM branches on the literal `mode: "async"`. Carries both the
+    opaque `job_id` (for our vo_tap_status / vo_tap_abort) and the
+    upstream `job_url` + a pyvo fetch_recipe so the client can load the
+    result itself once the job completes.
     """
     return {
         "mode": "async",
         "job_id": job_id,
+        "job_url": job_url,
         "phase": phase,
         "submitted_at": submitted_at.isoformat(),
         "archive": archive,
         "next_steps": [
-            "Poll vo_tap_status(job_id) until phase is COMPLETED or ERROR",
-            "Then call vo_tap_results(job_id) to fetch the data",
+            "Poll vo_tap_status(job_id) until phase is COMPLETED or ERROR.",
+            "Then call vo_tap_results(job_id), or fetch directly with fetch_recipe.",
         ],
+        "fetch_recipe": build_fetch_recipe(job_url),
     }

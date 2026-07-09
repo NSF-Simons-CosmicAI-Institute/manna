@@ -3,20 +3,20 @@
 Steps the LLM takes when a sync query times out (or it picks mode='async'
 explicitly):
 
-    1. vo_tap_query(mode='async')      → promotion envelope with job_id
+    1. vo_tap_query(mode='async')      → promotion envelope with job_id + job_url
     2. vo_tap_status(job_id)           → phase
     3. (poll until COMPLETED)
-    4. vo_tap_results(job_id)          → inline envelope OR resource_uri
+    4. vo_tap_results(job_id)          → result_url + pyvo fetch_recipe
 
 Per-tool tests already cover each step in isolation. This file verifies
 the *chain* — specifically that the job_id round-trips correctly and the
-final envelope shape matches what the LLM was promised by the promotion.
+final envelope hands the client an upstream URL + fetch recipe (the
+server never fetches the result bytes itself).
 
 The TapClient backend is faked so this stays hermetic + fast.
 """
 
 import pytest
-from astropy.table import Table
 from fastmcp import Client
 
 from astro_archives_mcp import job_store
@@ -30,22 +30,12 @@ class _FakeAsyncJob:
         self.phase = "EXECUTING"
         self.starttime = None
         self.endtime = None
-        self._table = None
         self._error_summary = None
+        self.result_uri = "https://archive.example/tap/async/test-job-id/results/result"
 
     @property
     def error_summary(self):
         return self._error_summary
-
-    def fetch_result(self):
-        class _Result:
-            def __init__(self, table):
-                self._table = table
-
-            def to_table(self):
-                return self._table
-
-        return _Result(self._table)
 
     def delete(self):
         pass
@@ -90,8 +80,8 @@ def fake_tap(monkeypatch):
 async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
     """The headline chain. Verify the same job_id flows from promotion
     through status (mid-flight) to results (after completion), and the
-    final envelope is structurally identical to a sync vo_tap_query
-    result (same `row_count`, `columns`, `rows` keys)."""
+    final envelope hands the client the upstream job_url + result_url +
+    a pyvo fetch_recipe (no bytes fetched server-side)."""
     async with Client(mcp_server) as client:
         # Step 1: explicit async kick-off
         promotion = await client.call_tool(
@@ -107,6 +97,10 @@ async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
         assert prom_payload["phase"] == "EXECUTING"
         job_id = prom_payload["job_id"]
         assert len(job_id) == 12
+        # The promotion already carries the real upstream job URL + recipe.
+        job_url = prom_payload["job_url"]
+        assert job_url.endswith("/async/test-job-id")
+        assert job_url in prom_payload["fetch_recipe"]["code"]
 
         # Step 2: check status — still mid-flight
         status = await client.call_tool("vo_tap_status", {"job_id": job_id})
@@ -120,22 +114,21 @@ async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
 
         # Step 4: backend completes the job
         fake_tap.job.phase = "COMPLETED"
-        fake_tap.job._table = Table(
-            {
-                "obs_publisher_did": ["A", "B", "C"],
-            }
-        )
 
         # Step 5: status reports COMPLETED
         status = await client.call_tool("vo_tap_status", {"job_id": job_id})
         assert status.structured_content["phase"] == "COMPLETED"
 
-        # Step 6: results return inline envelope
+        # Step 6: results return a result-URL envelope + fetch recipe
         results = await client.call_tool("vo_tap_results", {"job_id": job_id})
         rp = results.structured_content
-        assert rp["row_count"] == 3
-        assert [c["name"] for c in rp["columns"]] == ["obs_publisher_did"]
-        assert rp["rows"] == [["A"], ["B"], ["C"]]
+        assert rp["phase"] == "COMPLETED"
+        assert rp["job_url"] == job_url
+        assert rp["result_url"].endswith("/results/result")
+        assert rp["fetch_recipe"]["module"] == "pyvo"
+        assert job_url in rp["fetch_recipe"]["code"]
+        # The server must NOT inline result rows anymore.
+        assert "rows" not in rp
 
 
 @pytest.mark.asyncio
