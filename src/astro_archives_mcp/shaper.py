@@ -20,10 +20,9 @@ TRUNCATION_REASON_OVERSIZE = "oversize_for_resource_tier"
 TRUNCATION_REASON_DESCRIBE_OVERSIZE = "describe_columns_omitted"
 
 # In catalog (degraded) mode each table collapses to name + description +
-# column_count. Descriptions are clipped so a many-table catalog still fits;
-# _DESCRIBE_MAX_CATALOG_TABLES is a pure backstop against pathological services.
+# column_count. Descriptions are clipped so a many-table catalog stays compact;
+# the table count itself is trimmed to fit the byte budget (see _fit_tables).
 _DESCRIBE_CATALOG_DESC_MAXLEN = 280
-_DESCRIBE_MAX_CATALOG_TABLES = 1000
 
 
 def shape_inline_table(
@@ -228,30 +227,63 @@ def shape_registry_describe_result(described: dict) -> dict:
         return out
 
     all_tables = out.get("tables") or []
-    kept = all_tables[:_DESCRIBE_MAX_CATALOG_TABLES]
-    catalog = [_describe_catalog_entry(t) for t in kept]
+    catalog = [_describe_catalog_entry(t) for t in all_tables]
     out["tables"] = catalog
     out["truncated"] = True
     out["truncation_reason"] = TRUNCATION_REASON_DESCRIBE_OVERSIZE
+    # Placeholder hint so the fit measurement below includes its overhead; the
+    # final text (with the real omitted count) is written once we know the count.
+    out["hints"] = [{"kind": "tip", "text": _describe_hint(len(all_tables)), "source": None}]
 
-    # Ladder: the catalog is dominated by descriptions once columns are gone.
-    # If it still busts the budget (rare — very many tables), drop descriptions;
-    # names + counts are tiny. _DESCRIBE_MAX_CATALOG_TABLES caps the pathological tail.
+    # Fit ladder. Table names are the irreducible discovery signal, so we keep
+    # as many tables as possible and shed detail first:
+    #   1. full catalog with descriptions,
+    #   2. drop descriptions (names + counts are tiny),
+    #   3. still too big (thousands of tables, e.g. Data Lab) -> trim the table
+    #      count to the largest prefix that fits.
     if _estimate_payload_bytes(out) > budget:
         for entry in catalog:
             entry["description"] = None
+    if _estimate_payload_bytes(out) > budget:
+        catalog = _fit_tables(out, catalog, budget)
+        out["tables"] = catalog
 
     tables_omitted = len(all_tables) - len(catalog)
-    hint_text = (
+    out["hints"][0]["text"] = _describe_hint(tables_omitted)
+    return out
+
+
+def _describe_hint(tables_omitted: int) -> str:
+    text = (
         "Per-column detail was omitted because this service's full schema exceeds "
         "the inline budget. To get one table's columns, call vo_tap_query with ADQL "
         'like "SELECT column_name, datatype, ucd, description FROM tap_schema.columns '
         "WHERE table_name = '<table>'\", or try vo_schema_describe for curated tables."
     )
     if tables_omitted > 0:
-        hint_text += f" {tables_omitted} additional table(s) were omitted from the catalog."
-    out["hints"] = [{"kind": "tip", "text": hint_text, "source": None}]
-    return out
+        text += (
+            f" {tables_omitted} table(s) were omitted from this catalog entirely; "
+            "query tap_schema.tables via vo_tap_query to enumerate them, or raise "
+            "STABLE_REGISTRY_DESCRIBE_BYTE_LIMIT."
+        )
+    return text
+
+
+def _fit_tables(out: dict, catalog: list[dict], budget: int) -> list[dict]:
+    """Largest prefix of `catalog` whose enclosing `out` payload fits `budget`.
+
+    Binary search on the kept-table count. Mutates out['tables'] as a side
+    effect of measuring; the caller assigns the returned list authoritatively.
+    """
+    lo, hi = 0, len(catalog)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        out["tables"] = catalog[:mid]
+        if _estimate_payload_bytes(out) <= budget:
+            lo = mid
+        else:
+            hi = mid - 1
+    return catalog[:lo]
 
 
 def shape_blob_fetch(

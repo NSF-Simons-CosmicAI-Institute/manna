@@ -282,3 +282,41 @@ def test_shape_registry_describe_result_degrades_when_oversize():
     from astro_archives_mcp.shaper import _estimate_payload_bytes
 
     assert _estimate_payload_bytes(out) <= get_settings().registry_describe_byte_limit
+
+
+def test_shape_registry_describe_result_trims_table_count_when_catalog_alone_oversize():
+    """Data Lab has ~4000 tables — even a name-only catalog busts the budget, so
+    the table count itself must be trimmed and the omission disclosed."""
+    from astro_archives_mcp.config import get_settings
+    from astro_archives_mcp.shaper import (
+        _estimate_payload_bytes,
+        shape_registry_describe_result,
+    )
+
+    tables = [
+        {
+            "name": f"survey_{t}.some_reasonably_long_table_name_object",
+            "description": f"Table {t} — a fairly wordy description that adds bytes per entry.",
+            "columns": [{"name": f"c{c}", "type": "double"} for c in range(20)],
+        }
+        for t in range(5000)
+    ]
+    described = {
+        "ivoid": "ivo://huge/service",
+        "title": "Huge Service",
+        "description": "...",
+        "capabilities": ["tap"],
+        "tables": tables,
+    }
+
+    out = shape_registry_describe_result(described)
+    budget = get_settings().registry_describe_byte_limit
+
+    assert out["truncated"] is True
+    # Guaranteed to fit despite thousands of tables.
+    assert _estimate_payload_bytes(out) <= budget
+    # Trimmed: fewer tables than input, and the omission is disclosed in the hint.
+    assert 0 < len(out["tables"]) < 5000
+    omitted = 5000 - len(out["tables"])
+    assert f"{omitted} table(s) were omitted" in out["hints"][0]["text"]
+    assert "tap_schema.tables" in out["hints"][0]["text"]
