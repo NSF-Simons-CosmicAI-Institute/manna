@@ -90,9 +90,16 @@ def vo_registry_describe(
     """Introspect a specific IVOA service: its capabilities, and for TAP
     services its tables and columns.
 
-    Returns {ivoid, title, description, capabilities, tables}. Use after
-    vo_registry_search to learn what's queryable on a specific service
-    before composing ADQL via vo_tap_query.
+    Returns {ivoid, title, description, capabilities, tables, truncated}.
+    Use after vo_registry_search to learn what's queryable on a specific
+    service before composing ADQL via vo_tap_query.
+
+    Each table normally carries its full column list. For a very large
+    service the response degrades to a table *catalog* (name + description +
+    column_count per table, no per-column detail) and sets truncated: true;
+    when that happens, get a specific table's columns by querying
+    tap_schema.columns WHERE table_name = '<table>' via vo_tap_query (or
+    vo_schema_describe for curated tables). See the returned hints.
     """
     described = _get_registry().describe(ivoid_or_url=ivoid_or_url)
     return shape_registry_describe_result(described)

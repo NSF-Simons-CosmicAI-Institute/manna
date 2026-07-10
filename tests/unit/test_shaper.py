@@ -223,3 +223,62 @@ def test_shape_registry_describe_result_passes_through():
     assert len(out["tables"]) == 1
     assert out["tables"][0]["columns"][0]["name"] == "ra"
     assert "row_count" not in out
+    # Small service: full detail retained, truncation disclosed as false.
+    assert out["truncated"] is False
+    assert out["truncation_reason"] is None
+
+
+def test_shape_registry_describe_result_degrades_when_oversize():
+    from astro_archives_mcp.shaper import (
+        TRUNCATION_REASON_DESCRIBE_OVERSIZE,
+        shape_registry_describe_result,
+    )
+
+    # Build a service whose full per-column payload blows past the byte budget:
+    # many tables, each with many columns.
+    tables = [
+        {
+            "name": f"survey.table_{t}",
+            "description": f"Table {t} description.",
+            "columns": [
+                {
+                    "name": f"col_{c}",
+                    "type": "double",
+                    "unit": "deg",
+                    "ucd": "pos.eq.ra",
+                    "description": "A reasonably wordy column description to inflate size.",
+                }
+                for c in range(60)
+            ],
+        }
+        for t in range(80)
+    ]
+    described = {
+        "ivoid": "ivo://big/service",
+        "title": "Big Service",
+        "description": "...",
+        "capabilities": ["tap"],
+        "tables": tables,
+    }
+
+    out = shape_registry_describe_result(described)
+
+    # Degraded to catalog form.
+    assert out["truncated"] is True
+    assert out["truncation_reason"] == TRUNCATION_REASON_DESCRIBE_OVERSIZE
+    # Metadata preserved; every table still represented (name + description + count).
+    assert out["ivoid"] == "ivo://big/service"
+    assert out["capabilities"] == ["tap"]
+    assert len(out["tables"]) == 80
+    first = out["tables"][0]
+    assert first["name"] == "survey.table_0"
+    assert first["column_count"] == 60
+    assert "columns" not in first  # per-column detail dropped
+    # Drill-down hint present.
+    assert out["hints"]
+    assert "tap_schema.columns" in out["hints"][0]["text"]
+    # And the degraded payload actually fits the budget.
+    from astro_archives_mcp.config import get_settings
+    from astro_archives_mcp.shaper import _estimate_payload_bytes
+
+    assert _estimate_payload_bytes(out) <= get_settings().registry_describe_byte_limit

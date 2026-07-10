@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     # frontier models with large context windows.
     inline_row_limit: int = 200
     inline_byte_limit: int = 48 * 1024
+    # vo_registry_describe degrades from full per-column detail to a table
+    # catalog (names + descriptions + column counts) once the full introspection
+    # payload would exceed this many bytes. Prevents a large service (e.g. Gaia,
+    # ~127k tokens of tables × columns) from overflowing the model context. See
+    # shape_registry_describe_result.
+    registry_describe_byte_limit: int = 48 * 1024
 
 
 @lru_cache(maxsize=1)

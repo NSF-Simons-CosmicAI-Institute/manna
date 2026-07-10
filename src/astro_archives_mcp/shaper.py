@@ -17,6 +17,13 @@ from astro_archives_mcp.config import get_settings
 RESOURCE_ROW_LIMIT = 100_000
 TRUNCATION_REASON_MAXREC = "maxrec_exceeded"
 TRUNCATION_REASON_OVERSIZE = "oversize_for_resource_tier"
+TRUNCATION_REASON_DESCRIBE_OVERSIZE = "describe_columns_omitted"
+
+# In catalog (degraded) mode each table collapses to name + description +
+# column_count. Descriptions are clipped so a many-table catalog still fits;
+# _DESCRIBE_MAX_CATALOG_TABLES is a pure backstop against pathological services.
+_DESCRIBE_CATALOG_DESC_MAXLEN = 280
+_DESCRIBE_MAX_CATALOG_TABLES = 1000
 
 
 def shape_inline_table(
@@ -185,9 +192,66 @@ def shape_registry_search_result(services: list[dict], *, maxrec: int) -> dict:
     }
 
 
+def _describe_catalog_entry(table: dict) -> dict:
+    """Collapse one table dict to a catalog entry: name + clipped description +
+    column_count. Drops the per-column arrays that drive the size blowup."""
+    desc = table.get("description")
+    if isinstance(desc, str) and len(desc) > _DESCRIBE_CATALOG_DESC_MAXLEN:
+        desc = desc[: _DESCRIBE_CATALOG_DESC_MAXLEN - 3].rstrip() + "..."
+    return {
+        "name": table.get("name"),
+        "description": desc,
+        "column_count": len(table.get("columns") or []),
+    }
+
+
 def shape_registry_describe_result(described: dict) -> dict:
-    """Pass-through envelope for vo_registry_describe."""
-    return dict(described)
+    """Envelope for vo_registry_describe.
+
+    Small services pass through with full per-column detail for every table.
+    Large services (tables x columns — e.g. Gaia's ~127k-token payload) would
+    overflow the model context, so the response degrades to a *table catalog*:
+    every table keeps its name, (clipped) description, and column_count, but the
+    per-column arrays are dropped. `truncated` discloses the degradation and a
+    hint points the model at the per-table columns drill-down.
+
+    `truncated` is always present as a top-level boolean (project contract), so
+    even the pass-through path now carries `truncated: false`.
+    """
+    out = dict(described)
+    settings = get_settings()
+    budget = settings.registry_describe_byte_limit
+
+    if _estimate_payload_bytes(out) <= budget:
+        out["truncated"] = False
+        out["truncation_reason"] = None
+        return out
+
+    all_tables = out.get("tables") or []
+    kept = all_tables[:_DESCRIBE_MAX_CATALOG_TABLES]
+    catalog = [_describe_catalog_entry(t) for t in kept]
+    out["tables"] = catalog
+    out["truncated"] = True
+    out["truncation_reason"] = TRUNCATION_REASON_DESCRIBE_OVERSIZE
+
+    # Ladder: the catalog is dominated by descriptions once columns are gone.
+    # If it still busts the budget (rare — very many tables), drop descriptions;
+    # names + counts are tiny. _DESCRIBE_MAX_CATALOG_TABLES caps the pathological tail.
+    if _estimate_payload_bytes(out) > budget:
+        for entry in catalog:
+            entry["description"] = None
+
+    tables_omitted = len(all_tables) - len(catalog)
+    hint_text = (
+        "Per-column detail was omitted because this service's full schema exceeds "
+        "the inline budget. To get one table's columns, call vo_tap_query with ADQL "
+        'like "SELECT column_name, datatype, ucd, description FROM tap_schema.columns '
+        "WHERE table_name = '<table>'\", or try vo_schema_describe for curated tables."
+    )
+    if tables_omitted > 0:
+        hint_text += f" {tables_omitted} additional table(s) were omitted from the catalog."
+    out["hints"] = [{"kind": "tip", "text": hint_text, "source": None}]
+    return out
 
 
 def shape_blob_fetch(
