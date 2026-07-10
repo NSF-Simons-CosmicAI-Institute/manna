@@ -36,3 +36,47 @@
   ground_truth:
     type: regex
     pattern: "(?i)(gea\\.esac\\.esa\\.int|gaia\\.ari\\.uni-heidelberg\\.de)"
+
+# --- Multi-step + download workflows ------------------------------------------------
+# Accuracy is rubric-scored (needs a judge); until one is configured these report as
+# 'unscored' for accuracy and are measured on COMPLETION + efficiency only. These are
+# where the MCP's curation / shaping / async handling should widen the gap on raw arms.
+
+- id: p1-workflow-gaia-pm
+  tier: 5
+  prompt: >-
+    Find Gaia DR3 sources within 0.02 degrees of the galaxy M87 and report how many there
+    are, plus the proper motion (pmra, pmdec) of one or two example sources.
+  rubric: >-
+    Passes if the assistant resolved M87 (~187.706 / +12.391), queried Gaia DR3 for
+    sources within ~0.02 deg, and reported a plausible integer count with at least one
+    pmra/pmdec example value.
+
+- id: p1-workflow-datalab-count
+  tier: 5
+  prompt: >-
+    Using the Astro Data Lab NSC DR2 catalogue, count how many objects lie within 0.05
+    degrees of RA=180.0, Dec=-30.0.
+  rubric: >-
+    Passes if the assistant queried Data Lab nsc_dr2.object with a valid positional filter
+    (q3c_radial_query or a ra/dec bounding box — NOT untranslated CONTAINS/CIRCLE) and
+    reported an integer count.
+
+- id: p1-workflow-nrao-count
+  tier: 5
+  prompt: >-
+    How many observations does the NRAO archive have within 0.1 degrees of RA=200.0,
+    Dec=+20.0?
+  rubric: >-
+    Passes if the assistant queried NRAO obscore (tap_schema.obscore) with a spatial
+    predicate, coped with the async requirement, and reported an integer count (or clearly
+    reported that the async job was still running).
+
+- id: p1-download-m51-image
+  tier: 5
+  prompt: >-
+    Obtain a FITS image covering the Whirlpool Galaxy (M51) from an image archive, and
+    confirm you retrieved it — give the image's access URL (and dimensions if available).
+  rubric: >-
+    Passes if the assistant resolved/located M51, discovered an image service, and fetched
+    or identified a specific FITS image, reporting its access URL or a resource handle.
