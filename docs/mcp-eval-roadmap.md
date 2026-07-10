@@ -88,8 +88,36 @@ Example checks (from current KB):
 - `LOWER`/`UPPER` still fail on NRAO.
 - ALMA obscore rows still at spectral-window granularity (`member_ous_uid` still the key).
 
+### Step 0 (prerequisite) — modularize the KB per archive
+
+Today the curated knowledge lives in two monolithic files: `known_archives.py` (all
+archives' endpoints + `usage_notes` in one `KNOWN_ARCHIVES` tuple) and `schema_kb.py`
+(all `SCHEMA_KB` entries). **Before writing the checks, split these so each archive owns
+its own module** — e.g. `known_archives/nrao.py`, `known_archives/datalab.py`,
+`known_archives/alma.py`, … — with a small registry (`__init__.py`) that assembles them
+back into the same `KNOWN_ARCHIVES` / `SCHEMA_KB` the rest of the code imports. The public
+interface and tool behavior stay identical.
+
+Why it matters for Pillar 3:
+- The suite is *one check per caveat, keyed to its KB entry*. Per-archive modules give
+  each caveat a stable home, so a STALE result points at `known_archives/nrao.py` (a
+  specific note) instead of "somewhere in the big file" — making the check↔caveat mapping
+  1:1 and legible.
+- Adding/retiring a note and its regression check happen in one place; scales cleanly as
+  archives are added.
+
+Sequencing/constraints:
+- This is **step 0 of Pillar 3** — a small, mechanical, **behavior-preserving** refactor.
+- It touches `src/`, so it's its own commit with the full suite (298 tests) green
+  afterward, proving the assembled `KNOWN_ARCHIVES` / `SCHEMA_KB` are equivalent to before.
+- Open question for build time: do the caveat **checks** live *inside* each archive module
+  (checks travel with the notes) or in a parallel `evals/caveats/<archive>.py` that
+  references it? Keeping live-network code out of the default `pytest` run (see
+  cross-cutting notes) leans toward the parallel structure — decide explicitly then.
+
 Design note: needs a small structure tying each check to its KB source so failures point
-straight at the note/field to update.
+straight at the note/field to update (the per-archive modularization above is what makes
+that mapping clean).
 
 ## Cross-cutting dependencies / notes
 
