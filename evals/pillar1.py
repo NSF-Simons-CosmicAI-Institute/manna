@@ -180,7 +180,7 @@ async def _main(args: argparse.Namespace) -> int:
     baseline_path = Path(args.baseline) if args.baseline else BASELINE_PATH
     if baseline_path.exists():
         _print_diff(per_arm, version, json.loads(baseline_path.read_text()), arms)
-    else:
+    elif not args.set_baseline:
         print(f"\n(no baseline at {baseline_path.name}; run --set-baseline to record one)")
 
     RESULTS_DIR.mkdir(exist_ok=True)
