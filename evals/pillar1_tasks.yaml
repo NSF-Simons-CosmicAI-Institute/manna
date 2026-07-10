@@ -1,0 +1,38 @@
+# Pillar-1 task set: end-to-end, ARM-AGNOSTIC, DETERMINISTIC answers.
+#
+# These run under all three arms (mcp / raw_tap / raw_web) to measure the server's
+# lift, so they must NOT reference vo_* tools (no expect_tools / arg_checks) — only a
+# deterministic `ground_truth` that any arm could satisfy. Accuracy is scored without
+# a judge; efficiency (iterations, tokens, latency) is measured for every arm.
+#
+# Scope note: coordinate-resolution + service-discovery are the reliably deterministic
+# workflows. Download / count tasks (judge-scored) come once a judge is wired up.
+
+- id: p1-coords-m87
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of the galaxy M87?"
+  ground_truth: { type: coords, ra: 187.70593, dec: 12.39112, tol_deg: 0.02 }
+
+- id: p1-coords-m51
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of the Whirlpool Galaxy (M51)?"
+  ground_truth: { type: coords, ra: 202.4696, dec: 47.1952, tol_deg: 0.02 }
+
+- id: p1-coords-3c273
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of the quasar 3C 273?"
+  ground_truth: { type: coords, ra: 187.27792, dec: 2.05239, tol_deg: 0.02 }
+
+- id: p1-coords-ngc1275
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of NGC 1275 (Perseus A)?"
+  ground_truth: { type: coords, ra: 49.95067, dec: 41.51169, tol_deg: 0.02 }
+
+- id: p1-find-gaia-tap
+  tier: 5
+  prompt: >-
+    Find the base URL of an IVOA TAP service that serves the Gaia DR3 catalogue and
+    report the URL.
+  ground_truth:
+    type: regex
+    pattern: "(?i)(gea\\.esac\\.esa\\.int|gaia\\.ari\\.uni-heidelberg\\.de)"

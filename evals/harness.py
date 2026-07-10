@@ -18,9 +18,6 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from fastmcp import Client
-
-from astro_archives_mcp.app import build_mcp
 from evals.context import ablated_context, full_context
 
 if TYPE_CHECKING:
@@ -46,11 +43,10 @@ _NONTERMINAL_PHASES = {"PENDING", "QUEUED", "EXECUTING", "HELD", "SUSPENDED", "U
 MAX_TOOL_RESULT_CHARS = 24000
 
 SYSTEM_PROMPT = (
-    "You are an assistant for professional astronomers with access to a set of "
-    "Virtual Observatory tools for querying astronomical archives. Use the tools "
-    "to answer the user's request rather than answering from memory. When you "
-    "report sky coordinates, give them in decimal degrees (ICRS). When you report "
-    "a count, state the integer explicitly. Finish with a concise final answer."
+    "You are an assistant for professional astronomers. Use the available tools to "
+    "answer the user's request rather than answering from memory. When you report sky "
+    "coordinates, give them in decimal degrees (ICRS). When you report a count, state "
+    "the integer explicitly. Finish with a concise final answer."
 )
 
 
@@ -131,6 +127,7 @@ class TaskRun:
     tier: int
     condition: str  # "full" | "ablated"
     model: str
+    arm: str = "mcp"  # "mcp" | "raw_tap" | "raw_web" (Pillar-1 comparison arm)
     trace: list[ToolCall] = field(default_factory=list)
     final_answer: str = ""
     steps: int = 0
@@ -150,6 +147,7 @@ class TaskRun:
             "tier": self.tier,
             "condition": self.condition,
             "model": self.model,
+            "arm": self.arm,
             "final_answer": self.final_answer,
             "num_tool_calls": self.num_tool_calls,
             "steps": self.steps,
@@ -277,25 +275,30 @@ async def run_task(
     condition: str,
     inject_notes: bool = False,
     no_discovery: bool = False,
+    arm: str = "mcp",
 ) -> TaskRun:
-    """Run one task end-to-end under the given context condition."""
+    """Run one task end-to-end under the given context condition and tool arm.
+
+    `arm` selects the tool provider: 'mcp' (full server), 'raw_tap', or 'raw_web'
+    (the Pillar-1 no-curation baselines). inject_notes/no_discovery apply to 'mcp'.
+    """
+    from evals.providers import make_provider
+
     run = TaskRun(
         task_id=task["id"],
         tier=task["tier"],
         condition=condition,
         model=cfg.label,
+        arm=arm,
     )
+    # Ablation only affects the curated KB, i.e. the 'mcp' arm; no-op for raw arms.
     ctx = ablated_context if condition == "ablated" else full_context
     started = time.monotonic()
     try:
         with ctx():
-            mcp = build_mcp()
-            async with Client(mcp) as mcp_client, cfg.client() as model:
-                tools = _anthropic_tools(
-                    await mcp_client.list_tools(),
-                    inject_notes=inject_notes,
-                    no_discovery=no_discovery,
-                )
+            provider = make_provider(arm, inject_notes=inject_notes, no_discovery=no_discovery)
+            async with provider, cfg.client() as model:
+                tools = provider.tools
                 messages: list[dict[str, Any]] = [{"role": "user", "content": task["prompt"]}]
                 for step in range(MAX_STEPS):
                     run.steps = step + 1
@@ -321,8 +324,7 @@ async def run_task(
                     tool_results = []
                     should_pace = False
                     for tu in tool_uses:
-                        result = await mcp_client.call_tool(tu.name, tu.input, raise_on_error=False)
-                        payload, is_error = _result_payload(result)
+                        payload, is_error = await provider.call(tu.name, dict(tu.input))
                         run.trace.append(ToolCall(tu.name, dict(tu.input), payload, is_error))
                         should_pace = should_pace or _is_nonterminal_poll(tu.name, payload)
                         tool_results.append(
