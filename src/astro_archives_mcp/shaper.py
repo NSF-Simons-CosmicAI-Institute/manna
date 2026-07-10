@@ -204,36 +204,87 @@ def _describe_catalog_entry(table: dict) -> dict:
     }
 
 
-def shape_registry_describe_result(described: dict) -> dict:
+def _filter_describe_tables(tables: list[dict], table_filter: str) -> list[dict]:
+    """Case-insensitive substring match over each table's *name*.
+
+    Filtering happens here, in our server, on the already-fetched introspection —
+    NOT delegated to the archive. Large services' own query endpoints are
+    unreliable for this (e.g. Data Lab's sync TAP 504s on tap_schema, and it
+    ignores VOSI detail=min), whereas the full VOSI /tables fetch is fast and
+    dependable. So we always have the whole table list in hand and narrow it here.
+
+    Match is on the table name only, not description: it keeps a precise filter
+    (e.g. 'gaia_source') narrow enough that the matches' columns fit inline —
+    matching descriptions pulls in every table that merely *mentions* the term
+    (e.g. 100+ cross-match tables), and descriptions aren't populated on every
+    service anyway.
+    """
+    needle = table_filter.strip().lower()
+    if not needle:
+        return tables
+    return [t for t in tables if needle in (t.get("name") or "").lower()]
+
+
+def shape_registry_describe_result(described: dict, *, table_filter: str | None = None) -> dict:
     """Envelope for vo_registry_describe.
 
-    Small services pass through with full per-column detail for every table.
-    Large services (tables x columns — e.g. Gaia's ~127k-token payload) would
-    overflow the model context, so the response degrades to a *table catalog*:
-    every table keeps its name, (clipped) description, and column_count, but the
-    per-column arrays are dropped. `truncated` discloses the degradation and a
-    hint points the model at the per-table columns drill-down.
+    When `table_filter` is given, the table set is narrowed (case-insensitive
+    substring over name/description) before shaping — a narrow filter yields a
+    small set, so full per-column detail fits inline and the model gets exactly
+    the tables it wants, with columns, in one call.
 
-    `truncated` is always present as a top-level boolean (project contract), so
-    even the pass-through path now carries `truncated: false`.
+    Otherwise: small services pass through with full per-column detail for every
+    table. Large services (tables x columns — e.g. Gaia/Data Lab) would overflow
+    the model context, so the response degrades to a *table catalog*: every table
+    keeps its name, (clipped) description, and column_count, but the per-column
+    arrays are dropped. `truncated` discloses the degradation; a hint points the
+    model at the per-table columns drill-down and at table_filter for narrowing.
+
+    Always carries top-level `truncated` (project contract) and `total_tables`;
+    `matched_tables` is added when a filter is applied.
     """
     out = dict(described)
     settings = get_settings()
     budget = settings.registry_describe_byte_limit
 
+    all_tables = out.get("tables") or []
+    total_tables = len(all_tables)
+    out["total_tables"] = total_tables
+
+    filtering = bool(table_filter and table_filter.strip())
+    if filtering:
+        working = _filter_describe_tables(all_tables, table_filter or "")
+        out["tables"] = working
+        out["matched_tables"] = len(working)
+    else:
+        working = all_tables
+
     if _estimate_payload_bytes(out) <= budget:
         out["truncated"] = False
         out["truncation_reason"] = None
+        if filtering and not working:
+            out["hints"] = [
+                {
+                    "kind": "tip",
+                    "text": _no_match_hint(table_filter or "", total_tables),
+                    "source": None,
+                }
+            ]
         return out
 
-    all_tables = out.get("tables") or []
-    catalog = [_describe_catalog_entry(t) for t in all_tables]
+    catalog = [_describe_catalog_entry(t) for t in working]
     out["tables"] = catalog
     out["truncated"] = True
     out["truncation_reason"] = TRUNCATION_REASON_DESCRIBE_OVERSIZE
     # Placeholder hint so the fit measurement below includes its overhead; the
     # final text (with the real omitted count) is written once we know the count.
-    out["hints"] = [{"kind": "tip", "text": _describe_hint(len(all_tables)), "source": None}]
+    out["hints"] = [
+        {
+            "kind": "tip",
+            "text": _describe_hint(len(working), total_tables, table_filter),
+            "source": None,
+        }
+    ]
 
     # Fit ladder. Table names are the irreducible discovery signal, so we keep
     # as many tables as possible and shed detail first:
@@ -248,25 +299,35 @@ def shape_registry_describe_result(described: dict) -> dict:
         catalog = _fit_tables(out, catalog, budget)
         out["tables"] = catalog
 
-    tables_omitted = len(all_tables) - len(catalog)
-    out["hints"][0]["text"] = _describe_hint(tables_omitted)
+    tables_omitted = len(working) - len(catalog)
+    out["hints"][0]["text"] = _describe_hint(tables_omitted, total_tables, table_filter)
     return out
 
 
-def _describe_hint(tables_omitted: int) -> str:
+def _describe_hint(tables_omitted: int, total_tables: int, table_filter: str | None) -> str:
     text = (
-        "Per-column detail was omitted because this service's full schema exceeds "
-        "the inline budget. To get one table's columns, call vo_tap_query with ADQL "
-        'like "SELECT column_name, datatype, ucd, description FROM tap_schema.columns '
+        "Per-column detail was omitted because this result exceeds the inline "
+        "budget. To get one table's columns, call vo_tap_query with ADQL like "
+        '"SELECT column_name, datatype, ucd, description FROM tap_schema.columns '
         "WHERE table_name = '<table>'\", or try vo_schema_describe for curated tables."
     )
     if tables_omitted > 0:
+        text += f" {tables_omitted} table(s) were omitted from this catalog entirely."
+    if table_filter and table_filter.strip():
+        text += f" These are tables matching '{table_filter.strip()}' — refine table_filter to narrow further."
+    else:
         text += (
-            f" {tables_omitted} table(s) were omitted from this catalog entirely; "
-            "query tap_schema.tables via vo_tap_query to enumerate them, or raise "
-            "STABLE_REGISTRY_DESCRIBE_BYTE_LIMIT."
+            f" This service has {total_tables} tables; pass table_filter='<keyword>' "
+            "to find specific tables (a narrow match returns their columns inline)."
         )
     return text
+
+
+def _no_match_hint(table_filter: str, total_tables: int) -> str:
+    return (
+        f"No tables matched table_filter='{table_filter.strip()}'. This service has "
+        f"{total_tables} tables — try a different keyword, or omit table_filter to list them."
+    )
 
 
 def _fit_tables(out: dict, catalog: list[dict], budget: int) -> list[dict]:
