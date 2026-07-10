@@ -1,6 +1,6 @@
-"""Pillar 1 — MCP quality: does the server make workflows easier, cheaper, more accurate?
+"""MCP quality: does the server make workflows easier, cheaper, more accurate?
 
-Runs pillar1_tasks.yaml under all three arms and reports the lift:
+Runs mcp_quality_tasks.yaml under all three arms and reports the lift:
 
     full MCP  vs  raw TAP (run_adql only)  vs  raw web (http_get only)
 
@@ -13,12 +13,12 @@ only a `rubric` are accuracy-scored only when a judge is configured (EVAL_JUDGE_
 otherwise they count toward COMPLETION + efficiency, and accuracy shows as unscored.
 
 Version-over-version: pass --set-baseline to record the current per-arm metrics, and
-future runs auto-diff against `results/pillar1-baseline.json` (or --baseline PATH) so a
-change to tools/notes visibly moves the numbers.
+future runs auto-diff against `results/mcp-quality-baseline.json` (or --baseline PATH) so
+a change to tools/notes visibly moves the numbers.
 
-    uv run python -m evals.pillar1 --set-baseline        # record a baseline
-    uv run python -m evals.pillar1 --n 3                  # later: auto-diff vs baseline
-    EVAL_JUDGE_NAME=... uv run python -m evals.pillar1    # activate rubric accuracy
+    uv run python -m evals.mcp_quality --set-baseline       # record a baseline
+    uv run python -m evals.mcp_quality --n 3                 # later: auto-diff vs baseline
+    EVAL_JUDGE_NAME=... uv run python -m evals.mcp_quality   # activate rubric accuracy
 """
 
 from __future__ import annotations
@@ -36,9 +36,9 @@ from evals.harness import ModelConfig, TaskRun, run_task
 from evals.score import TaskScore, load_tasks, score_task
 
 ARMS = ["mcp", "raw_tap", "raw_web"]
-TASKS_PATH = Path(__file__).with_name("pillar1_tasks.yaml")
+TASKS_PATH = Path(__file__).with_name("mcp_quality_tasks.yaml")
 RESULTS_DIR = Path(__file__).with_name("results")
-BASELINE_PATH = RESULTS_DIR / "pillar1-baseline.json"
+BASELINE_PATH = RESULTS_DIR / "mcp-quality-baseline.json"
 
 # Metric direction for the diff: which way is "better".
 _GOOD_UP = {"accuracy_rate", "completion_rate"}
@@ -64,7 +64,7 @@ def _judge_from_env() -> ModelConfig | None:
 
 
 def _accuracy(score: TaskScore) -> bool | None:
-    """Accuracy verdict for a Pillar-1 run: ground-truth if present, else judged rubric,
+    """Accuracy verdict for a run: ground-truth if present, else judged rubric,
     else None (unscored — no deterministic answer and no judge)."""
     if "ground_truth" in score.checks:
         return score.checks["ground_truth"]
@@ -172,7 +172,7 @@ async def _main(args: argparse.Namespace) -> int:
         per_arm[arm] = _aggregate(runs, accs)
 
     print("\n" + "=" * 80)
-    print("PILLAR 1 — MCP quality (higher acc/compl, lower everything-else is better)")
+    print("MCP QUALITY — arm comparison (higher acc/compl, lower everything-else is better)")
     print("=" * 80)
     _print_table(per_arm, arms)
 
@@ -192,7 +192,7 @@ async def _main(args: argparse.Namespace) -> int:
         "per_arm": {a: per_arm[a] for a in arms},
         "runs": [r.to_dict() for _, r, _ in results],
     }
-    out = RESULTS_DIR / f"pillar1-{stamp}.json"
+    out = RESULTS_DIR / f"mcp-quality-{stamp}.json"
     out.write_text(json.dumps(record, indent=2, default=str))
     print(f"\nWrote {out}")
     if args.set_baseline:
@@ -202,12 +202,12 @@ async def _main(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Pillar-1 MCP-quality arm comparison + diff.")
+    p = argparse.ArgumentParser(description="MCP-quality arm comparison + diff.")
     p.add_argument("--n", type=int, default=1, help="reps per (arm, task)")
     p.add_argument("--arm", action="append", choices=ARMS, help="restrict arms; repeatable")
     p.add_argument("--concurrency", type=int, default=2)
     p.add_argument(
-        "--baseline", help="results JSON to diff against (default: pillar1-baseline.json)"
+        "--baseline", help="results JSON to diff against (default: mcp-quality-baseline.json)"
     )
     p.add_argument("--set-baseline", action="store_true", help="record this run as the baseline")
     return asyncio.run(_main(p.parse_args()))

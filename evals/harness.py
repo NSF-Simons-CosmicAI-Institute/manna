@@ -138,7 +138,7 @@ class TaskRun:
     tier: int
     condition: str  # "full" | "ablated"
     model: str
-    arm: str = "mcp"  # "mcp" | "raw_tap" | "raw_web" (Pillar-1 comparison arm)
+    arm: str = "mcp"  # "mcp" | "raw_tap" | "raw_web" (MCP-quality comparison arm)
     trace: list[ToolCall] = field(default_factory=list)
     final_answer: str = ""
     steps: int = 0
@@ -291,7 +291,7 @@ async def run_task(
     """Run one task end-to-end under the given context condition and tool arm.
 
     `arm` selects the tool provider: 'mcp' (full server), 'raw_tap', or 'raw_web'
-    (the Pillar-1 no-curation baselines). inject_notes/no_discovery apply to 'mcp'.
+    (the MCP-quality no-curation baselines). inject_notes/no_discovery apply to 'mcp'.
     """
     from evals.providers import make_provider
 

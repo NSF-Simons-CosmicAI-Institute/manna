@@ -1,4 +1,4 @@
-"""Tool providers — the three arms of the Pillar-1 MCP-quality comparison.
+"""Tool providers — the three arms of the MCP-quality comparison.
 
 Each provider exposes the same tiny interface (an async context manager giving
 `tools` + `call`), so the agent loop in harness.py is arm-agnostic:

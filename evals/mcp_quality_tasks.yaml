@@ -1,4 +1,4 @@
-# Pillar-1 task set: end-to-end, ARM-AGNOSTIC, DETERMINISTIC answers.
+# MCP-quality task set: end-to-end, ARM-AGNOSTIC, DETERMINISTIC answers.
 #
 # These run under all three arms (mcp / raw_tap / raw_web) to measure the server's
 # lift, so they must NOT reference vo_* tools (no expect_tools / arg_checks) — only a
