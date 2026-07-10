@@ -63,28 +63,39 @@ class ModelConfig:
 
     @classmethod
     def from_env(cls, prefix: str = "EVAL_MODEL") -> ModelConfig:
-        """Build from env, falling back to the persona's ``ANTHROPIC_*`` vars so
-        the same ``deploy/frontend/.env`` that runs the persona also runs the eval.
+        """Build from env.
 
-        Recognized (prefix defaults to EVAL_MODEL):
-          {PREFIX}_NAME / ANTHROPIC_DEFAULT_OPUS_MODEL  -> served model name
-          {PREFIX}_BASE_URL / ANTHROPIC_BASE_URL        -> endpoint (omit for hosted)
-          {PREFIX}_API_KEY / ANTHROPIC_API_KEY          -> auth token (dummy for vLLM)
-          ANTHROPIC_CUSTOM_HEADERS                      -> "Header: v; Header2: v2"
+        The model-under-test (prefix ``EVAL_MODEL``) inherits the persona's bare
+        ``ANTHROPIC_*`` vars, so the same ``deploy/frontend/.env`` that runs the
+        persona also runs the eval. Any OTHER prefix (e.g. ``EVAL_JUDGE``) is read
+        from its own vars ONLY — no ANTHROPIC_* fallback — so a hosted-Claude judge
+        stays fully isolated from a local-proxy model-under-test (different base_url,
+        different auth, no leaked Basic-auth header).
+
+        Recognized ({PREFIX} = EVAL_MODEL or EVAL_JUDGE):
+          {PREFIX}_NAME[/ ANTHROPIC_DEFAULT_OPUS_MODEL]  -> served model name
+          {PREFIX}_BASE_URL[/ ANTHROPIC_BASE_URL]        -> endpoint (omit for hosted)
+          {PREFIX}_API_KEY[/ ANTHROPIC_API_KEY]          -> auth token
+          {PREFIX}_CUSTOM_HEADERS[/ ANTHROPIC_CUSTOM_HEADERS] -> "Header: v; Header2: v2"
+        (the ANTHROPIC_* fallbacks in brackets apply to EVAL_MODEL only.)
         """
-        name = (
-            os.getenv(f"{prefix}_NAME")
-            or os.getenv("ANTHROPIC_DEFAULT_OPUS_MODEL")
-            or "claude-opus-4-8"
-        )
-        base_url = os.getenv(f"{prefix}_BASE_URL") or os.getenv("ANTHROPIC_BASE_URL")
-        api_key = os.getenv(f"{prefix}_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or "dummy"
-        headers = _parse_custom_headers(os.getenv("ANTHROPIC_CUSTOM_HEADERS", ""))
+        inherit = prefix == "EVAL_MODEL"
+
+        def get(suffix: str, anthropic_var: str | None = None) -> str | None:
+            val = os.getenv(f"{prefix}_{suffix}")
+            if not val and inherit and anthropic_var:
+                val = os.getenv(anthropic_var)
+            return val or None
+
+        name = get("NAME", "ANTHROPIC_DEFAULT_OPUS_MODEL") or "claude-opus-4-8"
+        base_url = get("BASE_URL", "ANTHROPIC_BASE_URL")
+        api_key = get("API_KEY", "ANTHROPIC_API_KEY") or "dummy"
+        raw_headers = get("CUSTOM_HEADERS", "ANTHROPIC_CUSTOM_HEADERS") or ""
         return cls(
             model=name,
-            base_url=base_url or None,
+            base_url=base_url,
             api_key=api_key,
-            extra_headers=headers,
+            extra_headers=_parse_custom_headers(raw_headers),
             label=os.getenv(f"{prefix}_LABEL", name),
         )
 
