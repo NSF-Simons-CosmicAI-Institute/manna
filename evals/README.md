@@ -77,3 +77,41 @@ deterministic `ground_truth` (coords/contains/regex) when the answer has a stabl
 value; use a `rubric` (judge-scored) only for open-ended answers. For a Tier-3 trap,
 express "avoided the trap" as `arg_checks` on the recorded ADQL/args (e.g. `mode == async`,
 or ADQL `not_contains CONTAINS(`) so it scores without a judge.
+
+## Three evaluation programs
+
+Beyond the tier suite above, `evals/` hosts three focused programs (full design +
+findings: [`docs/mcp-eval-roadmap.md`](../docs/mcp-eval-roadmap.md)).
+
+**1 — MCP quality** (`mcp_quality.py`): is the server *worth it*? Runs a task suite
+(`mcp_quality_tasks.yaml`) through 3 arms — `mcp` (the tools) vs `raw_tap` vs `raw_web`
+(`providers.py`) — and reports accuracy / tool-errors / iterations per arm, with per-tool /
+per-archive breakdown and version-over-version diffing against a baseline.
+
+```bash
+uv run python -m evals.mcp_quality                 # 3-arm comparison
+uv run python -m evals.mcp_quality --set-baseline  # record results/mcp-quality-baseline.json
+```
+
+**2 — model × harness matrix** (`model_backends.py`, `personas.py`, `persona_run.py`,
+`scorecard.py`): how well do different **models** and **harnesses** work with the server?
+`make_backend` drives Anthropic (Messages) **or** OpenAI (Chat Completions) models via one
+neutral path (`EVAL_MODEL_BACKEND`); `make_persona` drives a real agent harness (Claude Code
+today; a registry, so add a driver in one entry) end-to-end and scores its transcript.
+`scorecard.py` grades each `(model × harness)` cell on WORKFLOW + MCP-COMPATIBILITY axes.
+
+```bash
+uv run python -m evals.persona_run --limit 3               # Claude Code persona, 3 tasks
+uv run python -m evals.persona_run --same-model --limit 3  # persona at the same Qwen (free)
+uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/persona-*.json
+```
+
+**3 — archive caveat regression** (`caveats.py`): keep the KB honest. **Model-free** — one
+live ADQL probe per falsifiable `usage_notes` claim, keyed to `(archive, caveat_id)`,
+reporting STILL-TRUE / STALE / UNREACHABLE. Non-zero exit on STALE (cron/CI-friendly).
+
+```bash
+uv run python -m evals.caveats --list          # list caveats, no probes
+uv run python -m evals.caveats --archive nrao  # one archive
+uv run python -m evals.caveats                 # all caveats vs live archives
+```
