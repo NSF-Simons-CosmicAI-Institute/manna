@@ -25,16 +25,25 @@ if TYPE_CHECKING:
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
 # Async TAP lifecycles poll vo_tap_status repeatedly, so this must be generous.
-# Env-overridable so trap experiments (which only need the SUBMITTED query, not job
-# completion) can cap polling and run fast.
-MAX_STEPS = int(os.getenv("EVAL_MAX_STEPS", "20"))
+# Defaults; the live values are read from env at run_task() call time (via _max_steps /
+# _poll_sleep) so evals/.env — loaded after import — can still override them.
+MAX_STEPS = 20
 DEFAULT_MAX_TOKENS = 4096
 
 # When a status poll comes back non-terminal, wait before handing control back to
 # the model so the upstream job actually has wall-clock time to progress — otherwise
 # the model burns its whole step budget on back-to-back polls of a QUEUED job.
-ASYNC_POLL_SLEEP_S = float(os.getenv("EVAL_ASYNC_POLL_SLEEP", "6.0"))
+ASYNC_POLL_SLEEP_S = 6.0
 _NONTERMINAL_PHASES = {"PENDING", "QUEUED", "EXECUTING", "HELD", "SUSPENDED", "UNKNOWN"}
+
+
+def _max_steps() -> int:
+    return int(os.getenv("EVAL_MAX_STEPS", str(MAX_STEPS)))
+
+
+def _poll_sleep() -> float:
+    return float(os.getenv("EVAL_ASYNC_POLL_SLEEP", str(ASYNC_POLL_SLEEP_S)))
+
 
 # Cap the size of a single tool result fed back to the model. A large
 # vo_registry_describe / preview payload can otherwise blow the model's context
@@ -305,13 +314,14 @@ async def run_task(
     # Ablation only affects the curated KB, i.e. the 'mcp' arm; no-op for raw arms.
     ctx = ablated_context if condition == "ablated" else full_context
     started = time.monotonic()
+    max_steps, poll_sleep = _max_steps(), _poll_sleep()
     try:
         with ctx():
             provider = make_provider(arm, inject_notes=inject_notes, no_discovery=no_discovery)
             async with provider, cfg.client() as model:
                 tools = provider.tools
                 messages: list[dict[str, Any]] = [{"role": "user", "content": task["prompt"]}]
-                for step in range(MAX_STEPS):
+                for step in range(max_steps):
                     run.steps = step + 1
                     resp = await model.messages.create(
                         model=cfg.model,
@@ -349,7 +359,7 @@ async def run_task(
                     messages.append({"role": "user", "content": tool_results})
                     # Let a still-running async job make progress before the next poll.
                     if should_pace:
-                        await asyncio.sleep(ASYNC_POLL_SLEEP_S)
+                        await asyncio.sleep(poll_sleep)
                 else:
                     # Distinguish "model got stuck" from "an upstream async job never
                     # finished in our polling budget" — the latter is an environment
@@ -359,10 +369,10 @@ async def run_task(
                         run.async_incomplete = True
                         run.error = (
                             f"async job still {last.result.get('phase')} after "
-                            f"{MAX_STEPS} steps (upstream latency, not a model failure)"
+                            f"{max_steps} steps (upstream latency, not a model failure)"
                         )
                     else:
-                        run.error = f"hit MAX_STEPS ({MAX_STEPS}) without a final answer"
+                        run.error = f"hit max steps ({max_steps}) without a final answer"
     except Exception as exc:  # harness-level failure; keep going with other tasks
         run.error = f"{type(exc).__name__}: {exc}"
     finally:

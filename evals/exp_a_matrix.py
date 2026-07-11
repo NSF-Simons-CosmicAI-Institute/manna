@@ -20,7 +20,7 @@ error hint). So injection recovers exactly the traps it covers.
 
 import asyncio
 
-from evals.harness import MAX_STEPS, ModelConfig, run_task
+from evals.harness import ModelConfig, _max_steps, run_task
 from evals.score import load_tasks, score_programmatic
 
 TRAPS = [
@@ -41,7 +41,7 @@ N = 3
 async def main():
     cfg = ModelConfig.from_env()
     tasks = {t["id"]: t for t in load_tasks() if t["id"] in TRAPS}
-    print(f"model={cfg.label}  MAX_STEPS={MAX_STEPS}  N={N} per cell/trap\n")
+    print(f"model={cfg.label}  MAX_STEPS={_max_steps()}  N={N} per cell/trap\n")
 
     sem = asyncio.Semaphore(2)
 
