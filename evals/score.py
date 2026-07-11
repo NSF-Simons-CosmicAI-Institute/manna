@@ -262,20 +262,17 @@ async def score_rubric(
         f"ASSISTANT FINAL ANSWER:\n{run.final_answer or '(no final answer produced)'}\n\n"
         f"TOOL-CALL TRACE:\n{_compact_trace(run) or '(no tools called)'}"
     )
+    from evals.model_backends import make_backend
+
     try:
-        async with judge.client() as client:
-            resp = await client.messages.create(
-                model=judge.model,
-                max_tokens=1536,  # room for reasoning models to finish and still emit JSON
-                system=_JUDGE_SYSTEM,
-                messages=[{"role": "user", "content": prompt}],
-            )
+        # Route through the model-backend layer so the judge can be Anthropic OR OpenAI.
+        async with make_backend(judge) as backend:
+            comp = await backend.complete(_JUDGE_SYSTEM, [{"role": "user", "text": prompt}], [])
     except Exception as exc:  # auth/network/rate-limit -> degrade to unscored, don't crash
         return None, None, f"judge call failed: {type(exc).__name__}: {exc}"
-    text = "".join(b.text for b in resp.content if b.type == "text").strip()
-    verdict = _extract_verdict(text)
+    verdict = _extract_verdict(comp.text)
     if verdict is None:
-        return None, None, f"judge returned no parseable verdict: {text[:120]!r}"
+        return None, None, f"judge returned no parseable verdict: {comp.text[:120]!r}"
     return bool(verdict.get("pass")), verdict.get("quality"), verdict.get("reason")
 
 

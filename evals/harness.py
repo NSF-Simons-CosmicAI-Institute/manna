@@ -16,12 +16,9 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from evals.context import ablated_context, full_context
-
-if TYPE_CHECKING:
-    from anthropic import AsyncAnthropic
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
 # Async TAP lifecycles poll vo_tap_status repeatedly, so this must be generous.
@@ -109,16 +106,6 @@ class ModelConfig:
             label=os.getenv(f"{prefix}_LABEL", name),
             backend=os.getenv(f"{prefix}_BACKEND", "anthropic"),
         )
-
-    def client(self) -> AsyncAnthropic:
-        from anthropic import AsyncAnthropic
-
-        kwargs: dict[str, Any] = {"api_key": self.api_key}
-        if self.base_url:
-            kwargs["base_url"] = self.base_url
-        if self.extra_headers:
-            kwargs["default_headers"] = self.extra_headers
-        return AsyncAnthropic(**kwargs)
 
 
 def _parse_custom_headers(raw: str) -> dict[str, str]:
