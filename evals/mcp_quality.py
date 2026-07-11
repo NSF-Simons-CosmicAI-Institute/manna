@@ -157,12 +157,20 @@ def _print_breakdown(bd: dict[str, dict[str, list[int]]]) -> None:
             print(f"    {key:24s} {calls:4d} / {errs:<3d}{flag}")
 
 
-def _print_diff(cur: dict[str, dict], cur_version: str, base: dict, arms: list[str]) -> None:
+def _print_diff(
+    cur: dict[str, dict], cur_version: str, base: dict, arms: list[str], cur_tasks: list[str]
+) -> None:
     base_arms = base.get("per_arm", {})
     print(
         f"\nversion-over-version diff  (baseline {base.get('server_version', '?')} "
         f"→ current {cur_version})"
     )
+    base_tasks = base.get("task_ids")
+    if base_tasks is not None and set(base_tasks) != set(cur_tasks):
+        print(
+            f"  ⚠ task suite CHANGED since baseline ({len(base_tasks)} → {len(cur_tasks)} "
+            "tasks) — metrics are NOT directly comparable; re-baseline with --set-baseline."
+        )
     for arm in arms:
         if arm not in base_arms:
             continue
@@ -230,7 +238,9 @@ async def _main(args: argparse.Namespace) -> int:
     # Version-over-version diff.
     baseline_path = Path(args.baseline) if args.baseline else BASELINE_PATH
     if baseline_path.exists():
-        _print_diff(per_arm, version, json.loads(baseline_path.read_text()), arms)
+        _print_diff(
+            per_arm, version, json.loads(baseline_path.read_text()), arms, [t["id"] for t in tasks]
+        )
     elif not args.set_baseline:
         print(f"\n(no baseline at {baseline_path.name}; run --set-baseline to record one)")
 
@@ -241,6 +251,7 @@ async def _main(args: argparse.Namespace) -> int:
         "model": cfg.label,
         "timestamp": stamp,
         "per_arm": {a: per_arm[a] for a in arms},
+        "task_ids": [t["id"] for t in tasks],
         "mcp_breakdown": breakdown,
         "runs": [r.to_dict() for _, r, _ in results],
     }
