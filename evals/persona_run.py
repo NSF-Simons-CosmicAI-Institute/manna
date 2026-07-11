@@ -25,7 +25,7 @@ from pathlib import Path
 import httpx
 
 from evals.mcp_quality import _accuracy, _judge_from_env
-from evals.personas import ClaudeCodePersona, PersonaConfig
+from evals.personas import PersonaConfig, make_persona
 from evals.score import load_tasks, score_task
 
 TASKS_PATH = Path(__file__).with_name("mcp_quality_tasks.yaml")
@@ -88,11 +88,12 @@ async def _main(args: argparse.Namespace) -> int:
     if args.limit:
         tasks = tasks[: args.limit]
     judge = _judge_from_env()
+    base_name = args.persona  # registry key (e.g. "claude-code"); label may get an @model suffix
     p_env, p_model, p_label = {}, args.model, args.persona
     if args.same_model:
         p_env, p_model, p_label = _same_model_persona(args.persona)
-    persona = ClaudeCodePersona(
-        PersonaConfig(label=p_label, model=p_model, env=p_env, cwd=_SCRATCH)
+    persona = make_persona(
+        base_name, PersonaConfig(label=p_label, model=p_model, env=p_env, cwd=_SCRATCH)
     )
     args.persona = p_label
     mcp_url = f"http://127.0.0.1:{args.port}/mcp/"
@@ -166,7 +167,14 @@ def main() -> int:
 
     load_env()
     p = argparse.ArgumentParser(description="Run the mcp_quality suite through an ACP persona.")
-    p.add_argument("--persona", default="claude-code")
+    from evals.personas import PERSONA_REGISTRY
+
+    p.add_argument(
+        "--persona",
+        default="claude-code",
+        choices=sorted(PERSONA_REGISTRY),
+        help="harness driver to run the suite through",
+    )
     p.add_argument("--model", default=None, help="persona model override (--model)")
     p.add_argument(
         "--same-model",

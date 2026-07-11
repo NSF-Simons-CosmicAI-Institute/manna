@@ -18,7 +18,7 @@ import asyncio
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from evals.harness import TaskRun, ToolCall
 
@@ -32,6 +32,18 @@ class PersonaConfig:
     model: str | None = None  # --model override (else the persona's default)
     env: dict[str, str] = field(default_factory=dict)  # extra env (e.g. point at Qwen)
     cwd: str | None = None  # neutral working dir so it doesn't inherit a repo's CLAUDE.md
+
+
+class Persona(Protocol):
+    """A real agent harness driven end-to-end against the MCP server.
+
+    Implementations run a framework's CLI/SDK on the task's prompt with the MCP server
+    attached, then parse its transcript into a `TaskRun` so the shared scoring applies.
+    """
+
+    cfg: PersonaConfig
+
+    async def run(self, task: dict[str, Any], mcp_url: str) -> TaskRun: ...
 
 
 def _tool_name(raw: str) -> str:
@@ -137,3 +149,21 @@ class ClaudeCodePersona:
         if proc.returncode != 0 and not run.error:
             run.error = f"claude exited {proc.returncode}: {err.decode('utf-8', 'replace')[:200]}"
         return run
+
+
+# Registry of available harness drivers. Only Claude Code is shipped — it is the one agent
+# CLI installed and validated here. To add another (Gemini CLI, Goose, …), implement the
+# `Persona` protocol and register it below; persona_run.py picks it up by name, no other edit.
+PERSONA_REGISTRY: dict[str, type] = {
+    "claude-code": ClaudeCodePersona,
+}
+
+
+def make_persona(name: str, cfg: PersonaConfig) -> Persona:
+    """Build a persona by registry name, or raise with the list of what's available."""
+    try:
+        cls = PERSONA_REGISTRY[name]
+    except KeyError:
+        available = ", ".join(sorted(PERSONA_REGISTRY))
+        raise ValueError(f"unknown persona {name!r}; available: {available}") from None
+    return cls(cfg)
