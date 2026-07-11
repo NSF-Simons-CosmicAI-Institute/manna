@@ -262,13 +262,16 @@ async def score_rubric(
         f"ASSISTANT FINAL ANSWER:\n{run.final_answer or '(no final answer produced)'}\n\n"
         f"TOOL-CALL TRACE:\n{_compact_trace(run) or '(no tools called)'}"
     )
-    async with judge.client() as client:
-        resp = await client.messages.create(
-            model=judge.model,
-            max_tokens=1536,  # room for reasoning models to finish and still emit JSON
-            system=_JUDGE_SYSTEM,
-            messages=[{"role": "user", "content": prompt}],
-        )
+    try:
+        async with judge.client() as client:
+            resp = await client.messages.create(
+                model=judge.model,
+                max_tokens=1536,  # room for reasoning models to finish and still emit JSON
+                system=_JUDGE_SYSTEM,
+                messages=[{"role": "user", "content": prompt}],
+            )
+    except Exception as exc:  # auth/network/rate-limit -> degrade to unscored, don't crash
+        return None, None, f"judge call failed: {type(exc).__name__}: {exc}"
     text = "".join(b.text for b in resp.content if b.type == "text").strip()
     verdict = _extract_verdict(text)
     if verdict is None:

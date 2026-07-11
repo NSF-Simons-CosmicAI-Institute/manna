@@ -32,7 +32,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from evals.harness import ModelConfig, TaskRun, run_task
+from evals.harness import ModelConfig, TaskRun, ToolCall, run_task
 from evals.score import TaskScore, load_tasks, score_task
 
 ARMS = ["mcp", "raw_tap", "raw_web"]
@@ -112,6 +112,51 @@ def _print_table(per_arm: dict[str, dict[str, Any]], arms: list[str]) -> None:
         print(f"{arm:10s}" + "".join(f"{str(a[key]):>11s}" for key, _ in _COLS))
 
 
+def _archive_host_map() -> dict[str, str]:
+    """host substring -> archive short_name, from the server's own registry."""
+    from astro_archives_mcp.known_archives import KNOWN_ARCHIVES
+
+    return {h.lower(): a.short_name for a in KNOWN_ARCHIVES for h in a.host_substrings}
+
+
+def _archive_of(call: ToolCall, host_map: dict[str, str]) -> str:
+    """Attribute a tool call to an archive: the result's `archive` field if present,
+    else infer from a host substring in the args (endpoint/url/access_url)."""
+    if isinstance(call.result, dict) and call.result.get("archive"):
+        return str(call.result["archive"])
+    blob = " ".join(str(v) for v in (call.args or {}).values()).lower()
+    for host, name in host_map.items():
+        if host in blob:
+            return name
+    return "—"
+
+
+def _breakdown(runs: list[TaskRun]) -> dict[str, dict[str, list[int]]]:
+    """Per-tool and per-archive [calls, error-calls] for the given (mcp-arm) runs —
+    shows where iterations and failures concentrate, i.e. what to refine next."""
+    host_map = _archive_host_map()
+    by_tool: dict[str, list[int]] = {}
+    by_archive: dict[str, list[int]] = {}
+    for run in runs:
+        for c in run.trace:
+            bt = by_tool.setdefault(c.tool, [0, 0])
+            bt[0] += 1
+            bt[1] += int(c.is_error)
+            ba = by_archive.setdefault(_archive_of(c, host_map), [0, 0])
+            ba[0] += 1
+            ba[1] += int(c.is_error)
+    return {"by_tool": by_tool, "by_archive": by_archive}
+
+
+def _print_breakdown(bd: dict[str, dict[str, list[int]]]) -> None:
+    print("\nmcp arm — where calls/errors concentrate (calls / error-calls):")
+    for dim, label in (("by_tool", "by tool"), ("by_archive", "by archive")):
+        print(f"  {label}:")
+        for key, (calls, errs) in sorted(bd[dim].items(), key=lambda kv: -kv[1][0]):
+            flag = "   <-- errors here" if errs else ""
+            print(f"    {key:24s} {calls:4d} / {errs:<3d}{flag}")
+
+
 def _print_diff(cur: dict[str, dict], cur_version: str, base: dict, arms: list[str]) -> None:
     base_arms = base.get("per_arm", {})
     print(
@@ -176,6 +221,12 @@ async def _main(args: argparse.Namespace) -> int:
     print("=" * 80)
     _print_table(per_arm, arms)
 
+    # Per-tool / per-archive breakdown for the mcp arm — what to refine next.
+    breakdown = None
+    if "mcp" in arms:
+        breakdown = _breakdown([r for a, r, _ in results if a == "mcp"])
+        _print_breakdown(breakdown)
+
     # Version-over-version diff.
     baseline_path = Path(args.baseline) if args.baseline else BASELINE_PATH
     if baseline_path.exists():
@@ -190,6 +241,7 @@ async def _main(args: argparse.Namespace) -> int:
         "model": cfg.label,
         "timestamp": stamp,
         "per_arm": {a: per_arm[a] for a in arms},
+        "mcp_breakdown": breakdown,
         "runs": [r.to_dict() for _, r, _ in results],
     }
     out = RESULTS_DIR / f"mcp-quality-{stamp}.json"
