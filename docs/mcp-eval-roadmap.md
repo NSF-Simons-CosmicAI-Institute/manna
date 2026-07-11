@@ -92,17 +92,30 @@ a falsifiable claim from the KB paired with a small live ADQL probe and an expec
 UNREACHABLE**; a STALE result names the archive + caveat to edit. `--list`, `--archive <x>`,
 non-zero exit on any STALE (cron/CI-friendly).
 
-**STALE vs UNREACHABLE** is separated by a per-archive **control probe** (a metadata query
-that must work if the service is up). If the control fails → the archive is UNREACHABLE and
-its caveats aren't judged, so a network blip is never misreported as "the KB went stale".
-Only when the control passes is a caveat that behaves opposite to its claim called STALE.
-Uses the package's own `TapClient` + error taxonomy (`DalQueryError` = semantic reject,
-`ArchiveError` = service).
+**1:1 with the KB (62 caveats)** — one per falsifiable quirk across every `usage_note` and
+`schema_kb` entry (datalab/alma/nrao/gaia/eso/cadc), so a run singles out *which* caveat
+drifted. 34 are model-free live probes (kinds: `ok` / `error` / `empty` / `nonempty` /
+`count` — where `count` checks a column group from one note and, on drift, names exactly
+which column disappeared). The 28 that a single ADQL probe can't check (SIA/DataLink
+download recipes, advisory naming, async-only NRAO behaviours) are listed **MANUAL** for
+completeness — never silently dropped. Each caveat carries a `source` pointer to the exact
+KB line to edit.
 
-8 caveats across datalab / nrao / alma / gaia / eso / cadc (e.g. Data Lab geometry still
-untranslated + `q3c_radial_query(...)='t'` still works; NRAO `/sync` still 5xxs on
-`tap_schema.obscore`; `ivoa.obscore` still absent; `dataproduct_subtype` still absent; ALMA
-sync-spatial still works). Validated live: datalab 2/2 and nrao 3/3 STILL-TRUE.
+**STALE vs UNREACHABLE** is separated two ways: (1) a per-archive **control probe** (a
+metadata query that must work if the service is up) — if it fails the archive is UNREACHABLE
+and its caveats aren't judged; (2) per-probe, a semantic reject (`DalQueryError`) is
+trustworthy but a service/network error (`ArchiveError`) is retried once then treated as
+UNREACHABLE for a success-expecting caveat — so a blip is never a false STALE. Validated
+live against a genuinely flaky Data Lab (a mid-run 502 outage) and a 404 CADC endpoint;
+neither produced a false STALE. Full run: **32 still-true / 0 stale / 2 unreachable / 28
+manual**.
+
+**It caught a real KB bug on its first full run:** `schema_kb.py` named `nsc_dr2.object`'s
+healpix index columns `healpix_ring256`/`healpix_nest4096`, but the live table exposes them
+as `ring256`/`nest4096` — the KB was handing agents column names that don't exist. Fixed.
+**Open lead:** the CADC `tap_url` 404s on `/sync` for every candidate path — likely a stale
+endpoint in `known_archives.py`; the suite flags it UNREACHABLE (not changed autonomously —
+a shipped-server endpoint change; tie to CADC issue #42).
 
 ### Step 0 (KB per-archive modularization) — **deliberately skipped**
 
