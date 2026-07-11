@@ -79,4 +79,7 @@ async def main():
 
 
 if __name__ == "__main__":
+    from evals._env import load_env
+
+    load_env()
     asyncio.run(main())

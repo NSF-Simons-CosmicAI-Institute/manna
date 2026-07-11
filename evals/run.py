@@ -202,6 +202,9 @@ async def _main_async(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
+    from evals._env import load_env
+
+    load_env()
     p = argparse.ArgumentParser(description="Run the astro-archives-mcp agentic eval.")
     p.add_argument(
         "--tier",

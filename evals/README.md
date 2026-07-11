@@ -33,22 +33,28 @@ task prompt ─► model under test (Anthropic Messages API)  ─► emits tool_
 uv sync --group eval        # adds anthropic + pyyaml (server runtime deps untouched)
 ```
 
-## Configure the model
+## Configure the model + judge
 
-The harness reads the **same `ANTHROPIC_*` env the Jupyter AI persona uses**, so the
-`deploy/frontend/.env` that runs the persona also runs the eval. Overrides use the
-`EVAL_MODEL_*` prefix.
+Copy the template and fill in real values — it's **gitignored** and auto-loaded by every
+eval entrypoint (no `source` needed; real shell env vars still override it):
 
-| Var | Purpose | Fallback |
-|-----|---------|----------|
-| `EVAL_MODEL_NAME` | served model name | `ANTHROPIC_DEFAULT_OPUS_MODEL` |
-| `EVAL_MODEL_BASE_URL` | endpoint (omit for hosted Claude) | `ANTHROPIC_BASE_URL` |
-| `EVAL_MODEL_API_KEY` | auth token (`dummy` for vLLM) | `ANTHROPIC_API_KEY` |
-| `ANTHROPIC_CUSTOM_HEADERS` | e.g. `Authorization: Basic <b64>` | — |
+```bash
+cp evals/.env.example evals/.env    # then edit evals/.env
+```
 
-For the rubric **judge**, set `EVAL_JUDGE_NAME` (+ its own `EVAL_JUDGE_*`). Use hosted
-Claude here — never let the model under test grade itself. If no judge is configured,
-rubric tasks are reported as *unscored* (not silently passed).
+| Var | Purpose |
+|-----|---------|
+| `EVAL_MODEL_NAME` / `_BASE_URL` / `_API_KEY` / `_CUSTOM_HEADERS` | the **model under test** (dlai01 Qwen3.5 via the datalab proxy) |
+| `EVAL_JUDGE_NAME` / `_API_KEY` (+ `_BASE_URL` / `_CUSTOM_HEADERS`) | the rubric **judge** |
+| `EVAL_MAX_STEPS` / `EVAL_ASYNC_POLL_SLEEP` | optional run knobs |
+
+The judge config is **independent** of the model-under-test (it does *not* inherit the
+proxy `ANTHROPIC_*`/`EVAL_MODEL_*` vars), so a **hosted Claude Haiku** judge (`EVAL_JUDGE_NAME=claude-haiku-4-5`
++ a real `EVAL_JUDGE_API_KEY`) stays cleanly separated from a local-proxy model. The free
+**Qwen judge** (~75–85% JSON-parseable) is the zero-cost fallback. Never let the model
+grade itself for real numbers; if no judge is set, rubric tasks report as *unscored*
+(never silently passed). (`EVAL_MODEL_*` also still falls back to the persona's bare
+`ANTHROPIC_*` vars if you prefer to reuse `deploy/frontend/.env`.)
 
 ## Run
 

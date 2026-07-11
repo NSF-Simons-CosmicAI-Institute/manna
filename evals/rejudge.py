@@ -65,6 +65,9 @@ async def _main(path: Path, tasks_path: Path | None = None) -> int:
 
 
 def main() -> int:
+    from evals._env import load_env
+
+    load_env()
     if len(sys.argv) not in (2, 4) or (len(sys.argv) == 4 and sys.argv[2] != "--tasks"):
         print("usage: python -m evals.rejudge <results.json> [--tasks <tasks.yaml>]")
         return 2

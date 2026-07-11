@@ -254,6 +254,9 @@ async def _main(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
+    from evals._env import load_env
+
+    load_env()
     p = argparse.ArgumentParser(description="MCP-quality arm comparison + diff.")
     p.add_argument("--n", type=int, default=1, help="reps per (arm, task)")
     p.add_argument("--arm", action="append", choices=ARMS, help="restrict arms; repeatable")
