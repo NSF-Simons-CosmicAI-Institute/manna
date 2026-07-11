@@ -43,24 +43,25 @@ async def _main(path: Path, tasks_path: Path | None = None) -> int:
     judge = ModelConfig.from_env(prefix="EVAL_JUDGE")
     print(f"Re-judging {path.name} with judge: {judge.label}\n")
 
-    verdicts = []
+    verdicts = []  # (group, task_id, passed)
     for run in data.get("runs", []):
         task = tasks.get(run["task_id"])
         if not task or not task.get("rubric"):
             continue
+        group = run.get("arm") or run.get("condition", "full")  # arms (mcp_quality) or full/ablated
         tr = _reconstruct(run)
         passed, quality, reason = await score_rubric(task, tr, judge)
-        verdicts.append((run["task_id"], run.get("condition", "full"), passed, quality))
+        verdicts.append((group, run["task_id"], passed))
         mark = "PASS" if passed else ("FAIL" if passed is not None else "????")
-        print(f"  [{mark}] q={quality} {run['task_id']} [{run.get('condition')}]")
+        print(f"  [{mark}] q={quality} {group:8s} {run['task_id']}")
         print(f"         {reason}")
 
-    graded = [v for v in verdicts if v[2] is not None]
-    if graded:
-        rate = sum(v[2] for v in graded) / len(graded)
-        print(f"\nRubric pass rate ({judge.label}): {rate:.3f}  ({len(graded)} tasks judged)")
-    else:
-        print("\nNo rubric tasks judged (empty or unparseable).")
+    groups = sorted({g for g, _, _ in verdicts})
+    print(f"\nRubric pass rate ({judge.label}):")
+    for g in groups:
+        graded = [p for gr, _, p in verdicts if gr == g and p is not None]
+        rate = f"{sum(graded) / len(graded):.3f}" if graded else "n/a"
+        print(f"  {g:10s} {rate}  ({len(graded)} judged)")
     return 0
 
 
