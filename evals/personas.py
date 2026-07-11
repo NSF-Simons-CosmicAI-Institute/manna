@@ -114,6 +114,11 @@ class ClaudeCodePersona:
         if self.cfg.model:
             cmd += ["--model", self.cfg.model]
         env = {**os.environ, **self.cfg.env}
+        # When redirecting to a custom model endpoint, drop inherited creds that would
+        # otherwise win over (or collide with) the endpoint's own auth.
+        if self.cfg.env.get("ANTHROPIC_BASE_URL"):
+            for k in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_AUTH_TOKEN"):
+                env.pop(k, None)
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,

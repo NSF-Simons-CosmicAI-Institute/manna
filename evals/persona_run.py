@@ -61,12 +61,40 @@ def _used_mcp(run) -> bool:
     return any(c.tool.startswith("vo_") for c in run.trace)
 
 
+def _same_model_persona(base_label: str) -> tuple[dict[str, str], str, str]:
+    """Env pointing Claude Code at the SAME model as the custom loop (from EVAL_MODEL_*),
+    for a like-for-like harness comparison. Returns (env, model, label)."""
+    name = os.getenv("EVAL_MODEL_NAME") or os.getenv("ANTHROPIC_DEFAULT_OPUS_MODEL") or ""
+    env = {
+        "ANTHROPIC_API_KEY": "dummy",  # rides x-api-key; satisfies Claude Code login check
+        "ANTHROPIC_MODEL": name,  # override any inherited default
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": name,
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": name,
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": name,
+        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192",
+    }
+    for src, dst in (
+        ("EVAL_MODEL_BASE_URL", "ANTHROPIC_BASE_URL"),
+        ("EVAL_MODEL_CUSTOM_HEADERS", "ANTHROPIC_CUSTOM_HEADERS"),
+    ):
+        if os.getenv(src):
+            env[dst] = os.environ[src]
+    short = name.split("/")[-1] or "model"
+    return env, name, f"{base_label}@{short}"
+
+
 async def _main(args: argparse.Namespace) -> int:
     tasks = load_tasks(TASKS_PATH)
     if args.limit:
         tasks = tasks[: args.limit]
     judge = _judge_from_env()
-    persona = ClaudeCodePersona(PersonaConfig(label=args.persona, model=args.model, cwd=_SCRATCH))
+    p_env, p_model, p_label = {}, args.model, args.persona
+    if args.same_model:
+        p_env, p_model, p_label = _same_model_persona(args.persona)
+    persona = ClaudeCodePersona(
+        PersonaConfig(label=p_label, model=p_model, env=p_env, cwd=_SCRATCH)
+    )
+    args.persona = p_label
     mcp_url = f"http://127.0.0.1:{args.port}/mcp/"
 
     print(
@@ -140,6 +168,12 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Run the mcp_quality suite through an ACP persona.")
     p.add_argument("--persona", default="claude-code")
     p.add_argument("--model", default=None, help="persona model override (--model)")
+    p.add_argument(
+        "--same-model",
+        action="store_true",
+        help="drive the persona at the SAME model as the custom loop (EVAL_MODEL_*) for a "
+        "like-for-like harness comparison",
+    )
     p.add_argument(
         "--limit", type=int, default=None, help="run only the first N tasks (cost control)"
     )
