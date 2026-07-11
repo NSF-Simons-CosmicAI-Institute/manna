@@ -37,9 +37,9 @@ def _reconstruct(run: dict) -> TaskRun:
     return r
 
 
-async def _main(path: Path) -> int:
+async def _main(path: Path, tasks_path: Path | None = None) -> int:
     data = json.loads(path.read_text())
-    tasks = {t["id"]: t for t in load_tasks()}
+    tasks = {t["id"]: t for t in load_tasks(tasks_path)}
     judge = ModelConfig.from_env(prefix="EVAL_JUDGE")
     print(f"Re-judging {path.name} with judge: {judge.label}\n")
 
@@ -65,10 +65,11 @@ async def _main(path: Path) -> int:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: python -m evals.rejudge <results.json>")
+    if len(sys.argv) not in (2, 4) or (len(sys.argv) == 4 and sys.argv[2] != "--tasks"):
+        print("usage: python -m evals.rejudge <results.json> [--tasks <tasks.yaml>]")
         return 2
-    return asyncio.run(_main(Path(sys.argv[1])))
+    tasks_path = Path(sys.argv[3]) if len(sys.argv) == 4 else None
+    return asyncio.run(_main(Path(sys.argv[1]), tasks_path))
 
 
 if __name__ == "__main__":
