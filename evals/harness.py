@@ -69,6 +69,7 @@ class ModelConfig:
     extra_headers: dict[str, str] = field(default_factory=dict)
     max_tokens: int = DEFAULT_MAX_TOKENS
     label: str = "model"
+    backend: str = "anthropic"  # "anthropic" | "openai" (model-under-test API shape)
 
     @classmethod
     def from_env(cls, prefix: str = "EVAL_MODEL") -> ModelConfig:
@@ -106,6 +107,7 @@ class ModelConfig:
             api_key=api_key,
             extra_headers=_parse_custom_headers(raw_headers),
             label=os.getenv(f"{prefix}_LABEL", name),
+            backend=os.getenv(f"{prefix}_BACKEND", "anthropic"),
         )
 
     def client(self) -> AsyncAnthropic:
@@ -278,17 +280,6 @@ def _is_nonterminal_poll(tool: str, payload: Any) -> bool:
     )
 
 
-def _assistant_content(blocks) -> list[dict[str, Any]]:
-    """Reconstruct assistant content as plain dicts for the next request."""
-    content: list[dict[str, Any]] = []
-    for b in blocks:
-        if b.type == "text":
-            content.append({"type": "text", "text": b.text})
-        elif b.type == "tool_use":
-            content.append({"type": "tool_use", "id": b.id, "name": b.name, "input": b.input})
-    return content
-
-
 async def run_task(
     task: dict[str, Any],
     cfg: ModelConfig,
@@ -302,6 +293,7 @@ async def run_task(
     `arm` selects the tool provider: 'mcp' (full server), 'raw_tap', or 'raw_web'
     (the MCP-quality no-curation baselines). inject_notes/no_discovery apply to 'mcp'.
     """
+    from evals.model_backends import make_backend
     from evals.providers import make_provider
 
     run = TaskRun(
@@ -318,45 +310,35 @@ async def run_task(
     try:
         with ctx():
             provider = make_provider(arm, inject_notes=inject_notes, no_discovery=no_discovery)
-            async with provider, cfg.client() as model:
+            async with provider, make_backend(cfg) as model:
                 tools = provider.tools
-                messages: list[dict[str, Any]] = [{"role": "user", "content": task["prompt"]}]
+                # Neutral conversation the backend translates to its own wire format.
+                convo: list[dict[str, Any]] = [{"role": "user", "text": task["prompt"]}]
                 for step in range(max_steps):
                     run.steps = step + 1
-                    resp = await model.messages.create(
-                        model=cfg.model,
-                        max_tokens=cfg.max_tokens,
-                        system=SYSTEM_PROMPT,
-                        messages=messages,
-                        tools=tools,
+                    comp = await model.complete(SYSTEM_PROMPT, convo, tools)
+                    run.input_tokens += comp.input_tokens
+                    run.output_tokens += comp.output_tokens
+                    convo.append(
+                        {"role": "assistant", "text": comp.text, "tool_uses": comp.tool_uses}
                     )
-                    if resp.usage:
-                        run.input_tokens += resp.usage.input_tokens
-                        run.output_tokens += resp.usage.output_tokens
-                    messages.append(
-                        {"role": "assistant", "content": _assistant_content(resp.content)}
-                    )
-                    tool_uses = [b for b in resp.content if b.type == "tool_use"]
-                    if not tool_uses:
-                        run.final_answer = "".join(
-                            b.text for b in resp.content if b.type == "text"
-                        ).strip()
+                    if not comp.tool_uses:
+                        run.final_answer = comp.text
                         break
-                    tool_results = []
+                    results = []
                     should_pace = False
-                    for tu in tool_uses:
-                        payload, is_error = await provider.call(tu.name, dict(tu.input))
-                        run.trace.append(ToolCall(tu.name, dict(tu.input), payload, is_error))
-                        should_pace = should_pace or _is_nonterminal_poll(tu.name, payload)
-                        tool_results.append(
+                    for tu in comp.tool_uses:
+                        payload, is_error = await provider.call(tu["name"], dict(tu["input"]))
+                        run.trace.append(ToolCall(tu["name"], dict(tu["input"]), payload, is_error))
+                        should_pace = should_pace or _is_nonterminal_poll(tu["name"], payload)
+                        results.append(
                             {
-                                "type": "tool_result",
-                                "tool_use_id": tu.id,
+                                "tool_use_id": tu["id"],
                                 "content": _tool_result_content(payload),
                                 "is_error": is_error,
                             }
                         )
-                    messages.append({"role": "user", "content": tool_results})
+                    convo.append({"role": "tool", "results": results})
                     # Let a still-running async job make progress before the next poll.
                     if should_pace:
                         await asyncio.sleep(poll_sleep)
