@@ -24,12 +24,13 @@ def test_inline_envelope_basic_shape():
     assert out["row_count"] == 2
     assert out["truncated"] is False
     assert out["truncation_reason"] is None
-    assert out["resource_uri"] is None
     assert out["archive"] == "datalab"
     assert len(out["rows"]) == 2
-    assert out["preview"] is None
     assert out["next_steps"] is None
     assert out["hints"] == []
+    # The stateless envelope carries no resource-tier fields.
+    assert "resource_uri" not in out
+    assert "preview" not in out
 
     cols_by_name = {c["name"]: c for c in out["columns"]}
     assert cols_by_name["ra"]["unit"] == "deg"

@@ -24,8 +24,38 @@ JupyterLab chat  →  ACP agent ("persona")  →  MCP servers
   No server-side code changes are needed for a basic read-only integration.
 
 > **Verified.** A real MCP handshake + `tools/list` against `http://localhost:8000/mcp/`
-> enumerates all 12 `vo_*` tools. A bare `POST /mcp` (no slash) returns a 307 redirect to
+> enumerates all 11 `vo_*` tools. A bare `POST /mcp` (no slash) returns a 307 redirect to
 > `/mcp/`, so always configure the trailing-slash URL.
+
+## Large results: the `fetch_recipe` flow
+
+The server is **stateless** — it never holds result bytes (see the "Result handling"
+section in `CLAUDE.md`). A small query result comes back inline in the tool response, but
+a large one is routed to an async TAP job and `vo_tap_results` returns a `job_url`, a
+`result_url`, and a **`fetch_recipe`** — a snippet of runnable pyvo code — instead of the
+data. The persona is expected to **run that snippet in the user's notebook kernel**, where
+the data lands as a local `table` the user can keep analyzing:
+
+```
+persona: vo_tap_query(mode='async')  → job_url + job_id
+persona: vo_tap_status(job_id)       → COMPLETED
+persona: vo_tap_results(job_id)      → { result_url, fetch_recipe: { code: "import pyvo; …" } }
+persona: <Jupyter_MCP_Server: insert + execute a cell with fetch_recipe.code>
+kernel:  table = job.fetch_result().to_table()   # real astropy.Table, in the user's session
+```
+
+This is why the persona is wired to **two** MCP servers (see `deploy/frontend/`): our
+`astro-archives` tools *and* a notebook-control server (`Jupyter_MCP_Server`) that lets it
+write and run cells. A chat-only persona with no code-execution surface can still use the
+discovery/metadata tools, but cannot materialize a large result — it can only hand the
+`fetch_recipe`/`result_url` to the user to run themselves.
+
+> **Verified end-to-end** (against ALMA, anonymous): the exact `fetch_recipe.code` emitted
+> by `vo_tap_results`, executed in a fresh Python namespace as a kernel cell would, loaded
+> a real `astropy.Table`. The recipe uses `pyvo.dal.AsyncTAPJob(job_url).fetch_result()`,
+> which resolves the archive-specific result URL internally — it does not depend on the
+> `result_url` scheme (which differs per archive: GAVO `/results/result`, ALMA
+> `/tap/files/result_<id>.xml`, Data Lab `/resultStore/result_<id>.xml`).
 
 ## Prerequisites
 

@@ -1,16 +1,17 @@
 """In-memory keyed JobStore for async TAP job handles.
 
-Sibling of result_store.py. Stores enough state to re-hydrate an UWS
-job (job_url, plus debug-friendly metadata) and serve /health stats.
-Process lifetime; lost on restart. Single-instance (no cross-worker
-sharing — fine for Slice 5's single-process deployment).
+Stores enough state to re-hydrate an UWS job (job_url, plus
+debug-friendly metadata) and serve /health stats. Process lifetime;
+lost on restart. Single-instance (no cross-worker sharing — fine for
+the single-process deployment).
 
 Eviction is check-on-read: when `get` finds an expired entry, it deletes
 it before returning None. No background sweeper.
 
-The JobStore is a directory, not a cache: it does NOT hold the result
-bytes or the live phase. The bytes (after fetch) live in result_store;
-the phase is always live-fetched from the upstream UWS.
+The JobStore is a directory, not a cache: it does NOT hold result bytes
+or the live phase. Result bytes never touch the server — the client
+fetches them from the archive via the job_url; the phase is always
+live-fetched from the upstream UWS.
 """
 
 import threading
@@ -18,8 +19,7 @@ import uuid as _uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-_DEFAULT_TTL_SECONDS = 3600  # 1 hour — longer than result_store's 30 min
-# because async jobs themselves run for minutes.
+_DEFAULT_TTL_SECONDS = 3600  # 1 hour — async jobs themselves run for minutes.
 
 
 @dataclass(frozen=True)
@@ -87,7 +87,7 @@ def size_estimate() -> dict[str, int | float]:
     Returns entries (count) and oldest_age_seconds (float). bytes are not
     tracked here — job entries are tiny; entry count + age is the useful
     operator signal. Count includes not-yet-evicted expired entries
-    (eviction is check-on-read, mirroring result_store's behavior).
+    (eviction is check-on-read).
     """
     with _LOCK:
         entries = len(_STORE)

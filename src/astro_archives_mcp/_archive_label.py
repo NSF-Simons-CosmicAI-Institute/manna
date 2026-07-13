@@ -18,7 +18,7 @@ services on the same host get distinct labels. Restart wipes it; the
 derivation is deterministic, so a stale entry is never wrong.
 
 To add an archive to the static map, add it to `KNOWN_ARCHIVES` in
-`known_archives.py`. Both `archive_label` and `is_known_archive_url`
+`known_archives.py`. Both `archive_label` and the `is_known_archive_url`
 pick it up automatically.
 """
 
@@ -100,11 +100,10 @@ def is_known_archive_url(url: str) -> bool:
     """Return True iff the URL host substring-matches an entry in
     `_STATIC_MAP`.
 
-    Used as an SSRF defense in `vo_sia_fetch`: the LLM may not pass
-    arbitrary URLs to the server — only ones pointing at known IVOA
-    archives. The function deliberately does NOT consult the cache
-    (`_CACHE`); a hostname-derived cache entry must never widen the
-    fetch allow-list.
+    SSRF allow-list helper: validates that a URL points at a known IVOA
+    archive rather than an arbitrary host. The function deliberately does
+    NOT consult the cache (`_CACHE`); a hostname-derived cache entry must
+    never widen the allow-list.
     """
     try:
         parsed = urlparse(url)
