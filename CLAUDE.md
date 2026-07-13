@@ -1,12 +1,12 @@
 # astro-archives-mcp — Claude Code context
 
-MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab, NRAO/ALMA, …) to LLM clients. STABLE summer project (CosmicAI). Current version: 0.4.0 (stateless result-URL model).
+MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab, NRAO/ALMA, …) to LLM clients. STABLE summer project (CosmicAI). Current version: 0.5.0 (modular per-archive knowledge).
 
 ## Commands
 
 ```bash
 uv sync                                  # install deps + dev deps
-uv run pytest --record-mode=none         # 370 tests, offline replay (incl. tests/evals/)
+uv run pytest --record-mode=none         # 409 tests, offline replay (incl. tests/evals/)
 uv run pytest --record-mode=once -k <t>  # re-record one cassette (needs net)
 uv run ruff check .                      # lint
 uv run python -m astro_archives_mcp      # boot server on :8000 (STABLE_PORT to override)
@@ -30,8 +30,13 @@ src/astro_archives_mcp/
 │   ├── registry.py    # vo_registry_search, vo_registry_describe
 │   ├── cone.py        # vo_cone_search
 │   └── sia.py         # vo_sia_search
-├── known_archives.py  # KNOWN_ARCHIVES registry — archive endpoints, usage_notes
-├── schema_kb.py       # SCHEMA_KB — curated per-table structured facts (Tier 2)
+├── archives/          # per-archive knowledge (one <short_name>.py each)
+│   ├── _model.py      # Archive, Schema dataclasses (leaf)
+│   ├── _select.py     # pure parse_allow/sort/select/validate helpers
+│   ├── __init__.py    # registry: discover_archives() + get_active_archives()
+│   └── <archive>.py   # ARCHIVE = Archive(..., schemas=(...), priority=N)
+├── known_archives.py  # compat VIEW over active archives — KNOWN_ARCHIVES, helpers
+├── schema_kb.py       # compat VIEW over active archives — SCHEMA_KB, lookup_schema
 ├── _serialization.py  # shared dataclass → JSON-friendly dict helper
 ├── shaper.py          # astropy.Table → inline envelope; oversize → result-URL/fetch_recipe
 ├── errors.py          # ToolExecutionError taxonomy + error_to_payload (spec §7)
@@ -41,16 +46,17 @@ src/astro_archives_mcp/
 └── __main__.py        # uvicorn entry; called by `python -m astro_archives_mcp`
 ```
 
-Two data layers:
-- **`known_archives.py`** — archive-level facts (URLs, waveband, usage_notes). Surfaced via `vo_archive_list`.
-- **`schema_kb.py`** — table-specific structured facts (missing columns, enum values, spatial index hints). Surfaced via `vo_schema_describe`. Archive-level quirks belong in `usage_notes`, NOT here.
+Knowledge layer — **per-archive modules** (`archives/<short_name>.py`, see docs/archives-spec.md):
+- Each archive is one portable, plugin-style file: a single `Archive` dataclass carrying its identity (URLs, waveband), `usage_notes`, **its own per-table `Schema` entries**, and a `priority`. One archive = one file, exporting `ARCHIVE = Archive(...)`.
+- **`known_archives.py`** and **`schema_kb.py`** are now thin **compat views** over the active archive set — `KNOWN_ARCHIVES` / `SCHEMA_KB` / the helpers still work unchanged. Archive-level quirks live in `usage_notes` (surfaced by `vo_archive_list`); table-specific facts live in `Archive.schemas` (surfaced by `vo_schema_describe`), NOT in usage_notes.
+- **Archives are additive, never gating.** A missing archive just means no curated claims about it; it stays reachable via `vo_registry_search`. Selection: delete archive files, or set `STABLE_ARCHIVES=datalab,alma` (unset ⇒ all). `priority` (ascending) sets order.
 
 Result handling (stateless — the server never persists result bytes):
 - **Small results inline.** A TAP/cone/SIA result within the inline caps (`STABLE_INLINE_ROW_LIMIT` / `STABLE_INLINE_BYTE_LIMIT`) is returned inline via `shape_inline_table`.
 - **Large TAP results go async.** `vo_tap_query` mode='auto' re-submits an oversize sync result as an async job; mode='sync' raises `validation_error` telling the LLM to use mode='async'. `vo_tap_results` returns the upstream `job_url` + `result_url` + a **pyvo `fetch_recipe`** (`shape_result_url`) — the client loads the data itself (anonymous only). This is why there is no `result_store` or MCP Resource serving: designed for multi-tenant TACC where per-user byte caches don't scale.
 - **Large cone/SIA results truncate inline** with `truncated=true` — there's no async job to promote to, so the LLM is told to narrow the search.
 
-Tests mirror the source: `tests/unit/` (pure), `tests/backends/` (vcrpy cassettes), `tests/tools/` (in-memory MCP Client), `tests/contracts/` (tool schema + error envelope invariants), `tests/workflows/` (multi-tool chains), `tests/app/` (Starlette via httpx ASGITransport).
+Tests mirror the source: `tests/unit/` (pure), `tests/archives/` (registry mechanics + one `test_<archive>.py` of content assertions per archive — deleting an archive deletes its test), `tests/backends/` (vcrpy cassettes), `tests/tools/` (in-memory MCP Client), `tests/contracts/` (tool schema + error envelope invariants), `tests/workflows/` (multi-tool chains), `tests/app/` (Starlette via httpx ASGITransport).
 
 ## Gotchas (real things that bit us — don't repeat)
 
@@ -72,11 +78,11 @@ Tests mirror the source: `tests/unit/` (pure), `tests/backends/` (vcrpy cassette
 
 ## Forking for a deployment
 
-Prune two files in parallel — no other files need touching:
-- `known_archives.py` — remove unused `Archive` entries from `KNOWN_ARCHIVES`
-- `schema_kb.py` — remove the corresponding `Schema` entries from `SCHEMA_KB`
+Two ways to shape which archives make curated claims (see docs/archives-spec.md):
+- **Physical** — delete unwanted `archives/<short_name>.py` files. Discovery picks up whatever remains; no other file needs touching (its `Schema` entries live in the same file).
+- **Runtime** — set `STABLE_ARCHIVES=datalab,alma` (comma-separated short_names) to narrow a shared image without deleting files. Unset/empty ⇒ every archive active.
 
-The `STABLE_DEPLOYMENT` setting (`local` / `adl` / `tacc`) is the hook for any future deployment-specific behavior.
+A dropped/deselected archive removes only the server's *claims* about it — never its reachability (still works via `vo_registry_search`).
 
 ## Git flow
 

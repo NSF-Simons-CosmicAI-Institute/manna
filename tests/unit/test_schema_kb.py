@@ -1,4 +1,10 @@
-"""Schema dataclass + SCHEMA_KB contract tests."""
+"""Tests for the schema_kb compatibility view over the archive registry.
+
+Per-table *content* (ALMA obscore enums, datalab Q3C, NRAO missing columns)
+is asserted per-archive in `tests/archives/test_<archive>.py`. This file covers
+the `Schema` dataclass, the `lookup_schema` contract, and the integrity of the
+aggregated `SCHEMA_KB` view.
+"""
 
 import pytest
 
@@ -37,28 +43,6 @@ def test_lookup_schema_finds_known_entry():
     assert s.table == "tap_schema.obscore"
 
 
-def test_lookup_schema_finds_alma_obscore():
-    s = lookup_schema(archive="alma", table="ivoa.obscore")
-    assert s is not None
-    # Controlled vocabularies the LLM filters on (verified against live TAP).
-    assert "scientific_category" in s.value_enums
-    assert s.value_enums["data_rights"] == ("Public", "Proprietary")
-    assert s.value_enums["science_observation"] == ("T", "F")
-    # Cross-linked to NRAO's obscore (ALMA is mirrored at NRAO).
-    assert ("nrao", "tap_schema.obscore") in s.cross_refs
-
-
-def test_lookup_schema_finds_alma_source_catalogue():
-    s = lookup_schema(archive="alma", table="sourcecatalogue.source_cone_search")
-    assert s is not None
-    notes_joined = " ".join(s.notes).lower()
-    # The load-bearing surprise: s_ra_deg/s_dec_deg are nullable -> CONTAINS
-    # on them errors; filter on m_ra/m_dec instead.
-    assert "m_ra" in notes_joined and "m_dec" in notes_joined
-    assert "null" in notes_joined
-    assert ("alma", "ivoa.obscore") in s.cross_refs
-
-
 def test_lookup_schema_returns_none_for_unknown_pair():
     assert lookup_schema(archive="bogus", table="bogus") is None
 
@@ -68,7 +52,7 @@ def test_lookup_schema_is_case_sensitive():
     assert lookup_schema(archive="nrao", table="TAP_SCHEMA.OBSCORE") is None
 
 
-# ---------- SCHEMA_KB integrity ----------
+# ---------- SCHEMA_KB view integrity ----------
 
 
 def test_every_schema_archive_is_a_known_archive_short_name():
@@ -89,6 +73,7 @@ def test_no_two_schemas_share_an_archive_table_pair():
 
 
 def test_every_cross_ref_resolves_to_another_schema_entry():
+    """Holds for the full shipped set (the default test deployment)."""
     by_pair = {(s.archive, s.table): s for s in SCHEMA_KB}
     for s in SCHEMA_KB:
         for archive, table in s.cross_refs:

@@ -7,10 +7,13 @@ importantly — `usage_notes` that capture archive-specific gotchas
 (non-standard table locations, sync-vs-async routing, target-name
 conventions, etc.).
 
-This is the early scaffolding for what will become a richer knowledge
-layer. Today it surfaces `known_archives.KNOWN_ARCHIVES` directly;
-later it will be backed by something pluggable (RAG, structured KB,
-etc.) but the tool contract stays the same.
+The knowledge is now backed by per-archive modules (`archives/<name>.py`):
+this tool surfaces the deployment's active archives via
+`known_archives.active_archives()`, so it honors the `STABLE_ARCHIVES`
+selection. An absent archive simply carries no curated claims — it stays
+reachable via `vo_registry_search`. The tool contract is unchanged: per-table
+`schemas` (served by `vo_schema_describe`) and the internal `priority` are not
+echoed here.
 """
 
 from typing import Annotated
@@ -19,7 +22,7 @@ from pydantic import Field
 
 from astro_archives_mcp._serialization import dataclass_to_jsonable_dict
 from astro_archives_mcp.errors import wrap_tool_errors
-from astro_archives_mcp.known_archives import KNOWN_ARCHIVES
+from astro_archives_mcp.known_archives import active_archives
 from astro_archives_mcp.tools._constants import _ERROR_DOCSTRING
 
 
@@ -96,7 +99,7 @@ def vo_archive_list(
           "count": N
         }
     """
-    selected = KNOWN_ARCHIVES
+    selected = active_archives()
     if short_name is not None:
         sn = short_name.strip().lower()
         selected = tuple(a for a in selected if a.short_name.lower() == sn)
@@ -104,7 +107,15 @@ def vo_archive_list(
         wb = waveband.strip().lower()
         selected = tuple(a for a in selected if (a.waveband or "").lower() == wb)
 
-    archives = [dataclass_to_jsonable_dict(a) for a in selected]
+    # `schemas` (surfaced by vo_schema_describe) and the internal ordering
+    # `priority` are not part of this tool's contract — drop them so the
+    # archive-list envelope stays the identity/usage_notes view it always was.
+    archives = []
+    for a in selected:
+        d = dataclass_to_jsonable_dict(a)
+        d.pop("schemas", None)
+        d.pop("priority", None)
+        archives.append(d)
     return {"archives": archives, "count": len(archives)}
 
 
