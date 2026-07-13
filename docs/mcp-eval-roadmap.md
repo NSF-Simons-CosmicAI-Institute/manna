@@ -14,7 +14,7 @@ first-run findings), memory `eval-harness-findings` (results vs. live Qwen3.5).
 | 2 — harness axis | `evals/personas.py`, `evals/persona_run.py` | Claude Code persona driver (registry + `Persona` protocol), boots the server, `--same-model` for like-for-like harness comparison |
 | 2 — scorecard | `evals/scorecard.py` | weighted per-`(model×harness)` grade across WORKFLOW + MCP-COMPATIBILITY axes, with a task-set comparability guard |
 | 2 — judge | `evals/score.py` | rubric judge routes through the backend layer → Anthropic **or** OpenAI judge |
-| 3 — caveats | `evals/caveats.py` | model-free live probe per KB caveat → STILL-TRUE / STALE / UNREACHABLE, control-gated |
+| 3 — audit | `evals/audit.py` | model-free live probe per each `Note`'s audit → STILL-TRUE / STALE / UNREACHABLE, control-gated |
 
 Shared: `evals/harness.py` (agent loop + neutral conversation), `evals/score.py` (checks +
 judge), `evals/_env.py` (gitignored `evals/.env`), `evals/providers.py` (tool-provider arms),
@@ -30,14 +30,14 @@ judge), `evals/_env.py` (gitignored `evals/.env`), `evals/providers.py` (tool-pr
    not just one custom loop) work with the server, both (a) at the tool-calling
    compatibility level and (b) at answering end-to-end astronomical workflow questions.
    Needs a grading rubric / scorecard.
-3. **Archive caveat regression** — for each documented archive quirk/caveat, verify over
-   time that it *still holds* on the live archive, and raise a flag if it doesn't (the
-   archive fixed it → the note is now stale).
+3. **Archive note regression** — for each documented archive quirk (each `Note`'s audit),
+   verify over time that it *still holds* on the live archive, and raise a flag if it doesn't
+   (the archive fixed it → the note is now stale).
 
 ## Architecture (the seam all three pillars hang off)
 
 **Driver (model-adapter × harness) → Trace → Rubric/Scorer**, plus a **separate, model-free
-caveat suite**. `evals/harness.py` drives a model through a neutral conversation against an
+note-audit suite**. `evals/harness.py` drives a model through a neutral conversation against an
 in-memory `Client(build_mcp())` with **live archives**, recording the full trace (tool calls,
 args, results, final answer) + tokens / iterations / latency. `make_backend` (model axis) and
 `make_persona` (harness axis) are the two Driver interchange points; `score.py` +
@@ -84,28 +84,28 @@ accuracy 1.0 but **tool_use 0.0** — it answers well-known objects from memory 
 server (COMPAT drops); the same harness pointed at Qwen scores tool_use 1.0. So (model ×
 harness) genuinely matters, and the scorecard surfaces it.
 
-## Pillar 3 — archive caveat regression (keep the KB honest) — **SHIPPED**
+## Pillar 3 — archive note regression (keep the KB honest) — **SHIPPED**
 
-`evals/caveats.py`. Model-free, deterministic, independent of Pillars 1–2. Each `Caveat` is
-a falsifiable claim from the KB paired with a small live ADQL probe and an expected outcome
-(`ok` / `error` / `empty`), keyed to `(archive, caveat_id)`. Verdicts: **STILL-TRUE / STALE /
-UNREACHABLE**; a STALE result names the archive + caveat to edit. `--list`, `--archive <x>`,
-non-zero exit on any STALE (cron/CI-friendly).
+`evals/audit.py`. Model-free, deterministic, independent of Pillars 1–2. Each `Note`'s audit
+is a falsifiable claim from the KB paired with a small live ADQL probe and an expected outcome
+(`ok` / `error` / `empty`), keyed to `archives/<archive>.py :: <note_id>`. Verdicts:
+**STILL-TRUE / STALE / UNREACHABLE**; a STALE result names the archive + note to edit.
+`--list`, `--archive <x>`, non-zero exit on any STALE (cron/CI-friendly).
 
-**1:1 with the KB (62 caveats)** — one per falsifiable quirk across every `usage_note` and
-`schema_kb` entry (datalab/alma/nrao/gaia/eso/cadc), so a run singles out *which* caveat
-drifted. 34 are model-free live probes (kinds: `ok` / `error` / `empty` / `nonempty` /
-`count` — where `count` checks a column group from one note and, on drift, names exactly
-which column disappeared). The 28 that a single ADQL probe can't check (SIA/DataLink
-download recipes, advisory naming, async-only NRAO behaviours) are listed **MANUAL** for
-completeness — never silently dropped. Each caveat carries a `source` pointer to the exact
-KB line to edit.
+**1:1 with the KB (62 notes at the time this was shipped)** — one per falsifiable quirk
+across every `usage_note` and `schema_kb` entry (datalab/alma/nrao/gaia/eso/cadc), so a run
+singles out *which* note drifted. 34 are model-free live probes (kinds: `ok` / `error` /
+`empty` / `nonempty` / `count` — where `count` checks a column group from one note and, on
+drift, names exactly which column disappeared). The 28 that a single ADQL probe can't check
+(SIA/DataLink download recipes, advisory naming, async-only NRAO behaviours) are listed
+**MANUAL** for completeness — never silently dropped. Each note carries a `source` pointer to
+the exact KB line to edit.
 
 **STALE vs UNREACHABLE** is separated two ways: (1) a per-archive **control probe** (a
 metadata query that must work if the service is up) — if it fails the archive is UNREACHABLE
-and its caveats aren't judged; (2) per-probe, a semantic reject (`DalQueryError`) is
+and its notes aren't judged; (2) per-probe, a semantic reject (`DalQueryError`) is
 trustworthy but a service/network error (`ArchiveError`) is retried once then treated as
-UNREACHABLE for a success-expecting caveat — so a blip is never a false STALE. Validated
+UNREACHABLE for a success-expecting note — so a blip is never a false STALE. Validated
 live against a genuinely flaky Data Lab (a mid-run 502 outage) and a 404 CADC endpoint;
 neither produced a false STALE. Full run: **32 still-true / 0 stale / 2 unreachable / 28
 manual**.
@@ -117,17 +117,16 @@ as `ring256`/`nest4096` — the KB was handing agents column names that don't ex
 endpoint in `known_archives.py`; the suite flags it UNREACHABLE (not changed autonomously —
 a shipped-server endpoint change; tie to CADC issue #42).
 
-### Step 0 (KB per-archive modularization) — **deliberately skipped**
+### Step 0 (KB per-archive modularization) — **deliberately skipped, later done anyway**
 
 The original plan made a `src/` refactor (split `known_archives.py` / `schema_kb.py` into
-per-archive modules) a prerequisite, to give each caveat a stable home for a 1:1 check↔note
-mapping. **We got that mapping without the refactor:** keying each `Caveat` by
-`(archive, caveat_id)` in `evals/caveats.py` already points a STALE result at the exact note,
-and the caveat probes live in `evals/` (out of the default `pytest` run) — the parallel
-structure the open question leaned toward. The `src/` refactor was risk (touches shipping
-code, 285 tests to re-green) with no added Pillar-3 value, so it was not done. Revisit only
-if `known_archives.py` / `schema_kb.py` grow unwieldy for their own sake — as a separate,
-behavior-preserving change, not gated on the eval work.
+per-archive modules) a prerequisite, to give each note a stable home for a 1:1 check↔note
+mapping. **We first got that mapping without the refactor:** keying each note by
+`archives/<archive>.py :: <note_id>` already pointed a STALE result at the exact note, and the
+probes lived in `evals/` (out of the default `pytest` run) — the parallel structure the open
+question leaned toward. The per-archive modularization was later done anyway (unrelated to
+this pillar), and `evals/audit.py` now derives its notes directly from the active archives'
+`Note`s rather than a hand-maintained `evals/caveats.py` list.
 
 ## Cross-cutting dependencies / notes
 
@@ -139,7 +138,7 @@ behavior-preserving change, not gated on the eval work.
   `EVAL_MODEL_BACKEND=openai`. Persona@hosted-Claude bills the user's Claude account (use
   `--limit`); persona@Qwen is free.
 - Eval runs are **live-network + real-model** → slow and non-hermetic. They live in `evals/`,
-  out of the default `pytest` run. The caveat suite is model-free but still live-network.
+  out of the default `pytest` run. The note-audit suite is model-free but still live-network.
 - **Fixed (#36, merged):** `vo_registry_describe` used to return ~127k tokens on a large
   service (Gaia) and blow the model's context window — Pillar 1 independently re-surfaced
   and priced this in a workflow. `shape_registry_describe_result` now degrades a large
@@ -147,10 +146,10 @@ behavior-preserving change, not gated on the eval work.
 
 ## Follow-ups (not yet done)
 
-- **Wire the caveat suite to a cron** for over-time monitoring (the runner already exits
+- **Wire the note-audit suite to a cron** for over-time monitoring (the runner already exits
   non-zero on STALE — just needs scheduling).
-- **Grow the caveat set** as `usage_notes` grow — every new falsifiable claim should get a
-  probe. Currently 8; the KB has more claims that are async-only or not cleanly probeable.
+- **Grow the audited note set** as `usage_notes` grow — every new falsifiable claim should
+  get a probe. Currently 8; the KB has more claims that are async-only or not cleanly probeable.
 - **Register more personas** once other agent CLIs are installed (Gemini CLI, Goose, Codex) —
   one `PERSONA_REGISTRY` entry each.
 - Act on the Pillar-1 refinement leads: **#41** (ESO usage_notes), **#42** (CADC DataLink

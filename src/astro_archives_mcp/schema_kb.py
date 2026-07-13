@@ -20,11 +20,9 @@ To add a table's knowledge: append a `Schema(...)` to the owning archive's
 See docs/archives-spec.md.
 """
 
-from typing import cast
-
 from astro_archives_mcp._serialization import dataclass_to_jsonable_dict
 from astro_archives_mcp.archives import get_active_archives
-from astro_archives_mcp.archives._model import Note, Schema, note_texts
+from astro_archives_mcp.archives._model import Schema, note_texts
 
 __all__ = [
     "SCHEMA_KB",
@@ -61,8 +59,5 @@ def lookup_schema(*, archive: str, table: str) -> Schema | None:
 def schema_to_dict(s: Schema) -> dict:
     """Serialize a Schema for inclusion in a tool's JSON envelope."""
     d = dataclass_to_jsonable_dict(s)
-    # s.notes is Note-only by the time __post_init__ has run (_normalize_notes
-    # coerces every element); the field type stays wider only to admit the
-    # migration-scaffold str form at construction.
-    d["notes"] = note_texts(cast(tuple[Note, ...], s.notes))  # Notes → LLM-facing text
+    d["notes"] = note_texts(s.notes)  # Notes → LLM-facing text
     return d

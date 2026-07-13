@@ -7,7 +7,10 @@ entries for that same archive. One archive = one file under `archives/`.
 `Archive` and `Schema` live here (not in `known_archives` / `schema_kb`) so the
 model is a dependency-free leaf. Those old modules re-export both for backward
 compatibility, so `from astro_archives_mcp.known_archives import Archive` and
-`from astro_archives_mcp.schema_kb import Schema` keep working.
+`from astro_archives_mcp.schema_kb import Schema` keep working. `Note` (one
+atomic curated claim) and its `Audit` (how the live runner re-checks it) also
+live here — every `usage_notes` / `Schema.notes` entry is a `Note`, no other
+form accepted.
 """
 
 from dataclasses import dataclass, field
@@ -43,42 +46,12 @@ def note_texts(notes: tuple[Note, ...]) -> list[str]:
     return [n.text for n in notes]
 
 
-# MIGRATION SCAFFOLD: the type an un-migrated archive is still allowed to pass
-# for usage_notes/notes at construction time. `_normalize_notes` coerces every
-# element to a `Note` in `__post_init__`, so the field holds `tuple[Note, ...]`
-# for the object's entire post-construction lifetime — callers (note_texts,
-# vo_archive_list, vo_schema_describe) may treat it as Note-only. Task 8 wraps
-# every archive's bare strings in explicit `Note(...)`s and removes this alias
-# (and the str branch in `_normalize_notes` below).
-NoteInput = Note | str
-
-
-def _normalize_notes(notes, id_prefix: str = "") -> tuple[Note, ...]:
-    """Coerce a notes tuple to Notes.
-
-    MIGRATION SCAFFOLD: a bare `str` is wrapped as a manual, un-audited note so
-    an un-migrated archive still constructs and the tree stays green. Task 8
-    removes the str branch, making explicit `Note`s mandatory.
-
-    `id_prefix` keeps scaffold auto-ids unique WITHIN an archive: usage_notes use
-    no prefix ("_auto0"...), each schema passes its table name so its notes get
-    "<table>:_auto0"... — so a usage note and a schema note can't collide.
-    """
-    out: list[Note] = []
-    for i, n in enumerate(notes):
-        if isinstance(n, Note):
-            out.append(n)
-        elif isinstance(n, str):
-            out.append(
-                Note(
-                    id=f"{id_prefix}_auto{i}",
-                    text=n,
-                    audit=Audit.manual("unmigrated note — pending audit"),
-                )
-            )
-        else:
-            raise TypeError(f"note must be a Note or str, got {type(n).__name__}")
-    return tuple(out)
+def _normalize_notes(notes) -> tuple[Note, ...]:
+    """Every note must be an explicit Note (the coverage invariant is total)."""
+    for n in notes:
+        if not isinstance(n, Note):
+            raise TypeError(f"note must be a Note, got {type(n).__name__}")
+    return tuple(notes)
 
 
 @dataclass(frozen=True)
@@ -96,12 +69,12 @@ class Schema:
 
     missing_standard_columns: tuple[str, ...] = ()
     value_enums: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    notes: tuple[NoteInput, ...] = ()
+    notes: tuple[Note, ...] = ()
     # 2-tuple form, not "archive:table" strings, to avoid parsing fragility.
     cross_refs: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "notes", _normalize_notes(self.notes, id_prefix=f"{self.table}:"))
+        object.__setattr__(self, "notes", _normalize_notes(self.notes))
 
 
 @dataclass(frozen=True)
@@ -137,7 +110,7 @@ class Archive:
     waveband: str | None = None
     description: str = ""
     notable_tables: tuple[str, ...] = field(default_factory=tuple)
-    usage_notes: tuple[NoteInput, ...] = field(default_factory=tuple)
+    usage_notes: tuple[Note, ...] = field(default_factory=tuple)
     schemas: tuple[Schema, ...] = field(default_factory=tuple)
     priority: int = 100
 

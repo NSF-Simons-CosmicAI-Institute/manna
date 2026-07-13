@@ -38,11 +38,9 @@ def test_normalize_passes_notes_through():
     assert _normalize_notes((n,)) == (n,)
 
 
-def test_normalize_wraps_bare_strings_as_manual():
-    out = _normalize_notes(("hello", "world"))
-    assert [x.text for x in out] == ["hello", "world"]
-    assert all(x.audit.expect == "manual" for x in out)
-    assert out[0].id == "_auto0" and out[1].id == "_auto1"
+def test_normalize_rejects_bare_strings():
+    with pytest.raises(TypeError):
+        _normalize_notes(("a bare string",))
 
 
 def test_normalize_rejects_other_types():
