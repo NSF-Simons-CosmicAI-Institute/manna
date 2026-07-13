@@ -156,7 +156,7 @@ ARCHIVE = Archive(
         Note(
             id="x1p5-crossmatch-tables",
             text=(
-                "Crossmatch tables (nearest-neighbour 1.5 arcsec against AllWISE / Gaia DR3 / "
+                "Crossmatch tables (nearest-neighbor 1.5 arcsec against AllWISE / Gaia DR3 / "
                 "NSC DR2 / SDSS DR17 / unWISE DR1) carry an x1p5 suffix, e.g. "
                 "phat_v3.x1p5__phot_mod__gaia_dr3__gaia_source."
             ),
@@ -243,9 +243,9 @@ ARCHIVE = Archive(
                         "/ NSC DR2 / SDSS DR17 / unWISE DR1) carry an x1p5 suffix, e.g. "
                         "phat_v3.x1p5__phot_mod__gaia_dr3__gaia_source."
                     ),
-                    audit=Audit.probe(
-                        expect="nonempty",
-                        adql="SELECT TOP 1 table_name FROM tap_schema.tables WHERE table_name LIKE '%x1p5%'",
+                    audit=Audit.manual(
+                        "Same live check as the datalab usage_note x1p5-crossmatch-tables; "
+                        "table-level cross-reference here."
                     ),
                 ),
             ),
