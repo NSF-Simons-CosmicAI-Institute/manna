@@ -98,39 +98,11 @@ _KB = "src/astro_archives_mcp/schema_kb.py"
 # --------------------------------------------------------------------------- #
 # The caveats — 1:1 with the KB. Each maps to a specific usage_note / schema_kb entry.
 # --------------------------------------------------------------------------- #
-_CADC = (
-    Caveat(
-        "cadc",
-        "tap-reachable",
-        "CADC TAP serves the caom2 tables (baseline for the SIA2/DataLink download caveats).",
-        "ok",
-        "SELECT TOP 1 * FROM caom2.Observation",
-        source=f"{_UN} cadc",
-    ),
-    _cols(
-        "cadc",
-        "caom2.Observation",
-        "obs-collection-column",
-        "obs_collection exists (filter by mission: TESS/JWST/CFHT/HST/…).",
-        ("obs_collection",),
-        f"{_UN} cadc:obs_collection",
-    ),
-    _manual(
-        "cadc",
-        "sia2-datalink-indirection",
-        "SIA2 access_url points at a DataLink VOTable, not the FITS (check access_format=content=datalink).",
-        f"{_UN} cadc:datalink",
-    ),
-    _manual(
-        "cadc",
-        "datalink-follow-through",
-        "DataLink recipe: GET access_url -> parse VOTable -> row semantics=='#this' -> GET its access_url "
-        "for the FITS (see issue #42).",
-        f"{_UN} cadc:datalink",
-    ),
-)
-
-CAVEATS: tuple[Caveat, ...] = _CADC
+# Every archive has now been migrated to atomic Note+Audit entries living directly
+# in archives/<short_name>.py (see Note.audit there) — this suite has no more
+# separate caveat data to carry. The engine/helpers below stay so the module still
+# supports ad-hoc/future caveats and tests/evals/test_caveats.py keeps working.
+CAVEATS: tuple[Caveat, ...] = ()
 
 _STATUS = {
     "still_true": "STILL-TRUE ",
