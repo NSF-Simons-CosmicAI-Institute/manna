@@ -37,3 +37,9 @@ def test_obscore_schema_missing_columns_and_enums():
     assert "dataproduct_subtype" in obscore.missing_standard_columns
     assert obscore.value_enums["instrument_name"] == ("EVLA", "VLA", "VLBA", "GBT")
     assert obscore.value_enums["facility_name"] == ("NRAO",)
+
+
+def test_key_note_audits_have_expected_outcomes():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["sync-5xx-on-obscore"].audit.expect == "error"
+    assert notes["obscore-ivoa-absent"].audit.expect == "empty"
