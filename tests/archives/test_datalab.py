@@ -36,3 +36,9 @@ def test_nsc_schema_recommends_q3c():
 
 def test_smash_schema_cross_refs_nsc():
     assert ("datalab", "nsc_dr2.object") in SCHEMAS["smash_dr2.object"].cross_refs
+
+
+def test_geometry_note_audits_expect_error():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["geometry-contains-untranslated"].audit.expect == "error"
+    assert notes["geometry-q3c-literal-ok"].audit.expect == "ok"

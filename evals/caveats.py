@@ -98,133 +98,6 @@ _KB = "src/astro_archives_mcp/schema_kb.py"
 # --------------------------------------------------------------------------- #
 # The caveats — 1:1 with the KB. Each maps to a specific usage_note / schema_kb entry.
 # --------------------------------------------------------------------------- #
-_DATALAB = (
-    # geometry note (known_archives datalab usage_notes)
-    Caveat(
-        "datalab",
-        "geometry-contains-untranslated",
-        "ADQL CONTAINS(POINT(...),CIRCLE(...)) is NOT translated and fails.",
-        "error",
-        "SELECT TOP 1 ra, dec FROM nsc_dr2.object "
-        "WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', 10.0, 10.0, 0.01)) = 1",
-        source=f"{_UN} datalab:geometry",
-    ),
-    Caveat(
-        "datalab",
-        "geometry-q3c-literal-ok",
-        "An indexed cone uses q3c_radial_query(...) = 't' (the ='t' literal is required).",
-        "ok",
-        "SELECT TOP 1 ra, dec FROM nsc_dr2.object "
-        "WHERE q3c_radial_query(ra, dec, 10.0, 10.0, 0.01) = 't'",
-        source=f"{_UN} datalab:geometry",
-    ),
-    Caveat(
-        "datalab",
-        "geometry-q3c-bare-rejected",
-        "A bare q3c_radial_query(...) predicate (no ='t') is rejected by the ADQL parser.",
-        "error",
-        "SELECT TOP 1 ra, dec FROM nsc_dr2.object "
-        "WHERE q3c_radial_query(ra, dec, 10.0, 10.0, 0.01)",
-        source=f"{_UN} datalab:geometry",
-    ),
-    Caveat(
-        "datalab",
-        "geometry-bbox-ok",
-        "A bounding box (ra BETWEEN ... AND dec BETWEEN ...) also works.",
-        "ok",
-        "SELECT TOP 1 ra, dec FROM nsc_dr2.object "
-        "WHERE ra BETWEEN 9.99 AND 10.01 AND dec BETWEEN 9.99 AND 10.01",
-        source=f"{_UN} datalab:geometry",
-    ),
-    Caveat(
-        "datalab",
-        "geometry-q3c-ellipse-exists",
-        "q3c_ellipse_query / q3c_poly_query exist too.",
-        "ok",
-        "SELECT TOP 1 ra, dec FROM nsc_dr2.object "
-        "WHERE q3c_ellipse_query(ra, dec, 10.0, 10.0, 0.02, 0.5, 45.0) = 't'",
-        source=f"{_UN} datalab:geometry",
-    ),
-    # schema-namespace note + schema_kb tables
-    Caveat(
-        "datalab",
-        "schema-object-convention",
-        "Each survey's main table is <schema>.object, e.g. nsc_dr2.object.",
-        "nonempty",
-        _has_table("nsc_dr2.object"),
-        source=f"{_UN} datalab:schemas",
-    ),
-    Caveat(
-        "datalab",
-        "smash-object-table",
-        "smash_dr2.object exists (per-survey object table).",
-        "nonempty",
-        _has_table("smash_dr2.object"),
-        source=f"{_KB} datalab:smash_dr2.object",
-    ),
-    _cols(
-        "datalab",
-        "nsc_dr2.object",
-        "nsc-index-columns",
-        "Coarse-bucketing index columns htm9 / ring256 / nest4096 exist.",
-        ("htm9", "ring256", "nest4096"),
-        f"{_KB} datalab:nsc_dr2.object",
-    ),
-    _cols(
-        "datalab",
-        "nsc_dr2.object",
-        "nsc-blend-flags-column",
-        "nsc_dr2.object carries a `flags` column (blend flags; flags=0 drops bright/extended).",
-        ("flags",),
-        f"{_UN} datalab:blend-flags",
-    ),
-    Caveat(
-        "datalab",
-        "x1p5-crossmatch-tables",
-        "Crossmatch tables carry an x1p5 suffix (nearest-neighbour 1.5 arcsec).",
-        "nonempty",
-        "SELECT TOP 1 table_name FROM tap_schema.tables WHERE table_name LIKE '%x1p5%'",
-        source=f"{_KB} datalab:tap_schema.tables",
-    ),
-    # not TAP-probeable
-    _manual(
-        "datalab",
-        "services-breadth",
-        "Hosts ~180 services spanning NSC/SMASH/DES/DECaPS/LegacySurveys/Gaia/SDSS/... releases.",
-        f"{_UN} datalab:breadth",
-    ),
-    _manual(
-        "datalab",
-        "ivoa-registered",
-        "Fully registered in the IVOA registry under ivo://noirlab.edu (registry search/describe work).",
-        f"{_UN} datalab:registry",
-    ),
-    _manual(
-        "datalab",
-        "scs-url-convention",
-        "SCS URL is /scs/<dataset>/<table> (e.g. /scs/nsc_dr2/object); the short form 404s.",
-        f"{_UN} datalab:scs-url / {_KB} datalab:smash_dr2.object",
-    ),
-    _manual(
-        "datalab",
-        "image-access-sia1",
-        "Image access is SIA 1.0 (not SIA2), per survey/image-type under /sia/...",
-        f"{_UN} datalab:sia1",
-    ),
-    _manual(
-        "datalab",
-        "cone-returns-all-columns",
-        "vo_cone_search works but SCS returns EVERY column of these very wide tables.",
-        f"{_UN} datalab:scs-wide",
-    ),
-    _manual(
-        "datalab",
-        "nsc-99-columns-wide",
-        "nsc_dr2.object is ~99 columns wide — always project an explicit column list.",
-        f"{_KB} datalab:nsc_dr2.object",
-    ),
-)
-
 _ALMA = (
     Caveat(
         "alma",
@@ -596,7 +469,7 @@ _CADC = (
     ),
 )
 
-CAVEATS: tuple[Caveat, ...] = _DATALAB + _ALMA + _NRAO + _GAIA + _ESO + _CADC
+CAVEATS: tuple[Caveat, ...] = _ALMA + _NRAO + _GAIA + _ESO + _CADC
 
 _STATUS = {
     "still_true": "STILL-TRUE ",
