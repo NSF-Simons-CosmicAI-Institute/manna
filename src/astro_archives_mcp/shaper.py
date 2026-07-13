@@ -11,7 +11,16 @@ from astro_archives_mcp.config import get_settings
 # The inline caps (rows / bytes) are read from get_settings(), env-overridable
 # via STABLE_INLINE_ROW_LIMIT / STABLE_INLINE_BYTE_LIMIT.
 TRUNCATION_REASON_MAXREC = "maxrec_exceeded"
+# #40 dropped the resource tier — oversize inline results now truncate/route to async, so the
+# old TRUNCATION_REASON_OVERSIZE ("oversize_for_resource_tier") becomes INLINE_CAP here.
 TRUNCATION_REASON_INLINE_CAP = "inline_cap_exceeded"
+# #36's registry-describe catalog constants are orthogonal to the result-envelope change.
+TRUNCATION_REASON_DESCRIBE_OVERSIZE = "describe_columns_omitted"
+
+# In catalog (degraded) mode each table collapses to name + description +
+# column_count. Descriptions are clipped so a many-table catalog stays compact;
+# the table count itself is trimmed to fit the byte budget (see _fit_tables).
+_DESCRIBE_CATALOG_DESC_MAXLEN = 280
 
 
 def shape_inline_table(
@@ -238,9 +247,160 @@ def shape_registry_search_result(services: list[dict], *, maxrec: int) -> dict:
     }
 
 
-def shape_registry_describe_result(described: dict) -> dict:
-    """Pass-through envelope for vo_registry_describe."""
-    return dict(described)
+def _describe_catalog_entry(table: dict) -> dict:
+    """Collapse one table dict to a catalog entry: name + clipped description +
+    column_count. Drops the per-column arrays that drive the size blowup."""
+    desc = table.get("description")
+    if isinstance(desc, str) and len(desc) > _DESCRIBE_CATALOG_DESC_MAXLEN:
+        desc = desc[: _DESCRIBE_CATALOG_DESC_MAXLEN - 3].rstrip() + "..."
+    return {
+        "name": table.get("name"),
+        "description": desc,
+        "column_count": len(table.get("columns") or []),
+    }
+
+
+def _filter_describe_tables(tables: list[dict], table_filter: str) -> list[dict]:
+    """Case-insensitive substring match over each table's *name*.
+
+    Filtering happens here, in our server, on the already-fetched introspection —
+    NOT delegated to the archive. Large services' own query endpoints are
+    unreliable for this (e.g. Data Lab's sync TAP 504s on tap_schema, and it
+    ignores VOSI detail=min), whereas the full VOSI /tables fetch is fast and
+    dependable. So we always have the whole table list in hand and narrow it here.
+
+    Match is on the table name only, not description: it keeps a precise filter
+    (e.g. 'gaia_source') narrow enough that the matches' columns fit inline —
+    matching descriptions pulls in every table that merely *mentions* the term
+    (e.g. 100+ cross-match tables), and descriptions aren't populated on every
+    service anyway.
+    """
+    needle = table_filter.strip().lower()
+    if not needle:
+        return tables
+    return [t for t in tables if needle in (t.get("name") or "").lower()]
+
+
+def shape_registry_describe_result(described: dict, *, table_filter: str | None = None) -> dict:
+    """Envelope for vo_registry_describe.
+
+    When `table_filter` is given, the table set is narrowed (case-insensitive
+    substring over name/description) before shaping — a narrow filter yields a
+    small set, so full per-column detail fits inline and the model gets exactly
+    the tables it wants, with columns, in one call.
+
+    Otherwise: small services pass through with full per-column detail for every
+    table. Large services (tables x columns — e.g. Gaia/Data Lab) would overflow
+    the model context, so the response degrades to a *table catalog*: every table
+    keeps its name, (clipped) description, and column_count, but the per-column
+    arrays are dropped. `truncated` discloses the degradation; a hint points the
+    model at the per-table columns drill-down and at table_filter for narrowing.
+
+    Always carries top-level `truncated` (project contract) and `total_tables`;
+    `matched_tables` is added when a filter is applied.
+    """
+    out = dict(described)
+    settings = get_settings()
+    budget = settings.registry_describe_byte_limit
+
+    all_tables = out.get("tables") or []
+    total_tables = len(all_tables)
+    out["total_tables"] = total_tables
+
+    filtering = bool(table_filter and table_filter.strip())
+    if filtering:
+        working = _filter_describe_tables(all_tables, table_filter or "")
+        out["tables"] = working
+        out["matched_tables"] = len(working)
+    else:
+        working = all_tables
+
+    if _estimate_payload_bytes(out) <= budget:
+        out["truncated"] = False
+        out["truncation_reason"] = None
+        if filtering and not working:
+            out["hints"] = [
+                {
+                    "kind": "tip",
+                    "text": _no_match_hint(table_filter or "", total_tables),
+                    "source": None,
+                }
+            ]
+        return out
+
+    catalog = [_describe_catalog_entry(t) for t in working]
+    out["tables"] = catalog
+    out["truncated"] = True
+    out["truncation_reason"] = TRUNCATION_REASON_DESCRIBE_OVERSIZE
+    # Placeholder hint so the fit measurement below includes its overhead; the
+    # final text (with the real omitted count) is written once we know the count.
+    out["hints"] = [
+        {
+            "kind": "tip",
+            "text": _describe_hint(len(working), total_tables, table_filter),
+            "source": None,
+        }
+    ]
+
+    # Fit ladder. Table names are the irreducible discovery signal, so we keep
+    # as many tables as possible and shed detail first:
+    #   1. full catalog with descriptions,
+    #   2. drop descriptions (names + counts are tiny),
+    #   3. still too big (thousands of tables, e.g. Data Lab) -> trim the table
+    #      count to the largest prefix that fits.
+    if _estimate_payload_bytes(out) > budget:
+        for entry in catalog:
+            entry["description"] = None
+    if _estimate_payload_bytes(out) > budget:
+        catalog = _fit_tables(out, catalog, budget)
+        out["tables"] = catalog
+
+    tables_omitted = len(working) - len(catalog)
+    out["hints"][0]["text"] = _describe_hint(tables_omitted, total_tables, table_filter)
+    return out
+
+
+def _describe_hint(tables_omitted: int, total_tables: int, table_filter: str | None) -> str:
+    text = (
+        "Per-column detail was omitted because this result exceeds the inline "
+        "budget. To get one table's columns, call vo_tap_query with ADQL like "
+        '"SELECT column_name, datatype, ucd, description FROM tap_schema.columns '
+        "WHERE table_name = '<table>'\", or try vo_schema_describe for curated tables."
+    )
+    if tables_omitted > 0:
+        text += f" {tables_omitted} table(s) were omitted from this catalog entirely."
+    if table_filter and table_filter.strip():
+        text += f" These are tables matching '{table_filter.strip()}' — refine table_filter to narrow further."
+    else:
+        text += (
+            f" This service has {total_tables} tables; pass table_filter='<keyword>' "
+            "to find specific tables (a narrow match returns their columns inline)."
+        )
+    return text
+
+
+def _no_match_hint(table_filter: str, total_tables: int) -> str:
+    return (
+        f"No tables matched table_filter='{table_filter.strip()}'. This service has "
+        f"{total_tables} tables — try a different keyword, or omit table_filter to list them."
+    )
+
+
+def _fit_tables(out: dict, catalog: list[dict], budget: int) -> list[dict]:
+    """Largest prefix of `catalog` whose enclosing `out` payload fits `budget`.
+
+    Binary search on the kept-table count. Mutates out['tables'] as a side
+    effect of measuring; the caller assigns the returned list authoritatively.
+    """
+    lo, hi = 0, len(catalog)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        out["tables"] = catalog[:mid]
+        if _estimate_payload_bytes(out) <= budget:
+            lo = mid
+        else:
+            hi = mid - 1
+    return catalog[:lo]
 
 
 def shape_promotion(
