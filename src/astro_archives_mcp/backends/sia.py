@@ -53,8 +53,18 @@ class SiaClient:
         fmt: str | None,
         maxrec: int,
     ) -> Table:
+        # Constructing the SIA2 service triggers a VOSI capabilities probe. On a
+        # SIA1-only endpoint (e.g. NOIRLab Data Lab) that probe fails — sometimes as a
+        # DALAccessError, but sometimes as a VOSI capabilities *parse* error (pyvo raises
+        # E10, an astropy VOSIWarning/ValueError, NOT a DAL error). Either way the endpoint
+        # isn't SIA2, so raise ArchiveError to tell the auto path to fall back to SIA1.
         try:
             svc = _SIA2Service(endpoint)
+        except Exception as e:  # noqa: BLE001 — any capabilities-probe failure ⇒ not SIA2
+            raise ArchiveError(
+                message=f"endpoint is not a SIA2 service (capabilities probe failed): {e}"
+            ) from e
+        try:
             # pyvo SIA2 expects pos as (ra, dec, radius) for a CIRCLE region.
             kwargs: dict = {"pos": (ra, dec, size_deg), "maxrec": maxrec}
             if band:
