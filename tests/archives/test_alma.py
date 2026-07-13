@@ -48,3 +48,8 @@ def test_source_catalogue_schema_flags_nullable_geometry():
     assert "m_ra" in notes and "m_dec" in notes
     assert "null" in notes
     assert ("alma", "ivoa.obscore") in src.cross_refs
+
+
+def test_spatial_note_audit_expects_ok():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["sync-spatial-ok"].audit.expect == "ok"
