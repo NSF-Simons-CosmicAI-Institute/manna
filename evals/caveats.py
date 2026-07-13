@@ -98,31 +98,6 @@ _KB = "src/astro_archives_mcp/schema_kb.py"
 # --------------------------------------------------------------------------- #
 # The caveats — 1:1 with the KB. Each maps to a specific usage_note / schema_kb entry.
 # --------------------------------------------------------------------------- #
-_GAIA = (
-    Caveat(
-        "gaia",
-        "dr3-default-table",
-        "gaiadr3.gaia_source is the default, queryable table (source_id present).",
-        "ok",
-        "SELECT TOP 1 source_id FROM gaiadr3.gaia_source",
-        source=f"{_UN} gaia:releases",
-    ),
-    Caveat(
-        "gaia",
-        "dr2-schema-exists",
-        "Each release is a separate schema — gaiadr2.gaia_source also exists.",
-        "nonempty",
-        _has_table("gaiadr2.gaia_source"),
-        source=f"{_UN} gaia:releases",
-    ),
-    _manual(
-        "gaia",
-        "source-id-join-key",
-        "source_id is the canonical join key; astrometry/photometry/RV are split across tables.",
-        f"{_UN} gaia:source-id",
-    ),
-)
-
 _ESO = (
     Caveat(
         "eso",
@@ -172,7 +147,7 @@ _CADC = (
     ),
 )
 
-CAVEATS: tuple[Caveat, ...] = _GAIA + _ESO + _CADC
+CAVEATS: tuple[Caveat, ...] = _ESO + _CADC
 
 _STATUS = {
     "still_true": "STILL-TRUE ",
