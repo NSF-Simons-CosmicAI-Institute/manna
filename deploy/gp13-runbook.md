@@ -61,10 +61,11 @@ IMAGE=astro-archives-singleuser:dev ./smoke-test.sh
 
 What the image adds, and why:
 
-1. **Python deps** — Jupyter AI v3 + this server, pinned to a tag:
+1. **Python deps** — Jupyter AI v3 + this server. Tracks the `dev` branch (0.4.0) for
+   testing; pin to a release tag (e.g. `@v0.4.0`) once dev is promoted to main and tagged:
    ```dockerfile
    RUN pip install --no-cache-dir "jupyter-ai>=3" jupyterlab \
-       "astro-archives-mcp @ git+https://github.com/dangause/astro-archives-mcp.git@v0.3.0"
+       "astro-archives-mcp @ git+https://github.com/dangause/astro-archives-mcp.git@dev"
    ```
 
 2. **Node.js + BOTH persona binaries.** The Claude persona launches
@@ -117,7 +118,7 @@ and (with a token) a live M51 tool call inside the image.
 
 **On gp13 (once available), inside a spawned single-user server:**
 ```bash
-curl -fsS http://127.0.0.1:8000/health                       # astro-archives 0.3.0
+curl -fsS http://127.0.0.1:8000/health                       # astro-archives 0.4.0
 cat ~/.jupyter/mcp_settings.json                             # points at 127.0.0.1:8000/mcp/
 ps eww $(pgrep -f 'jupyter-lab') | tr ' ' '\n' | grep CLAUDE_CONFIG_DIR  # if pinning an account
 ```
