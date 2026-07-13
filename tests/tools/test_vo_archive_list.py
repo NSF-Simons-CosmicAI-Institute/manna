@@ -137,3 +137,18 @@ async def test_vo_archive_list_includes_capabilities_for_each_archive(mcp_server
         assert required_keys.issubset(entry.keys()), (
             f"archive {entry.get('short_name')} missing keys: {required_keys - entry.keys()}"
         )
+
+
+@pytest.mark.asyncio
+async def test_vo_archive_list_unknown_short_name_returns_recovery_hint(mcp_server):
+    """A filter that matches nothing (e.g. a weak model guessing short_name='NSC', which is
+    served under 'datalab') must hand back a recovery hint naming the valid short_names —
+    not a bare empty list that dead-ends the model."""
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("vo_archive_list", {"short_name": "NSC"})
+        payload = result.structured_content
+
+    assert payload["count"] == 0
+    assert payload["archives"] == []
+    assert "hint" in payload
+    assert "datalab" in payload["hint"]

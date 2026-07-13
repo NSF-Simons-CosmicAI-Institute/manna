@@ -122,3 +122,35 @@ def test_maxrec_cap_enforced_locally(monkeypatch):
         endpoint="https://x/sia", ra=1, dec=2, size_deg=0.1, maxrec=3, version="2"
     )
     assert len(table) == 3
+
+
+def test_auto_falls_back_when_sia2_capabilities_probe_fails(monkeypatch):
+    """NOIRLab Data Lab is SIA1-only: constructing the SIA2 service fails while probing VOSI
+    capabilities — pyvo raises E10, a ValueError (NOT a DAL error). The auto path must still
+    fall back to SIA1 (regression: this used to escape as internal_error, breaking Data Lab
+    image search)."""
+    seen: list[str] = []
+
+    class _BrokenSIA2:
+        def __init__(self, endpoint):
+            seen.append("v2")
+            raise ValueError("File does not appear to be a VOSICapabilities file")  # ~pyvo E10
+
+    class _WorkingSIA1:
+        def __init__(self, endpoint):
+            seen.append("v1")
+
+        def search(self, **kwargs):
+            return _fake_result(2)
+
+    monkeypatch.setattr(sia_backend, "_SIA2Service", _BrokenSIA2)
+    monkeypatch.setattr(sia_backend, "_SIA1Service", _WorkingSIA1)
+    table = SiaClient().search(
+        endpoint="https://datalab.noirlab.edu/sia/coadd_all",
+        ra=202.47,
+        dec=47.20,
+        size_deg=0.05,
+        version="auto",
+    )
+    assert seen == ["v2", "v1"]  # SIA2 probe failed → fell back to SIA1
+    assert len(table) == 2

@@ -105,7 +105,18 @@ def vo_archive_list(
         selected = tuple(a for a in selected if (a.waveband or "").lower() == wb)
 
     archives = [dataclass_to_jsonable_dict(a) for a in selected]
-    return {"archives": archives, "count": len(archives)}
+    result: dict = {"archives": archives, "count": len(archives)}
+    # A filter that matched nothing is a dead end for a weaker model (e.g. it guessed
+    # short_name='NSC', which is served under 'datalab'). Hand back a recovery hint
+    # naming the valid short_names instead of a bare empty list.
+    if not archives and (short_name is not None or waveband is not None):
+        known = ", ".join(a.short_name for a in KNOWN_ARCHIVES)
+        result["hint"] = (
+            f"No known archive matched that filter. Available short_name values: {known}. "
+            "Call vo_archive_list with no arguments to see every archive and the catalogs it "
+            "serves (notable_tables) — e.g. NSC / SMASH / DES / DECaPS all live under 'datalab'."
+        )
+    return result
 
 
 vo_archive_list.__doc__ = (vo_archive_list.__doc__ or "") + _ERROR_DOCSTRING
