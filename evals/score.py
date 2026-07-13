@@ -19,8 +19,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from evals.harness import ModelConfig, TaskRun
 
 TASKS_PATH = Path(__file__).with_name("tasks.yaml")
@@ -37,6 +35,8 @@ _LEAK_PATTERNS = (
 
 
 def load_tasks(path: Path | None = None, tier: int | None = None) -> list[dict[str, Any]]:
+    import yaml  # lazy: keeps the module (+ its pure scoring fns) importable without the eval group
+
     tasks = yaml.safe_load((path or TASKS_PATH).read_text())
     if tier is not None:
         tasks = [t for t in tasks if t.get("tier") == tier]

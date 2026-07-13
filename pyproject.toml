@@ -52,6 +52,9 @@ packages = ["src/astro_archives_mcp"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+# evals/ isn't an installed package (it's a repo-root dir); put the root on sys.path so the
+# offline eval-harness unit tests in tests/evals/ can `import evals.*`.
+pythonpath = ["."]
 
 [tool.coverage.run]
 source = ["src/astro_archives_mcp"]
