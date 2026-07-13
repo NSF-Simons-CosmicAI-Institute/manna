@@ -98,23 +98,6 @@ _KB = "src/astro_archives_mcp/schema_kb.py"
 # --------------------------------------------------------------------------- #
 # The caveats — 1:1 with the KB. Each maps to a specific usage_note / schema_kb entry.
 # --------------------------------------------------------------------------- #
-_ESO = (
-    Caveat(
-        "eso",
-        "obscore-mixedcase",
-        "ESO exposes ObsCore at the mixed-case ivoa.ObsCore table.",
-        "ok",
-        "SELECT TOP 1 * FROM ivoa.ObsCore",
-        source=f"{_UN} eso:notable_tables",
-    ),
-    _manual(
-        "eso",
-        "no-usage-notes",
-        "ESO has NO curated usage_notes yet (agents flail on its TAP quirks — see issue #41).",
-        f"{_UN} eso",
-    ),
-)
-
 _CADC = (
     Caveat(
         "cadc",
@@ -147,7 +130,7 @@ _CADC = (
     ),
 )
 
-CAVEATS: tuple[Caveat, ...] = _ESO + _CADC
+CAVEATS: tuple[Caveat, ...] = _CADC
 
 _STATUS = {
     "still_true": "STILL-TRUE ",
