@@ -43,6 +43,16 @@ def note_texts(notes: tuple[Note, ...]) -> list[str]:
     return [n.text for n in notes]
 
 
+# MIGRATION SCAFFOLD: the type an un-migrated archive is still allowed to pass
+# for usage_notes/notes at construction time. `_normalize_notes` coerces every
+# element to a `Note` in `__post_init__`, so the field holds `tuple[Note, ...]`
+# for the object's entire post-construction lifetime — callers (note_texts,
+# vo_archive_list, vo_schema_describe) may treat it as Note-only. Task 8 wraps
+# every archive's bare strings in explicit `Note(...)`s and removes this alias
+# (and the str branch in `_normalize_notes` below).
+NoteInput = Note | str
+
+
 def _normalize_notes(notes) -> tuple[Note, ...]:
     """Coerce a notes tuple to Notes.
 
@@ -78,9 +88,12 @@ class Schema:
 
     missing_standard_columns: tuple[str, ...] = ()
     value_enums: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    notes: tuple[str, ...] = ()
+    notes: tuple[NoteInput, ...] = ()
     # 2-tuple form, not "archive:table" strings, to avoid parsing fragility.
     cross_refs: tuple[tuple[str, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "notes", _normalize_notes(self.notes))
 
 
 @dataclass(frozen=True)
@@ -116,11 +129,12 @@ class Archive:
     waveband: str | None = None
     description: str = ""
     notable_tables: tuple[str, ...] = field(default_factory=tuple)
-    usage_notes: tuple[str, ...] = field(default_factory=tuple)
+    usage_notes: tuple[NoteInput, ...] = field(default_factory=tuple)
     schemas: tuple[Schema, ...] = field(default_factory=tuple)
     priority: int = 100
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "usage_notes", _normalize_notes(self.usage_notes))
         # Every schema must belong to this archive. Enforced at construction so
         # a hand-built archive — in a test or any non-discovery caller — can't
         # drift either.

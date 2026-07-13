@@ -16,11 +16,12 @@ reachable via `vo_registry_search`. The tool contract is unchanged: per-table
 echoed here.
 """
 
-from typing import Annotated
+from typing import Annotated, cast
 
 from pydantic import Field
 
 from astro_archives_mcp._serialization import dataclass_to_jsonable_dict
+from astro_archives_mcp.archives._model import Note, note_texts
 from astro_archives_mcp.errors import wrap_tool_errors
 from astro_archives_mcp.known_archives import active_archives
 from astro_archives_mcp.tools._constants import _ERROR_DOCSTRING
@@ -115,6 +116,10 @@ def vo_archive_list(
         d = dataclass_to_jsonable_dict(a)
         d.pop("schemas", None)
         d.pop("priority", None)
+        # a.usage_notes is Note-only by the time __post_init__ has run
+        # (_normalize_notes coerces every element); the field type stays wider
+        # only to admit the migration-scaffold str form at construction.
+        d["usage_notes"] = note_texts(cast(tuple[Note, ...], a.usage_notes))
         archives.append(d)
     result: dict = {"archives": archives, "count": len(archives)}
     # A filter that matched nothing is a dead end for a weaker model (e.g. it guessed

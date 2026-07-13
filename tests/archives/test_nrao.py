@@ -24,7 +24,7 @@ def test_entry_covers_full_instrument_suite():
 def test_usage_notes_capture_critical_gotchas():
     """The usage_notes are the agent-facing knowledge base; NRAO's must cover
     the friction we learned the hard way."""
-    notes = " ".join(ARCHIVE.usage_notes).lower()
+    notes = " ".join(n.text for n in ARCHIVE.usage_notes).lower()
     assert "async" in notes
     assert "tap_schema.obscore" in notes
     assert "scan" in notes and "execution" in notes.replace("execute", "")
