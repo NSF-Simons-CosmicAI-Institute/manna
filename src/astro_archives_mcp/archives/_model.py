@@ -53,12 +53,16 @@ def note_texts(notes: tuple[Note, ...]) -> list[str]:
 NoteInput = Note | str
 
 
-def _normalize_notes(notes) -> tuple[Note, ...]:
+def _normalize_notes(notes, id_prefix: str = "") -> tuple[Note, ...]:
     """Coerce a notes tuple to Notes.
 
     MIGRATION SCAFFOLD: a bare `str` is wrapped as a manual, un-audited note so
     an un-migrated archive still constructs and the tree stays green. Task 8
     removes the str branch, making explicit `Note`s mandatory.
+
+    `id_prefix` keeps scaffold auto-ids unique WITHIN an archive: usage_notes use
+    no prefix ("_auto0"...), each schema passes its table name so its notes get
+    "<table>:_auto0"... — so a usage note and a schema note can't collide.
     """
     out: list[Note] = []
     for i, n in enumerate(notes):
@@ -66,7 +70,11 @@ def _normalize_notes(notes) -> tuple[Note, ...]:
             out.append(n)
         elif isinstance(n, str):
             out.append(
-                Note(id=f"_auto{i}", text=n, audit=Audit.manual("unmigrated note — pending audit"))
+                Note(
+                    id=f"{id_prefix}_auto{i}",
+                    text=n,
+                    audit=Audit.manual("unmigrated note — pending audit"),
+                )
             )
         else:
             raise TypeError(f"note must be a Note or str, got {type(n).__name__}")
@@ -93,7 +101,7 @@ class Schema:
     cross_refs: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "notes", _normalize_notes(self.notes))
+        object.__setattr__(self, "notes", _normalize_notes(self.notes, id_prefix=f"{self.table}:"))
 
 
 @dataclass(frozen=True)
