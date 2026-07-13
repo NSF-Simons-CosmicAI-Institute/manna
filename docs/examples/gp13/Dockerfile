@@ -26,8 +26,10 @@ FROM ${BASE_IMAGE}
 
 # --- Python deps: this MCP server + Jupyter AI ---
 USER ${NB_UID}
+# Tracks the `dev` integration branch (0.4.0, stateless result-URL model). Pin to a
+# release tag (e.g. @v0.4.0) once dev is promoted to main and tagged.
 RUN pip install --no-cache-dir \
-      "astro-archives-mcp @ git+https://github.com/dangause/astro-archives-mcp.git@v0.3.0" \
+      "astro-archives-mcp @ git+https://github.com/dangause/astro-archives-mcp.git@dev" \
       "jupyter-ai>=3" jupyterlab
 
 # --- Node + the Claude persona's binaries ---
