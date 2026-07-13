@@ -6,7 +6,7 @@ MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab
 
 ```bash
 uv sync                                  # install deps + dev deps
-uv run pytest --record-mode=none         # 285 tests, offline replay
+uv run pytest --record-mode=none         # 370 tests, offline replay (incl. tests/evals/)
 uv run pytest --record-mode=once -k <t>  # re-record one cassette (needs net)
 uv run ruff check .                      # lint
 uv run python -m astro_archives_mcp      # boot server on :8000 (STABLE_PORT to override)

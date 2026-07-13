@@ -142,12 +142,16 @@
 
 - id: t2-sia-fetch
   tier: 2
-  prompt: "Fetch a FITS image covering the galaxy M51 from the CADC archive."
-  expect_tools: [vo_sia_search, vo_sia_fetch]
-  sequence: true
+  prompt: >-
+    Locate a FITS image covering the galaxy M51 in the CADC archive and report its direct
+    access URL (the URL a client would open to load the FITS).
+  expect_tools: [vo_sia_search]
   rubric: >-
-    Passes if the model resolved/located M51, searched CADC for images, and fetched one
-    image, ending with a resource_uri (not raw bytes) for the FITS file.
+    Passes if the model resolved/located M51, searched CADC for images with vo_sia_search,
+    and reported a specific image's access_url. In 0.4.0 the server does not download images
+    (vo_sia_fetch was removed); CADC SIA2 access_urls point at a DataLink document, so full
+    credit follows that indirection to the real FITS URL. Success is the fetchable URL, not
+    a resource_uri or raw bytes.
 
 - id: t2-schema-bound-query
   tier: 2
