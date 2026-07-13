@@ -16,7 +16,7 @@ from astro_archives_mcp.tools.cone import vo_cone_search
 from astro_archives_mcp.tools.registry import vo_registry_describe, vo_registry_search
 from astro_archives_mcp.tools.resolver import vo_target_resolve
 from astro_archives_mcp.tools.schema import vo_schema_describe
-from astro_archives_mcp.tools.sia import vo_sia_fetch, vo_sia_search
+from astro_archives_mcp.tools.sia import vo_sia_search
 from astro_archives_mcp.tools.tap import vo_tap_abort, vo_tap_query, vo_tap_results, vo_tap_status
 
 __all__ = [
@@ -25,7 +25,6 @@ __all__ = [
     "vo_registry_describe",
     "vo_registry_search",
     "vo_schema_describe",
-    "vo_sia_fetch",
     "vo_sia_search",
     "vo_tap_abort",
     "vo_tap_query",

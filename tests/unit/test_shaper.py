@@ -24,12 +24,13 @@ def test_inline_envelope_basic_shape():
     assert out["row_count"] == 2
     assert out["truncated"] is False
     assert out["truncation_reason"] is None
-    assert out["resource_uri"] is None
     assert out["archive"] == "datalab"
     assert len(out["rows"]) == 2
-    assert out["preview"] is None
     assert out["next_steps"] is None
     assert out["hints"] == []
+    # The stateless envelope carries no resource-tier fields.
+    assert "resource_uri" not in out
+    assert "preview" not in out
 
     cols_by_name = {c["name"]: c for c in out["columns"]}
     assert cols_by_name["ra"]["unit"] == "deg"
@@ -223,3 +224,174 @@ def test_shape_registry_describe_result_passes_through():
     assert len(out["tables"]) == 1
     assert out["tables"][0]["columns"][0]["name"] == "ra"
     assert "row_count" not in out
+    # Small service: full detail retained, truncation disclosed as false.
+    assert out["truncated"] is False
+    assert out["truncation_reason"] is None
+
+
+def test_shape_registry_describe_result_degrades_when_oversize():
+    from astro_archives_mcp.shaper import (
+        TRUNCATION_REASON_DESCRIBE_OVERSIZE,
+        shape_registry_describe_result,
+    )
+
+    # Build a service whose full per-column payload blows past the byte budget:
+    # many tables, each with many columns.
+    tables = [
+        {
+            "name": f"survey.table_{t}",
+            "description": f"Table {t} description.",
+            "columns": [
+                {
+                    "name": f"col_{c}",
+                    "type": "double",
+                    "unit": "deg",
+                    "ucd": "pos.eq.ra",
+                    "description": "A reasonably wordy column description to inflate size.",
+                }
+                for c in range(60)
+            ],
+        }
+        for t in range(80)
+    ]
+    described = {
+        "ivoid": "ivo://big/service",
+        "title": "Big Service",
+        "description": "...",
+        "capabilities": ["tap"],
+        "tables": tables,
+    }
+
+    out = shape_registry_describe_result(described)
+
+    # Degraded to catalog form.
+    assert out["truncated"] is True
+    assert out["truncation_reason"] == TRUNCATION_REASON_DESCRIBE_OVERSIZE
+    # Metadata preserved; every table still represented (name + description + count).
+    assert out["ivoid"] == "ivo://big/service"
+    assert out["capabilities"] == ["tap"]
+    assert len(out["tables"]) == 80
+    first = out["tables"][0]
+    assert first["name"] == "survey.table_0"
+    assert first["column_count"] == 60
+    assert "columns" not in first  # per-column detail dropped
+    # Drill-down hint present.
+    assert out["hints"]
+    assert "tap_schema.columns" in out["hints"][0]["text"]
+    # And the degraded payload actually fits the budget.
+    from astro_archives_mcp.config import get_settings
+    from astro_archives_mcp.shaper import _estimate_payload_bytes
+
+    assert _estimate_payload_bytes(out) <= get_settings().registry_describe_byte_limit
+
+
+def test_shape_registry_describe_result_trims_table_count_when_catalog_alone_oversize():
+    """Data Lab has ~4000 tables — even a name-only catalog busts the budget, so
+    the table count itself must be trimmed and the omission disclosed."""
+    from astro_archives_mcp.config import get_settings
+    from astro_archives_mcp.shaper import (
+        _estimate_payload_bytes,
+        shape_registry_describe_result,
+    )
+
+    tables = [
+        {
+            "name": f"survey_{t}.some_reasonably_long_table_name_object",
+            "description": f"Table {t} — a fairly wordy description that adds bytes per entry.",
+            "columns": [{"name": f"c{c}", "type": "double"} for c in range(20)],
+        }
+        for t in range(5000)
+    ]
+    described = {
+        "ivoid": "ivo://huge/service",
+        "title": "Huge Service",
+        "description": "...",
+        "capabilities": ["tap"],
+        "tables": tables,
+    }
+
+    out = shape_registry_describe_result(described)
+    budget = get_settings().registry_describe_byte_limit
+
+    assert out["truncated"] is True
+    assert out["total_tables"] == 5000
+    # Guaranteed to fit despite thousands of tables.
+    assert _estimate_payload_bytes(out) <= budget
+    # Trimmed: fewer tables than input, and the omission is disclosed in the hint.
+    assert 0 < len(out["tables"]) < 5000
+    omitted = 5000 - len(out["tables"])
+    assert f"{omitted} table(s) were omitted" in out["hints"][0]["text"]
+    # Unfiltered degraded result steers the model at the table_filter escape hatch.
+    assert "table_filter" in out["hints"][0]["text"]
+
+
+def _big_described(n_tables: int, n_cols: int) -> dict:
+    return {
+        "ivoid": "ivo://big/service",
+        "title": "Big Service",
+        "description": "...",
+        "capabilities": ["tap"],
+        "tables": [
+            {
+                "name": f"schema{t % 3}.dataset_{t}",
+                "description": f"Table {t} about {'photometry' if t % 2 else 'astrometry'}.",
+                "columns": [
+                    {
+                        "name": f"col_{c}",
+                        "type": "double",
+                        "unit": "deg",
+                        "ucd": "pos.eq.ra",
+                        "description": "A reasonably wordy column description to inflate size.",
+                    }
+                    for c in range(n_cols)
+                ],
+            }
+            for t in range(n_tables)
+        ],
+    }
+
+
+def test_shape_registry_describe_filter_returns_matching_tables_with_columns():
+    """A narrow filter yields a small set, so full column detail fits inline."""
+    from astro_archives_mcp.shaper import shape_registry_describe_result
+
+    described = _big_described(n_tables=200, n_cols=40)
+    # Give one table a distinctive name to match on.
+    described["tables"][7]["name"] = "special.allwise_source"
+
+    out = shape_registry_describe_result(described, table_filter="allwise")
+
+    assert out["total_tables"] == 200
+    assert out["matched_tables"] == 1
+    assert out["truncated"] is False  # small match set -> full detail fits
+    assert len(out["tables"]) == 1
+    assert out["tables"][0]["name"] == "special.allwise_source"
+    assert "columns" in out["tables"][0]  # per-column detail retained
+    assert len(out["tables"][0]["columns"]) == 40
+
+
+def test_shape_registry_describe_filter_matches_name_case_insensitively():
+    from astro_archives_mcp.shaper import shape_registry_describe_result
+
+    described = _big_described(n_tables=200, n_cols=10)
+    # names look like "schema{0,1,2}.dataset_{t}"; match a schema prefix.
+    out = shape_registry_describe_result(described, table_filter="SCHEMA1.")
+    assert out["matched_tables"] == len(out["tables"]) > 0
+    assert all("schema1." in (t.get("name") or "").lower() for t in out["tables"])
+    # Description-only mentions must NOT match (matching is name-only).
+    out2 = shape_registry_describe_result(described, table_filter="photometry")
+    assert out2["matched_tables"] == 0
+
+
+def test_shape_registry_describe_filter_no_match_is_disclosed():
+    from astro_archives_mcp.shaper import shape_registry_describe_result
+
+    described = _big_described(n_tables=50, n_cols=10)
+    out = shape_registry_describe_result(described, table_filter="no_such_table_xyz")
+
+    assert out["total_tables"] == 50
+    assert out["matched_tables"] == 0
+    assert out["tables"] == []
+    assert out["truncated"] is False
+    assert "No tables matched" in out["hints"][0]["text"]
+    assert "no_such_table_xyz" in out["hints"][0]["text"]

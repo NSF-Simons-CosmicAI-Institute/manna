@@ -1,7 +1,6 @@
 """JobStore: in-memory keyed handle store for async TAP jobs.
 
-Sibling pattern to result_store.py — same TTL discipline, but holds job
-metadata (URL, ADQL, endpoint), not bytes.
+Holds job metadata (URL, ADQL, endpoint) with TTL eviction — never bytes.
 """
 
 import re

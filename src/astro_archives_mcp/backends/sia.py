@@ -1,6 +1,5 @@
 import logging
 
-import httpx
 from astropy.table import Table
 from pyvo.dal.exceptions import DALAccessError, DALQueryError
 from pyvo.dal.sia import SIAService as _SIA1Service
@@ -9,9 +8,6 @@ from pyvo.dal.sia2 import SIA2Service as _SIA2Service
 from astro_archives_mcp.errors import ArchiveError, DalQueryError
 
 log = logging.getLogger(__name__)
-
-_FETCH_BYTE_CAP = 10 * 1024 * 1024  # 10 MB — matches RESOURCE_BYTE_LIMIT in shaper
-_FETCH_TIMEOUT_SECONDS = 60.0
 
 
 class SiaClient:
@@ -99,39 +95,3 @@ class SiaClient:
         # SIA1 has no maxrec parameter, so the cap must be applied client-side.
         table = result.to_table()
         return table[:maxrec] if len(table) > maxrec else table
-
-    def fetch(self, access_url: str) -> tuple[bytes, str]:
-        """Download bytes from access_url, stream-capped at 10 MB.
-
-        Returns (bytes, content_type). Raises ArchiveError on any HTTP
-        failure, on exceeding the 10 MB cap, or on timeout.
-        """
-        try:
-            with httpx.stream(
-                "GET",
-                access_url,
-                follow_redirects=True,
-                timeout=_FETCH_TIMEOUT_SECONDS,
-            ) as response:
-                response.raise_for_status()
-                content_type = (
-                    response.headers.get("content-type", "application/octet-stream")
-                    .split(";")[0]
-                    .strip()
-                )
-                buf = bytearray()
-                for chunk in response.iter_bytes(chunk_size=65536):
-                    buf.extend(chunk)
-                    if len(buf) > _FETCH_BYTE_CAP:
-                        # Abort mid-stream; do NOT drain the rest.
-                        raise ArchiveError(
-                            message=("Image exceeds 10 MB cap; reduce size_deg in vo_sia_search"),
-                            retry_strategy="abandon",
-                        )
-                return bytes(buf), content_type
-        except httpx.HTTPStatusError as e:
-            raise ArchiveError(
-                message=f"upstream HTTP {e.response.status_code}",
-            ) from e
-        except httpx.HTTPError as e:
-            raise ArchiveError(message=f"upstream error: {e}") from e

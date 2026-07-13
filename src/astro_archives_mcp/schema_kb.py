@@ -78,6 +78,38 @@ SCHEMA_KB: tuple[Schema, ...] = (
             "frequency is the tuned sky reference frequency (GHz); "
             "frequency_support holds the full per-spectral-window frequency "
             "ranges. em_min/em_max are the standard ObsCore wavelengths (m).",
+            "proposal_id (e.g. '2022.1.01515.S') encodes the observing Cycle "
+            "in its 'YYYY.N' prefix; there is no numeric cycle column, so "
+            "filter a Cycle with proposal_id LIKE '2022.1.%'. Mapping: "
+            "Cy6='2018.1', Cy7='2019.1' (+ '2019.2' ACA supplemental call), "
+            "Cy8='2021.1', Cy9='2022.1', Cy10='2023.1', Cy11='2024.1'. NOTE "
+            "the gap: there is NO '2020.1' (Cycle 8 was delayed by the COVID "
+            "shutdown), so never infer a Cycle from a linear year count.",
+            "antenna_arrays is a space-separated list of 'Jxxx:PAD' tokens "
+            "(one per antenna), NOT an array-type label. Derive the ALMA "
+            "array from the PAD prefixes: DA*/DV* = 12-m (main) array, "
+            "CM* = 7-m ACA, PM* = Total Power. e.g. 12-m -> antenna_arrays "
+            "LIKE '%DV%' OR LIKE '%DA%'; 7-m -> LIKE '%CM%'; TP -> "
+            "LIKE '%PM%'. The 12-m/7-m/TP components of one program are "
+            "separate rows, so a project can appear under several types.",
+            "s_resolution and spatial_resolution are the synthesized-beam "
+            "angular resolution in ARCSEC (usually equal); for a '<1 arcsec' "
+            "request use spatial_resolution < 1.0. spatial_scale_max is the "
+            "largest recoverable angular scale (arcsec); velocity_resolution "
+            "is in m/s.",
+            "science_keyword is a ';'-delimited list from ALMA's controlled "
+            "keyword vocabulary (a row may carry several; a 'null' token "
+            "appears for an unused slot), so match with LIKE, e.g. "
+            "science_keyword LIKE '%Outflows%'. Two distinct outflow keywords "
+            "exist: 'Outflows, jets and ionized winds' (protostellar/ISM) vs "
+            "'Outflows, jets, feedback' (galaxy-scale). scientific_category "
+            "is the coarser, single-valued parent classification.",
+            "Bibliography is IN this table: publication_year (int), "
+            "first_author, authors, pub_title, bib_reference. So 'recent "
+            "papers that used ALMA data on X' is answerable here directly "
+            "(filter science_keyword + ORDER BY publication_year DESC) with "
+            "no separate publications service; rows with no linked paper "
+            "carry NULL in these columns.",
         ),
         cross_refs=(("nrao", "tap_schema.obscore"),),
     ),

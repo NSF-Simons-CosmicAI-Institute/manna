@@ -4,7 +4,7 @@ This is the single source of truth for:
 
 - Endpoint URLs surfaced in tool schemas (`Field(examples=...)`)
 - Host substrings used by `_archive_label._STATIC_MAP` (archive labels +
-  SSRF allow-list for `vo_sia_fetch`)
+  the `is_known_archive_url` SSRF allow-list)
 - Test fixtures (instead of duplicating URL strings)
 
 Archives not listed here still work zero-touch via `vo_registry_search` —
@@ -100,8 +100,8 @@ KNOWN_ARCHIVES: tuple[Archive, ...] = (
             "or specific ones like /sia/coadd/ls_dr9, /sia/coadd/des_dr1, "
             "/sia/calibrated/smash_dr2. vo_sia_search drives these via its "
             "SIA1 fallback (version='auto'), or pass version='1'. Returned "
-            "access_url values are on-the-fly cutout links (/svc/cutout?...), "
-            "fetchable with vo_sia_fetch.",
+            "access_url values are on-the-fly cutout links (/svc/cutout?...) "
+            "you fetch client-side (the server does not download images).",
             "vo_cone_search works (e.g. /scs/nsc_dr2/object) but SCS returns "
             "EVERY column of these very wide tables (nsc_dr2.object has ~99). "
             "When you need only a few columns, prefer a TAP query with an "

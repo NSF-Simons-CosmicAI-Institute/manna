@@ -198,11 +198,13 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
      one token over a 65536 window. **Two independent fixes, both now in place:**
      - **Bigger window** — raise `--max-model-len` (see Part 2; 131072 if the checkpoint's
        `max_position_embeddings` allows). The Blackwell box has ample KV headroom.
-     - **Smaller tool results** — the MCP server spills tabular results to the Parquet
-       Resource tier (a tiny `resource_uri` + 50-row preview) past `STABLE_INLINE_ROW_LIMIT`
-       (default **200 rows**) / `STABLE_INLINE_BYTE_LIMIT` (default **48 KB**). These
-       defaults are sized for a 64K backend; a single inline result can no longer overflow
-       the window. Raise them for large-context models.
+     - **Smaller tool results** — the MCP server never inlines large tabular results.
+       Past `STABLE_INLINE_ROW_LIMIT` (default **200 rows**) / `STABLE_INLINE_BYTE_LIMIT`
+       (default **48 KB**), a TAP result is routed to an async job and `vo_tap_results`
+       hands back a `job_url` + pyvo `fetch_recipe` (the client fetches the data itself);
+       cone/SIA results truncate inline with a `truncated` flag. These defaults are sized
+       for a 64K backend; a single inline result can no longer overflow the window. Raise
+       them for large-context models.
 5. **The Qwen3 `<think>` tool-loss footgun (vLLM #39056) — and the mitigation we use.**
    With `--reasoning-parser qwen3` + `--tool-call-parser qwen3_coder`, a `<tool_call>`
    emitted inside `<think>` is pulled into the *reasoning* field and never reaches the
