@@ -12,6 +12,56 @@ compatibility, so `from astro_archives_mcp.known_archives import Archive` and
 
 from dataclasses import dataclass, field
 
+from astro_archives_mcp.archives._audit import Audit
+
+
+@dataclass(frozen=True)
+class Note:
+    """One ATOMIC curated claim + the audit that re-checks it live.
+
+    `id` is a stable slug, unique within its owning archive — the address a
+    stale audit prints so you can jump straight to the note to fix. `text` is
+    the single-claim, LLM-facing prose surfaced by vo_archive_list /
+    vo_schema_describe. `audit` (mandatory) is how the live runner re-checks it.
+    """
+
+    id: str
+    text: str
+    audit: Audit
+
+    def __post_init__(self) -> None:
+        if not self.id:
+            raise ValueError("Note.id must be a non-empty slug")
+        if not self.text:
+            raise ValueError("Note.text must be non-empty")
+        if not isinstance(self.audit, Audit):
+            raise TypeError(f"Note.audit must be an Audit, got {type(self.audit).__name__}")
+
+
+def note_texts(notes: tuple[Note, ...]) -> list[str]:
+    """The LLM-facing strings for a tuple of notes, in order. Audit stays internal."""
+    return [n.text for n in notes]
+
+
+def _normalize_notes(notes) -> tuple[Note, ...]:
+    """Coerce a notes tuple to Notes.
+
+    MIGRATION SCAFFOLD: a bare `str` is wrapped as a manual, un-audited note so
+    an un-migrated archive still constructs and the tree stays green. Task 8
+    removes the str branch, making explicit `Note`s mandatory.
+    """
+    out: list[Note] = []
+    for i, n in enumerate(notes):
+        if isinstance(n, Note):
+            out.append(n)
+        elif isinstance(n, str):
+            out.append(
+                Note(id=f"_auto{i}", text=n, audit=Audit.manual("unmigrated note — pending audit"))
+            )
+        else:
+            raise TypeError(f"note must be a Note or str, got {type(n).__name__}")
+    return tuple(out)
+
 
 @dataclass(frozen=True)
 class Schema:
