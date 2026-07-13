@@ -75,11 +75,15 @@
 - id: mq-download-m51-image
   tier: 5
   prompt: >-
-    Obtain a FITS image covering the Whirlpool Galaxy (M51) from an image archive, and
-    confirm you retrieved it — give the image's access URL (and dimensions if available).
+    Locate a FITS image covering the Whirlpool Galaxy (M51) in an image archive and report
+    its direct access URL — the URL a client would open to load the FITS (e.g. with
+    astropy.io.fits.open). Include image dimensions if available.
   rubric: >-
-    Passes if the assistant resolved/located M51, discovered an image service, and fetched
-    or identified a specific FITS image, reporting its access URL or a resource handle.
+    Passes if the assistant resolved/located M51, discovered an image (SIA) service, and
+    reported a specific image's direct access_url that a client could fetch itself. In
+    0.4.0 the server never downloads image bytes, so success is identifying the fetchable
+    access_url — NOT producing a server-side resource handle or claiming it downloaded the
+    file.
 
 # --- expanded coverage (2026-07): more objects, archives, and workflow types --------
 
@@ -125,12 +129,14 @@
 - id: mq-download-cadc-image
   tier: 5
   prompt: >-
-    Obtain a FITS image of the interacting galaxy NGC 4038 (the Antennae) from the CADC
-    archive and confirm you retrieved it — give the image's access URL.
+    Locate a FITS image of the interacting galaxy NGC 4038 (the Antennae) in the CADC
+    archive and report the direct access URL of the actual FITS file.
   rubric: >-
-    Passes if the assistant located NGC 4038, discovered a CADC image service, and
-    fetched or identified a specific FITS image, reporting its access URL or a resource
-    handle (following the DataLink indirection if needed).
+    Passes if the assistant located NGC 4038, discovered a CADC image (SIA2) service, and
+    reported the access_url of a specific FITS image. CADC SIA2 access_urls point at a
+    DataLink document, so full credit requires following that indirection to the real FITS
+    URL. In 0.4.0 there is no server-side fetch tool — the client resolves and fetches the
+    URL itself, so success is reporting the fetchable URL, not a resource handle.
 
 - id: mq-workflow-eso-count
   tier: 5
