@@ -17,9 +17,13 @@ Cache is keyed by the full endpoint URL (not just hostname) so distinct
 services on the same host get distinct labels. Restart wipes it; the
 derivation is deterministic, so a stale entry is never wrong.
 
-To add an archive to the static map, add it to `KNOWN_ARCHIVES` in
-`known_archives.py`. Both `archive_label` and the `is_known_archive_url`
-pick it up automatically.
+To add an archive to the static map, add a module under `archives/` (its
+`host_substrings` flow into `KNOWN_ARCHIVES` via the compat view). Both
+`archive_label` and `is_known_archive_url` pick it up automatically.
+
+Note: `is_known_archive_url` is vestigial — its only caller (`vo_sia_fetch`)
+was removed in the 0.4.0 stateless refactor. It is retained (and tested) for
+now; a follow-up may drop it.
 """
 
 from urllib.parse import urlparse
