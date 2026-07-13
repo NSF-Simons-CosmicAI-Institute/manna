@@ -1,0 +1,151 @@
+# MCP-quality task set: end-to-end, ARM-AGNOSTIC, DETERMINISTIC answers.
+#
+# These run under all three arms (mcp / raw_tap / raw_web) to measure the server's
+# lift, so they must NOT reference vo_* tools (no expect_tools / arg_checks) — only a
+# deterministic `ground_truth` that any arm could satisfy. Accuracy is scored without
+# a judge; efficiency (iterations, tokens, latency) is measured for every arm.
+#
+# Scope note: coordinate-resolution + service-discovery are the reliably deterministic
+# workflows. Download / count tasks (judge-scored) come once a judge is wired up.
+
+- id: mq-coords-m87
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of the galaxy M87?"
+  ground_truth: { type: coords, ra: 187.70593, dec: 12.39112, tol_deg: 0.02 }
+
+- id: mq-coords-m51
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of the Whirlpool Galaxy (M51)?"
+  ground_truth: { type: coords, ra: 202.4696, dec: 47.1952, tol_deg: 0.02 }
+
+- id: mq-coords-3c273
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of the quasar 3C 273?"
+  ground_truth: { type: coords, ra: 187.27792, dec: 2.05239, tol_deg: 0.02 }
+
+- id: mq-coords-ngc1275
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of NGC 1275 (Perseus A)?"
+  ground_truth: { type: coords, ra: 49.95067, dec: 41.51169, tol_deg: 0.02 }
+
+- id: mq-find-gaia-tap
+  tier: 5
+  prompt: >-
+    Find the base URL of an IVOA TAP service that serves the Gaia DR3 catalogue and
+    report the URL.
+  ground_truth:
+    type: regex
+    pattern: "(?i)(gea\\.esac\\.esa\\.int|gaia\\.ari\\.uni-heidelberg\\.de)"
+
+# --- Multi-step + download workflows ------------------------------------------------
+# Accuracy is rubric-scored (needs a judge); until one is configured these report as
+# 'unscored' for accuracy and are measured on COMPLETION + efficiency only. These are
+# where the MCP's curation / shaping / async handling should widen the gap on raw arms.
+
+- id: mq-workflow-gaia-pm
+  tier: 5
+  prompt: >-
+    Find Gaia DR3 sources within 0.02 degrees of the galaxy M87 and report how many there
+    are, plus the proper motion (pmra, pmdec) of one or two example sources.
+  rubric: >-
+    Passes if the assistant resolved M87 (~187.706 / +12.391), queried Gaia DR3 for
+    sources within ~0.02 deg, and reported a plausible integer count with at least one
+    pmra/pmdec example value.
+
+- id: mq-workflow-datalab-count
+  tier: 5
+  prompt: >-
+    Using the Astro Data Lab NSC DR2 catalogue, count how many objects lie within 0.05
+    degrees of RA=180.0, Dec=-30.0.
+  rubric: >-
+    Passes if the assistant queried Data Lab nsc_dr2.object with a valid positional filter
+    (q3c_radial_query or a ra/dec bounding box — NOT untranslated CONTAINS/CIRCLE) and
+    reported an integer count.
+
+- id: mq-workflow-nrao-count
+  tier: 5
+  prompt: >-
+    How many observations does the NRAO archive have within 0.1 degrees of RA=200.0,
+    Dec=+20.0?
+  rubric: >-
+    Passes if the assistant queried NRAO obscore (tap_schema.obscore) with a spatial
+    predicate, coped with the async requirement, and reported an integer count (or clearly
+    reported that the async job was still running).
+
+- id: mq-download-m51-image
+  tier: 5
+  prompt: >-
+    Obtain a FITS image covering the Whirlpool Galaxy (M51) from an image archive, and
+    confirm you retrieved it — give the image's access URL (and dimensions if available).
+  rubric: >-
+    Passes if the assistant resolved/located M51, discovered an image service, and fetched
+    or identified a specific FITS image, reporting its access URL or a resource handle.
+
+# --- expanded coverage (2026-07): more objects, archives, and workflow types --------
+
+- id: mq-coords-cygnusa
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of the radio galaxy Cygnus A?"
+  ground_truth: { type: coords, ra: 299.86817, dec: 40.73391, tol_deg: 0.03 }
+
+- id: mq-coords-m31
+  tier: 5
+  prompt: "What are the ICRS coordinates (decimal degrees) of the Andromeda Galaxy (M31)?"
+  ground_truth: { type: coords, ra: 10.68458, dec: 41.26917, tol_deg: 0.03 }
+
+- id: mq-find-alma-tap
+  tier: 5
+  prompt: "Find the base URL of the ALMA Science Archive TAP service and report it."
+  ground_truth: { type: regex, pattern: "(?i)almascience\\.(nrao|eso|org|nao)" }
+
+- id: mq-find-cadc-tap
+  tier: 5
+  prompt: >-
+    Find the base URL of a TAP service at the Canadian Astronomy Data Centre (CADC)
+    and report it.
+  ground_truth: { type: regex, pattern: "(?i)cadc" }
+
+- id: mq-nrao-instruments
+  tier: 5
+  prompt: "What instrument_name values appear in NRAO's obscore table? List them."
+  ground_truth: { type: contains, values: [EVLA, VLBA, GBT] }
+
+# --- multi-step / download (rubric-judged) ---
+
+- id: mq-workflow-alma-count
+  tier: 5
+  prompt: >-
+    How many distinct ALMA observations are there of the galaxy NGC 253? Count
+    observations correctly — ALMA rows are finer-grained than observations.
+  rubric: >-
+    Passes if the assistant queried the ALMA archive for NGC 253 and reported a distinct
+    observation count via COUNT(DISTINCT member_ous_uid) — or clearly accounted for
+    ALMA's spectral-window row granularity rather than a raw COUNT(*).
+
+- id: mq-download-cadc-image
+  tier: 5
+  prompt: >-
+    Obtain a FITS image of the interacting galaxy NGC 4038 (the Antennae) from the CADC
+    archive and confirm you retrieved it — give the image's access URL.
+  rubric: >-
+    Passes if the assistant located NGC 4038, discovered a CADC image service, and
+    fetched or identified a specific FITS image, reporting its access URL or a resource
+    handle (following the DataLink indirection if needed).
+
+- id: mq-workflow-eso-count
+  tier: 5
+  prompt: >-
+    Using the ESO Science Archive, how many observations are there within 0.1 degrees of
+    RA=83.8, Dec=-5.4 (near the Orion Nebula)?
+  rubric: >-
+    Passes if the assistant queried the ESO archive with a positional filter around the
+    given coordinates and reported an integer observation count.
+
+- id: mq-cone-gaia
+  tier: 5
+  prompt: >-
+    List Gaia DR3 sources within 0.02 degrees of RA=201.365, Dec=-43.019 and report how
+    many there are, plus one example source_id.
+  rubric: >-
+    Passes if the assistant ran a positional Gaia DR3 query around the given coordinates
+    and reported an integer count with at least one example source_id.

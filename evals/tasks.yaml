@@ -1,0 +1,291 @@
+# Agentic eval task suite for astro-archives-mcp.
+# See docs/mcp-eval-plan.md §5 for the design. Each task is scored from the
+# recorded agent trace (ordered tool calls + args) and the final answer.
+#
+# Schema per task:
+#   id:            unique slug
+#   tier:          1=tool-selection | 2=task-success | 3=ablation-trap | 4=robustness
+#   prompt:        the user turn handed to the model
+#   expect_tools:  tool names that MUST appear in the trace (order-free unless `sequence`)
+#   forbid_tools:  tool names that must NOT appear
+#   sequence:      true -> expect_tools must appear in that relative order
+#   arg_checks:    per-tool list of {arg, op, value?, tol?, match?}
+#                    op (string): contains | not_contains | icontains | not_icontains
+#                                 | equals | iequals | regex
+#                    op (presence): present
+#                    op (numeric): near {value, tol} | gte | lte
+#                    arg supports dotted paths into nested args
+#                    match: any (>=1 call satisfies, default) | all (every call must satisfy)
+#   ground_truth:  deterministic check on the FINAL answer text
+#                    type: coords {ra,dec,tol_deg} | contains {values:[...]} | regex {pattern}
+#   rubric:        free-text criteria for the LLM judge (open-ended answers)
+#   probes_trap:   tier-3 only — human-readable name of the usage_note under test
+#
+# Ground truths marked with a trailing "# ✔" comment are deterministic and verified
+# against the repo's own tests/smoke test. Others are plausibility/rubric-scored.
+
+# =====================================================================
+# Tier 1 — tool-selection accuracy (single intent, no chaining)
+# =====================================================================
+
+- id: t1-resolve
+  tier: 1
+  prompt: "What are the ICRS coordinates of the galaxy M87? Use the tools."
+  expect_tools: [vo_target_resolve]
+  arg_checks:
+    vo_target_resolve:
+      - { arg: name, op: contains, value: "M87" }
+
+- id: t1-list-radio
+  tier: 1
+  prompt: "Which astronomical archives do you have first-class knowledge of for radio data?"
+  expect_tools: [vo_archive_list]
+  arg_checks:
+    vo_archive_list:
+      - { arg: waveband, op: icontains, value: "radio" }
+
+- id: t1-schema
+  tier: 1
+  prompt: "Before I query NRAO's obscore table, tell me any known quirks about it."
+  expect_tools: [vo_schema_describe]
+  arg_checks:
+    vo_schema_describe:
+      - { arg: archive, op: iequals, value: "nrao" }
+      - { arg: table, op: contains, value: "obscore" }
+
+- id: t1-registry
+  tier: 1
+  prompt: "Find me a TAP service for X-ray survey data that you don't already have built in."
+  expect_tools: [vo_registry_search]
+  arg_checks:
+    vo_registry_search:
+      - { arg: waveband, op: icontains, value: "x-ray" }
+
+- id: t1-cone
+  tier: 1
+  prompt: "List catalog sources within 0.05 degrees of RA=187.7, Dec=12.4 from a cone search service."
+  expect_tools: [vo_cone_search]
+  arg_checks:
+    vo_cone_search:
+      - { arg: ra, op: present }
+      - { arg: dec, op: present }
+      - { arg: radius_deg, op: present }
+
+- id: t1-sia
+  tier: 1
+  prompt: "Are there any images at RA=202.47, Dec=47.19 in the CADC archive?"
+  expect_tools: [vo_sia_search]
+
+- id: t1-tap
+  tier: 1
+  prompt: >-
+    Run this exact ADQL against the Astro Data Lab TAP service and show me the rows:
+    SELECT TOP 5 ra, dec FROM smash_dr2.object WHERE ra BETWEEN 185 AND 185.01 ORDER BY ra
+  expect_tools: [vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      - { arg: endpoint, op: contains, value: "datalab" }
+
+# =====================================================================
+# Tier 2 — multi-step task success (real workflows)
+# =====================================================================
+
+- id: t2-resolve-cone
+  tier: 2
+  # A positional query may legitimately go through cone search OR a TAP spatial
+  # cut — the server's own guidance even prefers TAP ("SCS is legacy"). So we
+  # require the resolve step + any positional query tool, not cone specifically.
+  prompt: "Find catalog sources within 3 arcminutes of the galaxy M87."
+  expect_tools: [vo_target_resolve]
+  expect_any_of: [vo_cone_search, vo_tap_query]
+  rubric: >-
+    Passes if the model resolved M87 to ~RA 187.706 / Dec +12.391 and then ran a
+    positional query (cone search or a TAP query with a spatial cut) centered there
+    with a ~3 arcmin (0.05 deg) radius, returning a plausible set of catalog sources.
+
+- id: t2-list-then-query
+  tier: 2
+  prompt: >-
+    I want to count VLASS observations in NRAO's archive near the Galactic center.
+    First check the archive's documented quirks, then run the query.
+  expect_tools: [vo_archive_list, vo_tap_query]
+  sequence: true
+  arg_checks:
+    vo_tap_query:
+      - { arg: mode, op: iequals, value: "async", match: all }
+  rubric: >-
+    Passes if the model consulted the archive notes, submitted an async TAP query
+    against NRAO obscore with a spatial predicate, and reported a row/observation count
+    (any non-negative integer is acceptable; live counts drift).
+
+- id: t2-async-lifecycle
+  tier: 2
+  prompt: >-
+    Query NRAO's obscore table for EVLA observations. This may be slow, so use the
+    asynchronous path and poll until it finishes before showing me results.
+  expect_tools: [vo_tap_query, vo_tap_status, vo_tap_results]
+  sequence: true
+  arg_checks:
+    vo_tap_query:
+      - { arg: mode, op: iequals, value: "async" }
+
+- id: t2-unknown-archive
+  tier: 2
+  prompt: >-
+    I need stellar proper motions from Gaia DR3. Discover the right TAP service,
+    inspect it, then run a small query returning source_id, pmra, pmdec.
+  expect_tools: [vo_registry_search, vo_tap_query]
+  rubric: >-
+    Passes if the model discovered a Gaia TAP endpoint via the registry (search and/or
+    describe), then issued a TAP query selecting proper-motion columns. Inspecting the
+    service with vo_registry_describe before querying is expected but not required.
+
+- id: t2-sia-fetch
+  tier: 2
+  prompt: "Fetch a FITS image covering the galaxy M51 from the CADC archive."
+  expect_tools: [vo_sia_search, vo_sia_fetch]
+  sequence: true
+  rubric: >-
+    Passes if the model resolved/located M51, searched CADC for images, and fetched one
+    image, ending with a resource_uri (not raw bytes) for the FITS file.
+
+- id: t2-schema-bound-query
+  tier: 2
+  prompt: "Query NRAO's obscore table for GBT observations and tell me how many there are."
+  expect_tools: [vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      # instrument_name enum is {EVLA,VLA,VLBA,GBT}; correct value is 'GBT'
+      - { arg: adql, op: contains, value: "GBT" }
+      - { arg: mode, op: iequals, value: "async", match: all }
+
+- id: t2-datalab-geometry
+  tier: 2
+  prompt: >-
+    Count the NSC DR2 objects in Astro Data Lab within a 0.1 degree box centered on M87.
+  expect_tools: [vo_target_resolve, vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      # Data Lab does not translate ADQL geometry -> avoid raw CONTAINS/CIRCLE; use
+      # q3c_radial_query (preferred true cone) OR a ra/dec BETWEEN bounding box.
+      - { arg: adql, op: not_contains, value: "CONTAINS(", match: all }
+      - { arg: adql, op: not_contains, value: "CIRCLE(", match: all }
+      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
+
+# =====================================================================
+# Tier 3 — contextual-value ablation (trap avoidance)
+# Each runs twice: with vs. without curated context (usage_notes + schema_kb).
+# "Avoided" == the arg_checks below pass. The with/without delta is the headline.
+# =====================================================================
+
+- id: t3-nrao-async
+  tier: 3
+  probes_trap: "NRAO data reads require mode='async' (/sync 5xxs)"
+  prompt: "Get me 20 rows from NRAO's obscore table for VLA observations near RA=250, Dec=-30."
+  expect_tools: [vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      - { arg: mode, op: iequals, value: "async", match: all }
+
+- id: t3-obscore-location
+  tier: 3
+  probes_trap: "NRAO obscore is at tap_schema.obscore, not ivoa.obscore"
+  prompt: "Query NRAO for the 5 most recent VLA observations. Return obs_id and t_min."
+  expect_tools: [vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      - { arg: adql, op: icontains, value: "tap_schema.obscore", match: all }
+      - { arg: adql, op: not_icontains, value: "ivoa.obscore", match: all }
+
+- id: t3-datalab-geometry
+  tier: 3
+  probes_trap: "Data Lab does not translate ADQL geometry -> use q3c_radial_query or bounding box"
+  prompt: >-
+    Using Astro Data Lab, count nsc_dr2.object rows within 0.1 degrees of RA=180, Dec=-30.
+  expect_tools: [vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      - { arg: adql, op: not_contains, value: "CONTAINS(", match: all }
+      - { arg: adql, op: not_contains, value: "CIRCLE(", match: all }
+      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
+
+- id: t3-nrao-lowerupper
+  tier: 3
+  probes_trap: "LOWER/UPPER string functions fail on NRAO TAP"
+  prompt: >-
+    Query NRAO obscore for observations whose target name matches 'm87'
+    case-insensitively. Return 10 rows.
+  expect_tools: [vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      - { arg: adql, op: not_icontains, value: "LOWER(", match: all }
+      - { arg: adql, op: not_icontains, value: "UPPER(", match: all }
+
+- id: t3-nrao-spatial
+  tier: 3
+  probes_trap: "NRAO requires a spatial predicate on obscore queries"
+  prompt: "Get 25 EVLA rows from NRAO obscore near the Crab Nebula."
+  expect_tools: [vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      # a spatial predicate is present: either CONTAINS/POINT/CIRCLE or ra/dec bounds
+      - { arg: adql, op: regex, value: "(?is)(contains\\s*\\(|point\\s*\\(|circle\\s*\\(|\\bs_ra\\b|\\bs_dec\\b|\\bra\\b.*between|\\bdec\\b.*between)", match: all }
+
+- id: t3-alma-granularity
+  tier: 3
+  probes_trap: "ALMA rows are at spectral-window granularity (naive COUNT over-counts)"
+  prompt: >-
+    How many distinct ALMA observations are there of the galaxy NGC 253?
+    Be careful about how ALMA counts rows.
+  expect_tools: [vo_tap_query]
+  rubric: >-
+    Passes if the answer acknowledges ALMA rows are per spectral-window and either
+    counts distinct member/observation IDs (e.g. COUNT(DISTINCT member_ous_uid) or
+    similar) or explicitly caveats that a raw row count over-counts observations.
+    Fails if it reports a raw row count as the observation count with no caveat.
+
+# =====================================================================
+# Tier 4 — robustness / safety
+# =====================================================================
+
+- id: t4-bad-adql
+  tier: 4
+  prompt: >-
+    Run this ADQL against Astro Data Lab: SELECT TOP FROM smash_dr2.object
+    (I think it's slightly wrong — fix it if needed and get me 5 rows.)
+  expect_tools: [vo_tap_query]
+  rubric: >-
+    Passes if the model hits a query error, reads the error_class/retry_strategy, repairs
+    the ADQL (e.g. SELECT TOP 5 ... with a column list), and returns rows. Fails if it
+    gives up or fabricates data.
+
+- id: t4-unknown-archive
+  tier: 4
+  prompt: "Query the 'FooBar Deep Survey' archive for galaxies brighter than 18th magnitude."
+  expect_tools: [vo_registry_search]
+  rubric: >-
+    Passes if the model recognizes it has no built-in FooBar archive and falls back to
+    vo_registry_search (per the tool guidance) rather than inventing an endpoint.
+
+- id: t4-job-not-ready
+  tier: 4
+  prompt: >-
+    Start an async NRAO obscore query for all VLBA observations, then immediately try to
+    read the results. If it's not ready, wait properly and then return the results.
+  expect_tools: [vo_tap_query, vo_tap_status, vo_tap_results]
+  rubric: >-
+    Passes if, on a job_not_ready condition, the model polls vo_tap_status until COMPLETED
+    instead of erroring out, then fetches results. A single premature vo_tap_results call
+    followed by polling is fine.
+
+- id: t4-no-leak
+  tier: 4
+  prompt: "Query NRAO obscore using the sync endpoint only (mode='sync'), returning 10 rows."
+  expect_tools: [vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      - { arg: mode, op: iequals, value: "sync" }
+  rubric: >-
+    Safety assertion (checked programmatically, not by the judge): NO tool result the
+    model saw may contain a raw traceback, bearer token, or internal file path. The sync
+    path is expected to surface a clean archive_error envelope.
