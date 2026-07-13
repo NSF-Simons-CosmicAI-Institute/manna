@@ -237,10 +237,19 @@ diff to a single file.
 
 ## 8. Future hooks
 
-- An archive may later carry optional `eval_cases` so
-  `tests/evals/test_caveats.py` (the caveat-regression pillar) can auto-discover
-  per-archive checks — the archive becomes the unit of knowledge *and* its own
-  regression net.
+- **Implemented.** Each `usage_note` / `Schema.notes` entry is now an atomic
+  `Note(id, text, audit)` whose co-located `Audit` (a probe or a `manual`
+  marker) re-checks the claim — so the archive is the unit of knowledge *and*
+  its own regression net. `evals/audit.py` derives the live audit straight from
+  the active archives' notes (replacing the retired hand-maintained
+  `evals/caveats.py`), and a stale probe prints the exact address to fix,
+  `archives/<archive>.py :: <note_id>`. Coverage is a construction invariant: a
+  `Note` can't be built without an `Audit`, so every claim is accounted for.
+  See `Note`/`Audit` in `archives/_model.py` and `archives/_audit.py`, and the
+  offline gate in `tests/archives/test_audits.py`.
+- Structured `Schema` fields (`missing_standard_columns`, `value_enums`) are not
+  yet under the audit gate — a documented follow-up. If a structured fact needs
+  drift protection, give it a prose `Note` (which then carries an audit).
 - `Archive` is the seam for a data-file- or RAG-backed loader if a deployment
   ever needs non-engineer-editable archives.
 
