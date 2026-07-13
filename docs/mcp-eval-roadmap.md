@@ -140,10 +140,10 @@ behavior-preserving change, not gated on the eval work.
   `--limit`); persona@Qwen is free.
 - Eval runs are **live-network + real-model** → slow and non-hermetic. They live in `evals/`,
   out of the default `pytest` run. The caveat suite is model-free but still live-network.
-- **Open bug (filed separately):** `vo_registry_describe` can return ~127k tokens on a large
-  service (Gaia) and blow the model's context window — cap it in
-  `shape_registry_describe_result` (branch `dpg/registry-describe-catalog`). Pillar 1
-  independently re-surfaced and priced this in a workflow.
+- **Fixed (#36, merged):** `vo_registry_describe` used to return ~127k tokens on a large
+  service (Gaia) and blow the model's context window — Pillar 1 independently re-surfaced
+  and priced this in a workflow. `shape_registry_describe_result` now degrades a large
+  service to an adaptive table catalog (`registry_describe_byte_limit`, default 48 KiB).
 
 ## Follow-ups (not yet done)
 

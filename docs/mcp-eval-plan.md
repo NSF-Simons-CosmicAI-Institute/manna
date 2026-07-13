@@ -142,7 +142,7 @@ Each maps to a chain the server is designed for. `sequence: true` means order ma
 | t2-list-then-query | "How many VLASS observations does NRAO have near the Galactic center? Check the archive's quirks first." | `vo_archive_list` → `vo_tap_query(mode=async)` | ≈ nonzero rows, async used |
 | t2-async-lifecycle | "Query NRAO obscore for EVLA observations (this may be slow)." | `vo_tap_query(async)` → `vo_tap_status`(poll) → `vo_tap_results` | ✔ COMPLETED then results envelope |
 | t2-unknown-archive | "I want proper motions from Gaia DR3 — find the right service and query it." | `vo_registry_search`→`vo_registry_describe`→`vo_tap_query` | ≈ gaia tap_url discovered |
-| t2-sia-fetch | "Get me a FITS image covering M51 from CADC." | `vo_target_resolve`→`vo_sia_search`→`vo_sia_fetch` | ✔ resource_uri returned |
+| t2-sia-fetch | "Get me a FITS image covering M51 from CADC." | `vo_target_resolve`→`vo_sia_search` | ✔ access_url returned (client fetches it; CADC via DataLink) |
 | t2-schema-bound-query | "Query NRAO obscore for GBT observations." | `vo_schema_describe`→`vo_tap_query(async)` | ✔ uses instrument_name='GBT' from enum |
 | t2-datalab-geometry | "Count Data Lab NSC DR2 objects in a 0.1° box around M87." | `vo_target_resolve`→`vo_tap_query` | ✔ bounding-box (ra/dec BETWEEN), not CONTAINS |
 
@@ -181,7 +181,7 @@ aren't landing — both are actionable findings.
 ## 6. Scoring
 
 - **Programmatic** for deterministic ground truth: coordinate tolerance, exact table/tool
-  names, envelope keys (`mode=='async'`, `resource_uri` present), trap booleans parsed from
+  names, envelope keys (`mode=='async'`, `result_url`/`fetch_recipe` present), trap booleans parsed from
   the recorded tool args.
 - **LLM-as-judge** (hosted Claude, *not* Qwen3.5 grading itself) for open-ended answer
   quality, using each task's `rubric`. Judge sees the prompt, the final answer, and the tool
