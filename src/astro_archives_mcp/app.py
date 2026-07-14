@@ -14,6 +14,7 @@ from astro_archives_mcp.observability import (
 from astro_archives_mcp.tools import (
     vo_archive_list,
     vo_cone_search,
+    vo_find_observations,
     vo_registry_describe,
     vo_registry_search,
     vo_schema_describe,
@@ -66,6 +67,7 @@ def build_mcp() -> FastMCP:
     mcp.tool(vo_target_resolve)
     mcp.tool(vo_cone_search)
     mcp.tool(vo_sia_search)
+    mcp.tool(vo_find_observations)
     return mcp
 
 
