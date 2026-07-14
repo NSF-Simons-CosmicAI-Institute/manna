@@ -11,9 +11,14 @@ def test_gaia_identity():
 
 
 def test_gaia_usage_notes_cover_release_schemas_and_source_id():
-    notes = " ".join(GAIA.usage_notes).lower()
+    notes = " ".join(n.text for n in GAIA.usage_notes).lower()
     assert "gaiadr3" in notes
     assert "source_id" in notes
+
+
+def test_gaia_key_note_audit_expectations():
+    notes = {n.id: n for n in GAIA.usage_notes}
+    assert notes["dr3-default-table"].audit.expect == "ok"
 
 
 def test_gaia_ari_is_scs_only():

@@ -15,7 +15,7 @@ def test_identity():
 def test_usage_notes_cover_known_adql_quirks():
     """Data Lab doesn't translate ADQL geometric functions, and NSC bright
     sources carry blend flags — recurring patterns the LLM needs to know."""
-    notes = " ".join(ARCHIVE.usage_notes).lower()
+    notes = " ".join(n.text for n in ARCHIVE.usage_notes).lower()
     # ADQL geometric-function gap: the verified-live remedy is Q3C.
     assert "bounding-box" in notes or "bounding box" in notes
     assert "q3c_radial_query" in notes
@@ -30,9 +30,15 @@ def test_ships_the_curated_tables():
 
 
 def test_nsc_schema_recommends_q3c():
-    notes = " ".join(SCHEMAS["nsc_dr2.object"].notes).lower()
+    notes = " ".join(n.text for n in SCHEMAS["nsc_dr2.object"].notes).lower()
     assert "q3c_radial_query" in notes
 
 
 def test_smash_schema_cross_refs_nsc():
     assert ("datalab", "nsc_dr2.object") in SCHEMAS["smash_dr2.object"].cross_refs
+
+
+def test_geometry_note_audits_expect_error():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["geometry-contains-untranslated"].audit.expect == "error"
+    assert notes["geometry-q3c-literal-ok"].audit.expect == "ok"

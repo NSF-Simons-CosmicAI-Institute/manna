@@ -12,3 +12,8 @@ def test_identity():
 
 def test_no_curated_schemas_yet():
     assert ARCHIVE.schemas == ()
+
+
+def test_obscore_note_audit():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["obscore-mixedcase"].audit.expect == "ok"

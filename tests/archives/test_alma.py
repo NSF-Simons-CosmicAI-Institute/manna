@@ -21,7 +21,7 @@ def test_usage_notes_capture_critical_gotchas():
     """Verified-against-live facts: INTERSECTS on s_region, member_ous_uid is
     the dataset key, science_observation drops calibration scans, and ALMA
     exposes more than TAP (SIAv2 + DataLink)."""
-    notes = " ".join(ARCHIVE.usage_notes).lower()
+    notes = " ".join(n.text for n in ARCHIVE.usage_notes).lower()
     assert "intersects" in notes and "s_region" in notes
     assert "member_ous_uid" in notes
     assert "science_observation" in notes
@@ -44,7 +44,12 @@ def test_obscore_schema_value_enums_and_cross_ref():
 
 def test_source_catalogue_schema_flags_nullable_geometry():
     src = SCHEMAS["sourcecatalogue.source_cone_search"]
-    notes = " ".join(src.notes).lower()
+    notes = " ".join(n.text for n in src.notes).lower()
     assert "m_ra" in notes and "m_dec" in notes
     assert "null" in notes
     assert ("alma", "ivoa.obscore") in src.cross_refs
+
+
+def test_spatial_note_audit_expects_ok():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["sync-spatial-ok"].audit.expect == "ok"
