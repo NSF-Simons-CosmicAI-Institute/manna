@@ -25,6 +25,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from astro_archives_mcp.archives._model import note_texts
 from astro_archives_mcp.backends.cone import ConeSearchClient
 from astro_archives_mcp.backends.resolver import ResolverClient
 from astro_archives_mcp.backends.sia import SiaClient
@@ -246,7 +247,7 @@ def vo_find_observations(
         "chosen_archive": chosen.short_name,
         "endpoint": endpoint,
         "alternatives": [c.short_name for c in candidates[1:3]] or None,
-        "usage_notes": list(chosen.usage_notes) or None,
+        "usage_notes": note_texts(chosen.usage_notes) or None,
     }
     return envelope
 

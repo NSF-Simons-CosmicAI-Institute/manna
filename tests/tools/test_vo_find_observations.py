@@ -11,9 +11,14 @@ from astropy.table import Table
 from fastmcp import Client
 
 import astro_archives_mcp.tools.find_observations as find_mod
-from astro_archives_mcp.archives._model import Archive
+from astro_archives_mcp.archives._audit import Audit
+from astro_archives_mcp.archives._model import Archive, Note
 
 # ---------- fakes ----------
+
+
+def _note(text: str) -> Note:
+    return Note(id="n", text=text, audit=Audit.manual(reason="test fixture note"))
 
 
 class _FakeResolver:
@@ -53,7 +58,7 @@ def _archive(short_name, *, waveband, sia_url=None, scs_url=None, priority=100, 
         scs_url=scs_url,
         waveband=waveband,
         priority=priority,
-        usage_notes=tuple(notes),
+        usage_notes=tuple(_note(n) for n in notes),
     )
 
 
