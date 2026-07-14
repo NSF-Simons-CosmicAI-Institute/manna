@@ -21,6 +21,7 @@ from typing import Annotated
 from pydantic import Field
 
 from astro_archives_mcp._serialization import dataclass_to_jsonable_dict
+from astro_archives_mcp.archives._model import note_texts
 from astro_archives_mcp.errors import wrap_tool_errors
 from astro_archives_mcp.known_archives import active_archives
 from astro_archives_mcp.tools._constants import _ERROR_DOCSTRING
@@ -115,6 +116,7 @@ def vo_archive_list(
         d = dataclass_to_jsonable_dict(a)
         d.pop("schemas", None)
         d.pop("priority", None)
+        d["usage_notes"] = note_texts(a.usage_notes)
         archives.append(d)
     result: dict = {"archives": archives, "count": len(archives)}
     # A filter that matched nothing is a dead end for a weaker model (e.g. it guessed

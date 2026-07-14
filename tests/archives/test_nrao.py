@@ -24,7 +24,7 @@ def test_entry_covers_full_instrument_suite():
 def test_usage_notes_capture_critical_gotchas():
     """The usage_notes are the agent-facing knowledge base; NRAO's must cover
     the friction we learned the hard way."""
-    notes = " ".join(ARCHIVE.usage_notes).lower()
+    notes = " ".join(n.text for n in ARCHIVE.usage_notes).lower()
     assert "async" in notes
     assert "tap_schema.obscore" in notes
     assert "scan" in notes and "execution" in notes.replace("execute", "")
@@ -37,3 +37,9 @@ def test_obscore_schema_missing_columns_and_enums():
     assert "dataproduct_subtype" in obscore.missing_standard_columns
     assert obscore.value_enums["instrument_name"] == ("EVLA", "VLA", "VLBA", "GBT")
     assert obscore.value_enums["facility_name"] == ("NRAO",)
+
+
+def test_key_note_audits_have_expected_outcomes():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["sync-5xx-on-obscore"].audit.expect == "error"
+    assert notes["obscore-ivoa-absent"].audit.expect == "empty"

@@ -22,7 +22,7 @@ See docs/archives-spec.md.
 
 from astro_archives_mcp._serialization import dataclass_to_jsonable_dict
 from astro_archives_mcp.archives import get_active_archives
-from astro_archives_mcp.archives._model import Schema
+from astro_archives_mcp.archives._model import Schema, note_texts
 
 __all__ = [
     "SCHEMA_KB",
@@ -58,4 +58,6 @@ def lookup_schema(*, archive: str, table: str) -> Schema | None:
 
 def schema_to_dict(s: Schema) -> dict:
     """Serialize a Schema for inclusion in a tool's JSON envelope."""
-    return dataclass_to_jsonable_dict(s)
+    d = dataclass_to_jsonable_dict(s)
+    d["notes"] = note_texts(s.notes)  # Notes → LLM-facing text
+    return d

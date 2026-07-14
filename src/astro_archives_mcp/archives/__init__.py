@@ -24,11 +24,14 @@ import pkgutil
 from functools import lru_cache
 
 from astro_archives_mcp.archives import _select
-from astro_archives_mcp.archives._model import Archive, Schema
+from astro_archives_mcp.archives._audit import Audit
+from astro_archives_mcp.archives._model import Archive, Note, Schema
 from astro_archives_mcp.config import get_settings
 
 __all__ = [
     "Archive",
+    "Audit",
+    "Note",
     "Schema",
     "discover_archives",
     "get_active_archives",

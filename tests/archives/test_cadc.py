@@ -13,6 +13,12 @@ def test_identity():
 
 
 def test_usage_notes_cover_datalink_indirection():
-    notes = " ".join(ARCHIVE.usage_notes).lower()
+    notes = " ".join(n.text for n in ARCHIVE.usage_notes).lower()
     assert "datalink" in notes
     assert "obs_collection" in notes
+
+
+def test_key_note_audits_have_expected_outcomes():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["tap-reachable"].audit.expect == "ok"
+    assert notes["obs-collection-column"].audit.expect == "count"

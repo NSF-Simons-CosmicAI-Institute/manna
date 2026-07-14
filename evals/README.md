@@ -106,12 +106,12 @@ uv run python -m evals.persona_run --same-model --limit 3  # persona at the same
 uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/persona-*.json
 ```
 
-**3 — archive caveat regression** (`caveats.py`): keep the KB honest. **Model-free** — one
-live ADQL probe per falsifiable `usage_notes` claim, keyed to `(archive, caveat_id)`,
+**3 — archive note regression** (`audit.py`): keep the KB honest. **Model-free** — one
+live ADQL probe per each `Note`'s audit, keyed to `archives/<archive>.py :: <note_id>`,
 reporting STILL-TRUE / STALE / UNREACHABLE. Non-zero exit on STALE (cron/CI-friendly).
 
 ```bash
-uv run python -m evals.caveats --list          # list caveats, no probes
-uv run python -m evals.caveats --archive nrao  # one archive
-uv run python -m evals.caveats                 # all caveats vs live archives
+uv run python -m evals.audit --list          # list notes, no probes
+uv run python -m evals.audit --archive nrao  # one archive
+uv run python -m evals.audit                 # all notes vs live archives
 ```

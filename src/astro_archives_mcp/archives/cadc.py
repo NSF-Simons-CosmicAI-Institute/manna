@@ -1,6 +1,7 @@
 """Canadian Astronomy Data Centre."""
 
-from astro_archives_mcp.archives._model import Archive
+from astro_archives_mcp.archives._audit import Audit
+from astro_archives_mcp.archives._model import Archive, Note
 
 ARCHIVE = Archive(
     short_name="cadc",
@@ -11,18 +12,48 @@ ARCHIVE = Archive(
     waveband="multi",
     description=("Multi-mission archive — TESS, JWST, CFHT, HST imaging available via SIA2."),
     usage_notes=(
-        "SIA2 results' `access_url` column points at a DataLink VOTable, "
-        "NOT directly at the FITS file. Check `access_format` — if it "
-        "contains `content=datalink`, you must follow the indirection.",
-        "Datalink follow-through recipe (verified live): "
-        "(1) GET the access_url with Accept: application/x-votable+xml; "
-        "(2) parse the VOTable rows; "
-        "(3) find the row where semantics == '#this' — that's the "
-        "primary image; "
-        "(4) GET its access_url to get the real FITS bytes "
-        "(the destination may be on a different host like "
-        "mast.stsci.edu or S3 — follow redirects).",
-        "Use `obs_collection` to filter by mission: 'TESS', 'JWST', 'CFHT', 'HST', etc.",
+        Note(
+            id="tap-reachable",
+            text=(
+                "CADC TAP serves the caom2 tables (e.g. caom2.Observation) — the "
+                "baseline the SIA2/DataLink caveats below build on."
+            ),
+            audit=Audit.probe(expect="ok", adql="SELECT TOP 1 * FROM caom2.Observation"),
+        ),
+        Note(
+            id="sia2-datalink-indirection",
+            text=(
+                "SIA2 results' `access_url` column points at a DataLink VOTable, "
+                "NOT directly at the FITS file. Check `access_format` — if it "
+                "contains `content=datalink`, you must follow the indirection."
+            ),
+            audit=Audit.manual(
+                "SIA2 access_url indirection depends on inspecting a live "
+                "access_format value — not a single ADQL/tap_schema probe."
+            ),
+        ),
+        Note(
+            id="datalink-follow-through",
+            text=(
+                "Datalink follow-through recipe (verified live): "
+                "(1) GET the access_url with Accept: application/x-votable+xml; "
+                "(2) parse the VOTable rows; "
+                "(3) find the row where semantics == '#this' — that's the "
+                "primary image; "
+                "(4) GET its access_url to get the real FITS bytes "
+                "(the destination may be on a different host like "
+                "mast.stsci.edu or S3 — follow redirects)."
+            ),
+            audit=Audit.manual(
+                "Multi-step client download recipe (GET -> parse VOTable -> "
+                "follow indirection to the real FITS) — not a single ADQL/TAP probe."
+            ),
+        ),
+        Note(
+            id="obs-collection-column",
+            text="Use `obs_collection` to filter by mission: 'TESS', 'JWST', 'CFHT', 'HST', etc.",
+            audit=Audit.count(table="caom2.Observation", columns=("obs_collection",)),
+        ),
     ),
     priority=50,
 )
