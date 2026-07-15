@@ -21,7 +21,7 @@ task prompt ─► model under test (Anthropic Messages API)  ─► emits tool_
 
 - **`tasks.yaml`** — the versioned task suite (4 tiers; see the plan). The review target.
 - **`harness.py`** — the agent loop + model config (`ModelConfig.from_env`).
-- **`context.py`** — the Tier-3 ablation: strips `usage_notes` + `schema_kb` so we can
+- **`context.py`** — the Tier-3 ablation: strips `usage_notes` + the schema KB so we can
   compare trap-avoidance **with vs. without** curated context.
 - **`score.py`** — programmatic checks (tools, order, args, ground truth, safety scan)
   plus an optional LLM judge for open-ended `rubric` tasks.

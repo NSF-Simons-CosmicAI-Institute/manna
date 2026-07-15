@@ -1,17 +1,17 @@
-"""Tests for the schema_kb compatibility view over the archive registry.
+"""Tests for the archives.knowledge helpers over the archive registry.
 
 Per-table *content* (ALMA obscore enums, datalab Q3C, NRAO missing columns)
 is asserted per-archive in `tests/archives/test_<archive>.py`. This file covers
 the `Schema` dataclass, the `lookup_schema` contract, and the integrity of the
-aggregated `SCHEMA_KB` view.
+aggregated `active_schema_kb()` view.
 """
 
 import pytest
 
-from astro_archives_mcp.known_archives import KNOWN_ARCHIVES
-from astro_archives_mcp.schema_kb import (
-    SCHEMA_KB,
-    Schema,
+from astro_archives_mcp.archives._model import Schema
+from astro_archives_mcp.archives.endpoints import active_archives
+from astro_archives_mcp.archives.knowledge import (
+    active_schema_kb,
     lookup_schema,
 )
 
@@ -52,12 +52,12 @@ def test_lookup_schema_is_case_sensitive():
     assert lookup_schema(archive="nrao", table="TAP_SCHEMA.OBSCORE") is None
 
 
-# ---------- SCHEMA_KB view integrity ----------
+# ---------- active_schema_kb() view integrity ----------
 
 
 def test_every_schema_archive_is_a_known_archive_short_name():
-    valid_short_names = {a.short_name for a in KNOWN_ARCHIVES}
-    for s in SCHEMA_KB:
+    valid_short_names = {a.short_name for a in active_archives()}
+    for s in active_schema_kb():
         assert s.archive in valid_short_names, (
             f"Schema entry archive={s.archive!r} is not a known archive "
             f"short_name. Available: {sorted(valid_short_names)}"
@@ -66,7 +66,7 @@ def test_every_schema_archive_is_a_known_archive_short_name():
 
 def test_no_two_schemas_share_an_archive_table_pair():
     seen: set[tuple[str, str]] = set()
-    for s in SCHEMA_KB:
+    for s in active_schema_kb():
         key = (s.archive, s.table)
         assert key not in seen, f"Duplicate Schema entry for {key}; collapse the duplicates"
         seen.add(key)
@@ -74,10 +74,10 @@ def test_no_two_schemas_share_an_archive_table_pair():
 
 def test_every_cross_ref_resolves_to_another_schema_entry():
     """Holds for the full shipped set (the default test deployment)."""
-    by_pair = {(s.archive, s.table): s for s in SCHEMA_KB}
-    for s in SCHEMA_KB:
+    by_pair = {(s.archive, s.table): s for s in active_schema_kb()}
+    for s in active_schema_kb():
         for archive, table in s.cross_refs:
             assert (archive, table) in by_pair, (
                 f"Schema({s.archive}, {s.table}).cross_refs references "
-                f"{(archive, table)} but no such entry exists in SCHEMA_KB"
+                f"{(archive, table)} but no such entry exists in the schema KB"
             )

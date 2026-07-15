@@ -114,9 +114,9 @@ def _print_table(per_arm: dict[str, dict[str, Any]], arms: list[str]) -> None:
 
 def _archive_host_map() -> dict[str, str]:
     """host substring -> archive short_name, from the server's own registry."""
-    from astro_archives_mcp.known_archives import KNOWN_ARCHIVES
+    from astro_archives_mcp.archives.endpoints import host_substring_to_short_name
 
-    return {h.lower(): a.short_name for a in KNOWN_ARCHIVES for h in a.host_substrings}
+    return {h.lower(): n for h, n in host_substring_to_short_name().items()}
 
 
 def _archive_of(call: ToolCall, host_map: dict[str, str]) -> str:

@@ -1,8 +1,8 @@
 """Archive-label lookup — fast, deterministic, no network.
 
 Two-step resolution:
-  1. Static substring map derived from `known_archives.KNOWN_ARCHIVES`
-     (the curated short_names; no I/O, fast path)
+  1. Static substring map derived from the active archive set
+     (`archives.endpoints.host_substring_to_short_name`; no I/O, fast path)
   2. Hostname-derived label for everything else (e.g. 'archive.eso.org'
      -> 'eso'), memoized in a process-lifetime cache
 
@@ -18,16 +18,16 @@ services on the same host get distinct labels. Restart wipes it; the
 derivation is deterministic, so a stale entry is never wrong.
 
 To add an archive to the static map, add a module under `archives/` (its
-`host_substrings` flow into `KNOWN_ARCHIVES` via the compat view);
+`host_substrings` flow into the map via `host_substring_to_short_name`);
 `archive_label` picks it up automatically.
 """
 
 from urllib.parse import urlparse
 
-from astro_archives_mcp.known_archives import host_substring_to_short_name
+from astro_archives_mcp.archives.endpoints import host_substring_to_short_name
 
 # (substring → short_name). Substring matched lowercase against the full URL.
-# Derived once at import from KNOWN_ARCHIVES; do not edit directly.
+# Derived once at import from the active archive set; do not edit directly.
 _STATIC_MAP: dict[str, str] = host_substring_to_short_name()
 
 _CACHE: dict[str, str] = {}

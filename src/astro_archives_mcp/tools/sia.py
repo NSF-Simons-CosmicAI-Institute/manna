@@ -5,12 +5,12 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from astro_archives_mcp._archive_label import archive_label
-from astro_archives_mcp.backends.sia import SiaClient
-from astro_archives_mcp.errors import wrap_tool_errors
-from astro_archives_mcp.known_archives import (
+from astro_archives_mcp.archives.endpoints import (
     sia_endpoint_description,
     sia_endpoint_urls,
 )
+from astro_archives_mcp.backends.sia import SiaClient
+from astro_archives_mcp.errors import wrap_tool_errors
 from astro_archives_mcp.shaper import shape_table
 from astro_archives_mcp.tools._constants import _ERROR_DOCSTRING
 
