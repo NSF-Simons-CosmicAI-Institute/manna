@@ -8,7 +8,9 @@ the context and once without — and comparing trap-avoidance rates.
 We strip context *harness-side* rather than adding a flag to production
 ``build_mcp`` (see plan §10): the tools resolve their KB references from module
 globals at call time, so swapping those globals inside a context manager gives a
-clean, fully-reversible ablation with zero production-code risk.
+clean, fully-reversible ablation with zero production-code risk. The patch point
+is ``known_archives.get_active_archives`` — the module global that
+``active_archives()`` (and hence ``vo_archive_list``) resolves at call time.
 
 Stripped:
   * ``vo_archive_list`` -> every archive keeps its endpoints/tables but loses
@@ -22,31 +24,29 @@ from __future__ import annotations
 import dataclasses
 from contextlib import contextmanager
 
-from astro_archives_mcp.tools import archives as _archives_tool
+from astro_archives_mcp import known_archives as _known_archives
 from astro_archives_mcp.tools import schema as _schema_tool
-
-
-def _strip_usage_notes(known_archives):
-    """Return a copy of the KNOWN_ARCHIVES tuple with usage_notes emptied."""
-    return tuple(dataclasses.replace(a, usage_notes=()) for a in known_archives)
 
 
 @contextmanager
 def ablated_context():
-    """Temporarily blind the server to its curated usage_notes + schema_kb.
+    """Temporarily blind the server to its curated usage_notes + schema KB.
 
-    Reversible and re-entrant-safe for the single-process eval harness. Restores
-    the original module globals on exit even if the body raises.
+    `vo_archive_list` resolves archives via `known_archives.active_archives()`,
+    which reads `get_active_archives` from the known_archives module globals at
+    call time — so swapping that global swaps what the tool sees. The schema
+    tool is blinded by forcing every lookup to miss. Restores on exit even if
+    the body raises.
     """
-    orig_archives = _archives_tool.KNOWN_ARCHIVES
+    orig_get_active = _known_archives.get_active_archives
     orig_lookup = _schema_tool.lookup_schema
+    stripped = tuple(dataclasses.replace(a, usage_notes=()) for a in orig_get_active())
     try:
-        _archives_tool.KNOWN_ARCHIVES = _strip_usage_notes(orig_archives)
-        # Force every schema lookup to miss -> vo_schema_describe returns known:false.
+        _known_archives.get_active_archives = lambda: stripped
         _schema_tool.lookup_schema = lambda *, archive, table: None
         yield
     finally:
-        _archives_tool.KNOWN_ARCHIVES = orig_archives
+        _known_archives.get_active_archives = orig_get_active
         _schema_tool.lookup_schema = orig_lookup
 
 
