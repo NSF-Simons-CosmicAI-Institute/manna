@@ -112,8 +112,12 @@ uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/
 ```
 
 **3 — archive note regression** (`audit.py`): keep the KB honest. **Model-free** — one
-live ADQL probe per each `Note`'s audit, keyed to `archives/<archive>.py :: <note_id>`,
-reporting STILL-TRUE / STALE / UNREACHABLE. Non-zero exit on STALE (cron/CI-friendly).
+live ADQL probe per each probeable `Note` audit, keyed to `archives/<archive>.py ::
+<note_id>`, reporting STILL-TRUE / STALE / ENDPT-DEAD / UNREACHABLE. Notes whose claims
+a single ADQL probe can't check are tagged MANUAL and listed for hand-verification —
+run `--list` for the current probeable/manual split, and prefer a probeable `Audit`
+whenever one exists (the one stale note the 2026-07 audit found was hiding in the
+manual pile). Non-zero exit on STALE or ENDPT-DEAD (cron/CI-friendly).
 
 ```bash
 uv run python -m evals.audit --list          # list notes, no probes
