@@ -7,7 +7,7 @@ from pydantic import Field
 
 from astro_archives_mcp import job_store
 from astro_archives_mcp._archive_label import archive_label
-from astro_archives_mcp.archives.endpoints import (
+from astro_archives_mcp.archives._endpoints import (
     tap_endpoint_description,
     tap_endpoint_urls,
 )

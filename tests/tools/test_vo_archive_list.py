@@ -1,6 +1,6 @@
 """End-to-end test for vo_archive_list through an in-memory MCP client.
 
-Verifies that the curated KNOWN_ARCHIVES registry — particularly the
+Verifies that the curated archive registry — particularly the
 usage_notes — surfaces correctly to the LLM via the tool layer.
 """
 

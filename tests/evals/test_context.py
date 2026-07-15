@@ -34,7 +34,7 @@ async def test_ablation_strips_and_restores_through_real_tools():
 
 
 def test_ablated_context_is_exception_safe():
-    from astro_archives_mcp.archives import endpoints
+    from astro_archives_mcp.archives import _endpoints as endpoints
 
     orig = endpoints.get_active_archives
     try:

@@ -2,7 +2,7 @@
 
 Two-step resolution:
   1. Static substring map derived from the active archive set
-     (`archives.endpoints.host_substring_to_short_name`; no I/O, fast path)
+     (`archives._endpoints.host_substring_to_short_name`; no I/O, fast path)
   2. Hostname-derived label for everything else (e.g. 'archive.eso.org'
      -> 'eso'), memoized in a process-lifetime cache
 
@@ -24,7 +24,7 @@ To add an archive to the static map, add a module under `archives/` (its
 
 from urllib.parse import urlparse
 
-from astro_archives_mcp.archives.endpoints import host_substring_to_short_name
+from astro_archives_mcp.archives._endpoints import host_substring_to_short_name
 
 # (substring → short_name). Substring matched lowercase against the full URL.
 # Derived once at import from the active archive set; do not edit directly.

@@ -1,4 +1,4 @@
-"""Tests for the archives.endpoints helpers over the archive registry.
+"""Tests for the archives._endpoints helpers over the archive registry.
 
 Archive-specific *content* (NRAO async-only, ALMA INTERSECTS, datalab Q3C,
 etc.) is asserted per-archive in `tests/archives/test_<archive>.py`. This file
@@ -10,8 +10,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from astro_archives_mcp.archives._model import Archive
-from astro_archives_mcp.archives.endpoints import (
+from astro_archives_mcp.archives._endpoints import (
     active_archives,
     by_short_name,
     host_substring_to_short_name,
@@ -22,6 +21,7 @@ from astro_archives_mcp.archives.endpoints import (
     tap_endpoint_description,
     tap_endpoint_urls,
 )
+from astro_archives_mcp.archives._model import Archive
 
 
 def test_archive_dataclass_is_frozen():

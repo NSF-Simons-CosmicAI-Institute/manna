@@ -1,4 +1,4 @@
-"""Tests for the archives.knowledge helpers over the archive registry.
+"""Tests for the archives._knowledge helpers over the archive registry.
 
 Per-table *content* (ALMA obscore enums, datalab Q3C, NRAO missing columns)
 is asserted per-archive in `tests/archives/test_<archive>.py`. This file covers
@@ -8,12 +8,12 @@ aggregated `active_schema_kb()` view.
 
 import pytest
 
-from astro_archives_mcp.archives._model import Schema
-from astro_archives_mcp.archives.endpoints import active_archives
-from astro_archives_mcp.archives.knowledge import (
+from astro_archives_mcp.archives._endpoints import active_archives
+from astro_archives_mcp.archives._knowledge import (
     active_schema_kb,
     lookup_schema,
 )
+from astro_archives_mcp.archives._model import Schema
 
 # ---------- Schema dataclass ----------
 

@@ -5,7 +5,7 @@ from typing import Annotated
 from pydantic import Field
 
 from astro_archives_mcp._archive_label import archive_label
-from astro_archives_mcp.archives.endpoints import (
+from astro_archives_mcp.archives._endpoints import (
     scs_endpoint_description,
     scs_endpoint_urls,
 )

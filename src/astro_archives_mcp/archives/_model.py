@@ -5,7 +5,7 @@ identity + endpoints + usage_notes, together with the per-table `Schema`
 entries for that same archive. One archive = one file under `archives/`.
 
 `Archive` and `Schema` live here so the model is a dependency-free leaf; the
-endpoint/schema helpers in `archives/endpoints.py` and `archives/knowledge.py`
+endpoint/schema helpers in `archives/_endpoints.py` and `archives/_knowledge.py`
 import them from here. `Note` (one atomic curated claim) and its `Audit` (how
 the live runner re-checks it) also
 live here — every `usage_notes` / `Schema.notes` entry is a `Note`, no other

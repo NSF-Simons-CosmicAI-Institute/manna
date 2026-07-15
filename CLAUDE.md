@@ -34,8 +34,8 @@ src/astro_archives_mcp/
 │   ├── _model.py      # Archive, Schema dataclasses (leaf)
 │   ├── _select.py     # pure parse_allow/sort/select/validate helpers
 │   ├── __init__.py    # registry: discover_archives() + get_active_archives()
-│   ├── endpoints.py   # endpoint lists/descriptions over the active set (Field examples, label map)
-│   ├── knowledge.py   # per-table schema lookups (lookup_schema, active_schema_kb, schema_to_dict)
+│   ├── _endpoints.py  # endpoint lists/descriptions over the active set (Field examples, label map)
+│   ├── _knowledge.py  # per-table schema lookups (lookup_schema, active_schema_kb, schema_to_dict)
 │   └── <archive>.py   # ARCHIVE = Archive(..., schemas=(...), priority=N)
 ├── _serialization.py  # shared dataclass → JSON-friendly dict helper
 ├── shaper.py          # astropy.Table → inline envelope; oversize → result-URL/fetch_recipe
@@ -48,7 +48,7 @@ src/astro_archives_mcp/
 
 Knowledge layer — **per-archive modules** (`archives/<short_name>.py`, see docs/archives-spec.md):
 - Each archive is one portable, plugin-style file: a single `Archive` dataclass carrying its identity (URLs, waveband), `usage_notes`, **its own per-table `Schema` entries**, and a `priority`. One archive = one file, exporting `ARCHIVE = Archive(...)`.
-- Derived helpers over the active archive set live in the package: **`archives/endpoints.py`** (endpoint URL lists + Field-example descriptions, the `_archive_label` substring map) and **`archives/knowledge.py`** (`lookup_schema` / `active_schema_kb` / `schema_to_dict`). Both resolve from the `lru_cache`d `get_active_archives()` at call time — no import-time snapshot. Archive-level quirks live in `usage_notes` (surfaced by `vo_archive_list`); table-specific facts live in `Archive.schemas` (surfaced by `vo_schema_describe`), NOT in usage_notes.
+- Derived helpers over the active archive set live in the package: **`archives/_endpoints.py`** (endpoint URL lists + Field-example descriptions, the `_archive_label` substring map) and **`archives/_knowledge.py`** (`lookup_schema` / `active_schema_kb` / `schema_to_dict`). Both resolve from the `lru_cache`d `get_active_archives()` at call time — no import-time snapshot. Archive-level quirks live in `usage_notes` (surfaced by `vo_archive_list`); table-specific facts live in `Archive.schemas` (surfaced by `vo_schema_describe`), NOT in usage_notes.
 - **Archives are additive, never gating.** A missing archive just means no curated claims about it; it stays reachable via `vo_registry_search`. Selection: delete archive files, or set `STABLE_ARCHIVES=datalab,alma` (unset ⇒ all). `priority` (ascending) sets order.
 
 Result handling (stateless — the server never persists result bytes):

@@ -3,7 +3,7 @@
 Everything here resolves from ``get_active_archives()`` at call time. That
 function is ``lru_cache``d, so the active set is process-frozen after first
 use — there is no separate import-time snapshot to keep in sync (the old
-``known_archives.KNOWN_ARCHIVES`` / ``active_archives()`` duality is gone).
+``known_archives`` module-global snapshot / ``active_archives()`` duality is gone).
 """
 
 from astro_archives_mcp.archives import get_active_archives

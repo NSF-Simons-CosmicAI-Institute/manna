@@ -37,24 +37,20 @@ __all__ = [
     "get_active_archives",
 ]
 
-# Non-archive helper modules that live in this package but carry no ``ARCHIVE``:
-# derived views over the active set (endpoint lists/descriptions, schema
-# lookups). Discovery must skip them — they are not archive definitions.
-_NON_ARCHIVE_MODULES = frozenset({"endpoints", "knowledge"})
-
 
 def discover_archives() -> tuple[Archive, ...]:
     """Import every archive module in this package and collect its ``ARCHIVE``.
 
-    Modules whose name starts with ``_`` (``_model``, ``_select``) and the
-    non-archive helper modules (``endpoints``, ``knowledge``) are skipped. A
-    non-underscore module without an ``ARCHIVE`` attribute is a developer error
-    and raises. The returned tuple is validated
+    Modules whose name starts with ``_`` are skipped: the leaf dataclasses and
+    pure helpers (``_model``, ``_select``, ``_audit``) plus the derived-view
+    helper modules (``_endpoints``, ``_knowledge``) — none of them define an
+    ``ARCHIVE``. A non-underscore module without an ``ARCHIVE`` attribute is a
+    developer error and raises. The returned tuple is validated
     (:func:`_select.validate_archives`) and sorted by (priority, short_name).
     """
     archives: list[Archive] = []
     for module_info in pkgutil.iter_modules(__path__):
-        if module_info.name.startswith("_") or module_info.name in _NON_ARCHIVE_MODULES:
+        if module_info.name.startswith("_"):
             continue
         module = importlib.import_module(f"{__name__}.{module_info.name}")
         archive = getattr(module, "ARCHIVE", None)

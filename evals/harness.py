@@ -181,7 +181,7 @@ class TaskRun:
 # and genuinely needs preventive guidance. Loud traps (LOWER/UPPER, sync 5xx) throw,
 # so they belong in the error `hint`, not here — keeping this ~10% the size of the
 # raw usage_notes it replaces (a tool description is re-sent every turn). A real
-# server-side version would derive this from tagged notes in KNOWN_ARCHIVES.
+# server-side version would derive this from tagged notes on the active archives.
 _SILENT_TRAP_CHEATSHEET = (
     "Archive quirks that FAIL SILENTLY (wrong results, no error) — apply before querying:\n"
     "- Astro Data Lab (datalab.noirlab): ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT "

@@ -185,8 +185,8 @@ def test_select_empty_result_is_allowed_and_warns(caplog):
 
 
 def test_stable_archives_env_narrows_the_active_set(monkeypatch, clear_archive_caches):
-    from astro_archives_mcp.archives.endpoints import active_archives
-    from astro_archives_mcp.archives.knowledge import active_schema_kb, lookup_schema
+    from astro_archives_mcp.archives._endpoints import active_archives
+    from astro_archives_mcp.archives._knowledge import active_schema_kb, lookup_schema
 
     monkeypatch.setenv("STABLE_ARCHIVES", "datalab,alma")
     get_settings.cache_clear()

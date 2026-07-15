@@ -10,7 +10,7 @@ We strip context *harness-side* rather than adding a flag to production
 ``build_mcp`` (see plan §10): the tools resolve their KB references from module
 globals at call time, so swapping those globals inside a context manager gives a
 clean, fully-reversible ablation with zero production-code risk. The patch point
-is ``archives.endpoints.get_active_archives`` — the module global that
+is ``archives._endpoints.get_active_archives`` — the module global that
 ``active_archives()`` (and hence ``vo_archive_list``) resolves at call time.
 
 Stripped:
@@ -25,7 +25,7 @@ from __future__ import annotations
 import dataclasses
 from contextlib import contextmanager
 
-from astro_archives_mcp.archives import endpoints as _endpoints
+from astro_archives_mcp.archives import _endpoints
 from astro_archives_mcp.tools import schema as _schema_tool
 
 
@@ -33,7 +33,7 @@ from astro_archives_mcp.tools import schema as _schema_tool
 def ablated_context():
     """Temporarily blind the server to its curated usage_notes + schema KB.
 
-    `vo_archive_list` resolves archives via `archives.endpoints.active_archives()`,
+    `vo_archive_list` resolves archives via `archives._endpoints.active_archives()`,
     which reads `get_active_archives` from the endpoints module globals at
     call time — so swapping that global swaps what the tool sees. The schema
     tool is blinded by forcing every lookup to miss. Restores on exit even if
