@@ -85,8 +85,12 @@ ARCHIVE = Archive(
                 "violation). Use exact-case equality (`instrument_name = 'GBT'`) or "
                 "LIKE patterns instead."
             ),
-            audit=Audit.manual(
-                "ADQL LOWER()/UPPER() FAIL (spec violation) — use exact-case equality or LIKE."
+            audit=Audit.probe(
+                expect="error",
+                adql=(
+                    "SELECT TOP 1 table_name FROM tap_schema.tables "
+                    "WHERE LOWER(table_name) = 'tap_schema.obscore'"
+                ),
             ),
         ),
         Note(

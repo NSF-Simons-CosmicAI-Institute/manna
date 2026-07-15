@@ -63,3 +63,12 @@ def test_access_format_note_is_probeable():
     note = notes["access-format-datalink"]
     assert note.audit.expect == "nonempty"
     assert "content=datalink" in note.text
+
+
+def test_converted_probeable_audits():
+    # proposal-id-cycle-encoding lives on the ivoa.obscore Schema, not usage_notes.
+    obscore_notes = {n.id: n for n in SCHEMAS["ivoa.obscore"].notes}
+    assert obscore_notes["proposal-id-cycle-encoding"].audit.expect == "empty"
+    sourcecat = SCHEMAS["sourcecatalogue.source_cone_search"]
+    schema_notes = {n.id: n for n in sourcecat.notes}
+    assert schema_notes["sourcecat-non-alma-band"].audit.expect == "nonempty"

@@ -280,9 +280,12 @@ ARCHIVE = Archive(
                         "the gap: there is NO '2020.1' (Cycle 8 was delayed by the COVID "
                         "shutdown), so never infer a Cycle from a linear year count."
                     ),
-                    audit=Audit.manual(
-                        "Cycle-to-proposal_id-prefix mapping is a curated lookup table, "
-                        "not a single falsifiable ADQL probe."
+                    audit=Audit.probe(
+                        expect="empty",
+                        adql=(
+                            "SELECT TOP 1 proposal_id FROM ivoa.obscore "
+                            "WHERE proposal_id LIKE '2020.1.%'"
+                        ),
                     ),
                 ),
                 Note(
@@ -418,9 +421,12 @@ ARCHIVE = Archive(
                         "entries at 8.3/23 GHz) — filter band_name if you only want ALMA "
                         "receiver bands."
                     ),
-                    audit=Audit.manual(
-                        "Value-distribution claim over free-text band_name — kept "
-                        "manual for consistency rather than a fragile single-row probe."
+                    audit=Audit.probe(
+                        expect="nonempty",
+                        adql=(
+                            "SELECT TOP 1 band_name FROM sourcecatalogue.source_cone_search "
+                            "WHERE band_name = 'non-ALMA Band'"
+                        ),
                     ),
                 ),
             ),
