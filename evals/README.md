@@ -93,6 +93,11 @@ uv run python -m evals.mcp_quality                 # 3-arm comparison
 uv run python -m evals.mcp_quality --set-baseline  # record results/mcp-quality-baseline.json
 ```
 
+> **Metric change (2026-07):** `tool_error_calls` now counts the server's
+> error-as-payload results (`error_class` present), which the mcp arm
+> previously could never register. Re-record baselines (`--set-baseline`)
+> before trusting version-over-version diffs that span this change.
+
 **2 — model × harness matrix** (`model_backends.py`, `personas.py`, `persona_run.py`,
 `scorecard.py`): how well do different **models** and **harnesses** work with the server?
 `make_backend` drives Anthropic (Messages) **or** OpenAI (Chat Completions) models via one
