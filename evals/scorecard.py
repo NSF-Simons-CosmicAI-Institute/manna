@@ -21,12 +21,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from evals._common import mean as _mean
+
 # Dimension weights (tunable). Composite = WORKFLOW_W*workflow + COMPAT_W*compatibility.
 WORKFLOW_W, COMPAT_W = 0.5, 0.5
-
-
-def _mean(xs: list[float]) -> float:
-    return sum(xs) / len(xs) if xs else 0.0
 
 
 def _dimensions(runs: list[dict[str, Any]], accuracy: float | None) -> dict[str, float]:

@@ -26,12 +26,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
 import subprocess
 import time
 from pathlib import Path
 from typing import Any
 
+from evals._common import judge_from_env, mean, write_results
 from evals.harness import ModelConfig, TaskRun, ToolCall, run_task
 from evals.score import TaskScore, load_tasks, score_task
 
@@ -57,22 +57,12 @@ def _server_version() -> str:
         return "unknown"
 
 
-def _judge_from_env() -> ModelConfig | None:
-    if not (os.getenv("EVAL_JUDGE_NAME") or os.getenv("EVAL_JUDGE_BASE_URL")):
-        return None
-    return ModelConfig.from_env(prefix="EVAL_JUDGE")
-
-
 def _accuracy(score: TaskScore) -> bool | None:
     """Accuracy verdict for a run: ground-truth if present, else judged rubric,
     else None (unscored — no deterministic answer and no judge)."""
     if "ground_truth" in score.checks:
         return score.checks["ground_truth"]
     return score.checks.get("rubric")  # None when no judge / unparseable
-
-
-def _mean(xs: list[float]) -> float:
-    return sum(xs) / len(xs) if xs else 0.0
 
 
 def _aggregate(runs: list[TaskRun], accs: list[bool | None]) -> dict[str, Any]:
@@ -84,11 +74,11 @@ def _aggregate(runs: list[TaskRun], accs: list[bool | None]) -> dict[str, Any]:
         "accuracy_rate": round(sum(scored) / len(scored), 3) if scored else None,
         "accuracy_scored_n": len(scored),
         "completion_rate": round(sum(completed) / len(completed), 3) if completed else None,
-        "mean_tool_calls": round(_mean([r.num_tool_calls for r in runs]), 2),
-        "mean_steps": round(_mean([r.steps for r in runs]), 2),
-        "mean_input_tokens": round(_mean([r.input_tokens for r in ok])),
-        "mean_output_tokens": round(_mean([r.output_tokens for r in ok])),
-        "mean_latency_s": round(_mean([r.latency_s for r in ok]), 1),
+        "mean_tool_calls": round(mean([r.num_tool_calls for r in runs]), 2),
+        "mean_steps": round(mean([r.steps for r in runs]), 2),
+        "mean_input_tokens": round(mean([r.input_tokens for r in ok])),
+        "mean_output_tokens": round(mean([r.output_tokens for r in ok])),
+        "mean_latency_s": round(mean([r.latency_s for r in ok]), 1),
         "tool_error_calls": sum(c.is_error for r in runs for c in r.trace),
     }
 
@@ -191,7 +181,7 @@ def _print_diff(
 
 async def _main(args: argparse.Namespace) -> int:
     cfg = ModelConfig.from_env()
-    judge = _judge_from_env()
+    judge = judge_from_env()
     tasks = load_tasks(TASKS_PATH)
     arms = args.arm or ARMS
     version = _server_version()
@@ -244,19 +234,16 @@ async def _main(args: argparse.Namespace) -> int:
     elif not args.set_baseline:
         print(f"\n(no baseline at {baseline_path.name}; run --set-baseline to record one)")
 
-    RESULTS_DIR.mkdir(exist_ok=True)
-    stamp = time.strftime("%Y%m%dT%H%M%S")
     record = {
         "server_version": version,
         "model": cfg.label,
-        "timestamp": stamp,
+        "timestamp": time.strftime("%Y%m%dT%H%M%S"),
         "per_arm": {a: per_arm[a] for a in arms},
         "task_ids": [t["id"] for t in tasks],
         "mcp_breakdown": breakdown,
         "runs": [r.to_dict() for _, r, _ in results],
     }
-    out = RESULTS_DIR / f"mcp-quality-{stamp}.json"
-    out.write_text(json.dumps(record, indent=2, default=str))
+    out = write_results(record, prefix="mcp-quality")
     print(f"\nWrote {out}")
     if args.set_baseline:
         BASELINE_PATH.write_text(json.dumps(record, indent=2, default=str))
