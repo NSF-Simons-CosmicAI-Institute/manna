@@ -160,14 +160,21 @@ ARCHIVE = Archive(
             ),
         ),
         Note(
-            id="access-format-truncated",
+            id="access-format-datalink",
             text=(
-                "Don't rely on access_format to detect this — ALMA truncates it "
-                "to 9 chars ('applicati')."
+                "access_format on obscore rows is "
+                "'application/x-votable+xml; content=datalink' — it declares "
+                "the DataLink indirection explicitly, so you can branch on it. "
+                "(ALMA historically truncated this column to 9 chars, "
+                "'applicati'; fixed upstream.)"
             ),
-            audit=Audit.manual(
-                "String-truncation quirk in a metadata column — would need "
-                "per-row inspection, not worth a live probe."
+            audit=Audit.probe(
+                expect="nonempty",
+                adql=(
+                    "SELECT TOP 1 access_format FROM ivoa.obscore "
+                    "WHERE access_format = "
+                    "'application/x-votable+xml; content=datalink'"
+                ),
             ),
         ),
         Note(

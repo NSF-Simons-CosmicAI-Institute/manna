@@ -53,3 +53,13 @@ def test_source_catalogue_schema_flags_nullable_geometry():
 def test_spatial_note_audit_expects_ok():
     notes = {n.id: n for n in ARCHIVE.usage_notes}
     assert notes["sync-spatial-ok"].audit.expect == "ok"
+
+
+def test_access_format_note_is_probeable():
+    """The 9-char truncation ('applicati') was fixed upstream (verified
+    2026-07-15) — the note now states the full MIME value and is probed."""
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert "access-format-truncated" not in notes
+    note = notes["access-format-datalink"]
+    assert note.audit.expect == "nonempty"
+    assert "content=datalink" in note.text
