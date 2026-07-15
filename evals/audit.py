@@ -254,11 +254,14 @@ def _print(rows: list[dict], *, probeable_only: bool = False) -> None:
     print("\n" + "-" * 78)
     print(
         f"  {counts['still_true']} still-true   {counts['stale']} STALE   "
+        f"{counts['endpoint_dead']} endpoint-dead   "
         f"{counts['unreachable']} unreachable   {counts['manual']} manual   "
         f"({len(rows)} notes)"
     )
     if counts["stale"]:
         print("  ⚠ STALE notes mean the archive changed — update the KB at the printed source.")
+    if counts["endpoint_dead"]:
+        print("  ⚠ ENDPT-DEAD notes have an unreachable endpoint — update the KB at the source.")
 
 
 def main() -> int:
