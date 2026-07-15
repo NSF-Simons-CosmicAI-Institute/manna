@@ -18,12 +18,8 @@ services on the same host get distinct labels. Restart wipes it; the
 derivation is deterministic, so a stale entry is never wrong.
 
 To add an archive to the static map, add a module under `archives/` (its
-`host_substrings` flow into `KNOWN_ARCHIVES` via the compat view). Both
-`archive_label` and `is_known_archive_url` pick it up automatically.
-
-Note: `is_known_archive_url` is vestigial — its only caller (`vo_sia_fetch`)
-was removed in the 0.4.0 stateless refactor. It is retained (and tested) for
-now; a follow-up may drop it.
+`host_substrings` flow into `KNOWN_ARCHIVES` via the compat view);
+`archive_label` picks it up automatically.
 """
 
 from urllib.parse import urlparse
@@ -98,25 +94,3 @@ def _label_from_host(host: str) -> str | None:
     if ".".join(labels[-2:]) in _MULTI_LABEL_SUFFIXES:
         return labels[-3]
     return labels[-2]
-
-
-def is_known_archive_url(url: str) -> bool:
-    """Return True iff the URL host substring-matches an entry in
-    `_STATIC_MAP`.
-
-    SSRF allow-list helper: validates that a URL points at a known IVOA
-    archive rather than an arbitrary host. The function deliberately does
-    NOT consult the cache (`_CACHE`); a hostname-derived cache entry must
-    never widen the allow-list.
-    """
-    try:
-        parsed = urlparse(url)
-        host = (parsed.hostname or "").lower()
-    except (ValueError, TypeError):
-        return False
-    if not host:
-        return False
-    for needle in _STATIC_MAP:
-        if needle in host:
-            return True
-    return False

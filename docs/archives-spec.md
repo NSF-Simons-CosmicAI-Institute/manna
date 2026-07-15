@@ -203,8 +203,8 @@ reachability:
 
 There is **no fetch/SSRF gating tied to archives.** The 0.4.0 stateless refactor
 removed `vo_sia_fetch`, so the old `host_substrings`-derived allow-list has no
-consumer. `_archive_label.is_known_archive_url()` is vestigial (only its own
-test references it) — a follow-up may drop it.
+consumer; the vestigial `_archive_label.is_known_archive_url()` helper was
+dropped once its last caller was gone.
 
 ## 6. Testing
 
