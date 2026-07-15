@@ -15,12 +15,14 @@ ARCHIVE = Archive(
         Note(
             id="obscore-mixedcase",
             text=(
-                "ESO exposes ObsCore at the mixed-case ivoa.ObsCore table "
-                "(note the capitalization)."
+                "ObsCore is published as the mixed-case ivoa.ObsCore table. "
+                "Table-name matching is case-insensitive here (ivoa.obscore "
+                "works identically, verified live) — use either; just don't "
+                "be surprised by the mixed-case name in listings."
             ),
             audit=Audit.probe(
                 expect="ok",
-                adql="SELECT TOP 1 * FROM ivoa.ObsCore",
+                adql="SELECT TOP 1 obs_id FROM ivoa.obscore",
             ),
         ),
         Note(

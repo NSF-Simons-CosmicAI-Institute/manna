@@ -16,4 +16,8 @@ def test_no_curated_schemas_yet():
 
 def test_obscore_note_audit():
     notes = {n.id: n for n in ARCHIVE.usage_notes}
-    assert notes["obscore-mixedcase"].audit.expect == "ok"
+    note = notes["obscore-mixedcase"]
+    assert note.audit.expect == "ok"
+    # The probe deliberately uses the lowercase spelling: it verifies the
+    # note's claim that table-name case does NOT matter here.
+    assert "ivoa.obscore" in note.audit.adql
