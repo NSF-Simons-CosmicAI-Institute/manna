@@ -42,7 +42,7 @@ async def _run_one(
     cfg: ModelConfig,
     judge: ModelConfig | None,
     sem: asyncio.Semaphore,
-    inject_notes: bool = False,
+    inject_notes: bool = True,
     no_discovery: bool = False,
 ) -> tuple[TaskRun, TaskScore]:
     async with sem:
@@ -145,8 +145,8 @@ async def _main_async(args: argparse.Namespace) -> int:
     print(f"Judge            : {judge.label if judge else 'none (rubric tasks unscored)'}")
     print(f"Running {len(tasks)} task(s), concurrency={args.concurrency}\n")
 
-    if args.inject_notes:
-        print("Experiment (a): archive quirks INJECTED into vo_tap_query description")
+    if args.no_inject_notes:
+        print("Ablation: silent-trap cheatsheet STRIPPED from the vo_tap_query description")
     if args.no_discovery:
         print("No-discovery: vo_archive_list + vo_schema_describe withheld from the model")
     sem = asyncio.Semaphore(args.concurrency)
@@ -157,7 +157,7 @@ async def _main_async(args: argparse.Namespace) -> int:
             cfg,
             judge,
             sem,
-            inject_notes=args.inject_notes,
+            inject_notes=not args.no_inject_notes,
             no_discovery=args.no_discovery,
         )
         for t in tasks
@@ -214,9 +214,13 @@ def main() -> int:
         help="validate tasks.yaml and print the plan without calling any model.",
     )
     p.add_argument(
-        "--inject-notes",
+        "--no-inject-notes",
         action="store_true",
-        help="experiment (a): inject archive quirks into the vo_tap_query description.",
+        help=(
+            "ablation: STRIP the silent-trap cheatsheet from the vo_tap_query description. "
+            "Injection is default-on server-side since #57, so isolating its value means "
+            "removing it, not adding it."
+        ),
     )
     p.add_argument(
         "--no-discovery",

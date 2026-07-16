@@ -8,6 +8,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
 from astro_archives_mcp import __version__, job_store
+from astro_archives_mcp.archives._traps import silent_trap_cheatsheet
 from astro_archives_mcp.observability import (
     current_request_id,
     new_request_id,
@@ -67,6 +68,20 @@ _ABORT = ToolAnnotations(
 )
 
 
+def _tap_query_description() -> str:
+    """vo_tap_query's docstring + the derived silent-trap cheatsheet.
+
+    Derived here, at build time, rather than baked into the docstring: the blob
+    depends on which archives are active (``STABLE_ARCHIVES``), and
+    ``silent_trap_cheatsheet`` reads the ``lru_cache``d active set at call time.
+    Empty cheatsheet (e.g. a selection with no tagged traps) leaves the
+    docstring untouched.
+    """
+    base = vo_tap_query.__doc__ or ""
+    cheatsheet = silent_trap_cheatsheet()
+    return f"{base}\n\n{cheatsheet}" if cheatsheet else base
+
+
 def build_mcp() -> FastMCP:
     """Construct the FastMCP server with all tools registered.
 
@@ -78,7 +93,7 @@ def build_mcp() -> FastMCP:
     """
     mcp = FastMCP(name="astro-archives-mcp")
     mcp.tool(vo_archive_list, annotations=_LOCAL)
-    mcp.tool(vo_tap_query, annotations=_REMOTE)
+    mcp.tool(vo_tap_query, annotations=_REMOTE, description=_tap_query_description())
     mcp.tool(vo_tap_status, annotations=_REMOTE)
     mcp.tool(vo_tap_results, annotations=_REMOTE)
     mcp.tool(vo_tap_abort, annotations=_ABORT)

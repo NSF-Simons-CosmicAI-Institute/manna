@@ -1,9 +1,16 @@
 """Experiment (a), controlled matrix: does description-injection deliver the
 curated archive quirks when the model can't (or won't) consult the discovery tools?
 
+Since issue #57 this measures a SHIPPED feature, not a hypothetical: the server
+injects the silent-trap cheatsheet into vo_tap_query's description by default
+(archives/_traps.py, derived from notes tagged `Trap(kind="silent")`). So the
+`inject` axis inverted — cell C now STRIPS the blob rather than cell D adding it.
+The cells and the decisive comparison are otherwise unchanged, so the numbers
+below remain the reference.
+
 Cells (all full server context; the axis is what the MODEL can reach):
-  A = discovery ON,  inject OFF   (real-world reference)
-  C = discovery OFF, inject OFF   (blind — model priors only)
+  A = discovery ON,  inject ON    (real-world reference — production default)
+  C = discovery OFF, inject OFF   (blind — cheatsheet stripped, model priors only)
   D = discovery OFF, inject ON    (quirks reach the model only via vo_tap_query desc)
 
 Decisive comparison: C -> D. Scored programmatically (arg-checks = trap avoided);
@@ -13,9 +20,10 @@ the SUBMITTED adql — set EVAL_MAX_STEPS/EVAL_ASYNC_POLL_SLEEP low to run fast:
     EVAL_MAX_STEPS=8 EVAL_ASYNC_POLL_SLEEP=1 \\
       uv run python -m evals.exp_a_matrix        # (with model creds sourced)
 
-First live result (Qwen3.5, N=3): A=15/15, C=0/15, D=12/15. The 3 misses are all
-t3-nrao-lowerupper — a LOUD trap deliberately NOT in the cheatsheet (it belongs in the
-error hint). So injection recovers exactly the traps it covers.
+Reference result, pre-#57 (Qwen3.5, N=3): A=15/15, C=0/15, D=12/15. The 3 misses were
+all t3-nrao-lowerupper — a LOUD trap deliberately NOT in the cheatsheet. #57 gave that
+trap the OTHER channel (the error `hint`), which this matrix does not isolate: the hint
+fires on a live rejection in every cell. Judge it from the tier-3 run instead.
 """
 
 import asyncio
@@ -31,7 +39,8 @@ TRAPS = [
     "t3-nrao-spatial",
 ]
 CELLS = {
-    "A disc/noinj": dict(no_discovery=False, inject_notes=False),
+    # A is production as shipped: discovery available AND the cheatsheet injected.
+    "A disc/INJ": dict(no_discovery=False, inject_notes=True),
     "C nodisc/noinj": dict(no_discovery=True, inject_notes=False),
     "D nodisc/INJ": dict(no_discovery=True, inject_notes=True),
 }

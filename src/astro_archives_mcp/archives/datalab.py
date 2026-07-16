@@ -1,7 +1,7 @@
 """NOIRLab Astro Data Lab archive."""
 
 from astro_archives_mcp.archives._audit import Audit
-from astro_archives_mcp.archives._model import Archive, Note, Schema
+from astro_archives_mcp.archives._model import Archive, Note, Schema, Trap
 
 ARCHIVE = Archive(
     short_name="datalab",
@@ -71,6 +71,18 @@ ARCHIVE = Archive(
                 adql=(
                     "SELECT TOP 1 ra, dec FROM nsc_dr2.object "
                     "WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', 10.0, 10.0, 0.01)) = 1"
+                ),
+            ),
+            # Loud by mechanism, silent in effect: the raw PostgreSQL complaint
+            # ("function point(...) does not exist") never hints that q3c is the
+            # answer, so the model can't recover from it. Prevention is what
+            # exp_a_matrix measured working (C=0/15 blind -> D=12/15 injected).
+            trap=Trap(
+                kind="silent",
+                guidance=(
+                    "ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT translated and errors. "
+                    "For a cone use q3c_radial_query(ra, dec, <ra0>, <dec0>, <radius_deg>) = 't'; "
+                    "a ra/dec BETWEEN box also works but is a box, not a circle."
                 ),
             ),
         ),
