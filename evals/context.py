@@ -1,13 +1,13 @@
 """Ablation: run the server with its curated context stripped out.
 
 The whole point of astro-archives-mcp (vs. handing a model raw pyvo) is the
-curated knowledge: ``known_archives.usage_notes`` and ``schema_kb``. Tier 3 of
-the eval quantifies that value by running the same trap tasks twice — once with
-the context and once without — and comparing trap-avoidance rates.
+curated knowledge: each archive's ``usage_notes`` and its per-table ``schemas``.
+Tier 3 of the eval quantifies that value by running the same trap tasks twice —
+once with the context and once without — and comparing trap-avoidance rates.
 
 We strip context *harness-side* rather than adding a flag to production
 ``build_mcp`` (see plan §10): the tools resolve their KB references from module
-globals at call time, so swapping those globals inside a context manager gives a
+namespace at call time, so swapping those names inside a context manager gives a
 clean, fully-reversible ablation with zero production-code risk.
 
 Stripped:
@@ -26,27 +26,31 @@ from astro_archives_mcp.tools import archives as _archives_tool
 from astro_archives_mcp.tools import schema as _schema_tool
 
 
-def _strip_usage_notes(known_archives):
-    """Return a copy of the KNOWN_ARCHIVES tuple with usage_notes emptied."""
-    return tuple(dataclasses.replace(a, usage_notes=()) for a in known_archives)
+def _strip_usage_notes(archives):
+    """Return a copy of an Archive tuple with every usage_notes emptied."""
+    return tuple(dataclasses.replace(a, usage_notes=()) for a in archives)
 
 
 @contextmanager
 def ablated_context():
-    """Temporarily blind the server to its curated usage_notes + schema_kb.
+    """Temporarily blind the server to its curated usage_notes + per-table schemas.
 
     Reversible and re-entrant-safe for the single-process eval harness. Restores
-    the original module globals on exit even if the body raises.
+    the original module names on exit even if the body raises.
+
+    Patches the ``active_archives`` *function*, not a captured result:
+    ``vo_archive_list`` calls it twice (once for the selection, once to build the
+    ``hint`` for a filter that matched nothing), and both paths must be ablated.
     """
-    orig_archives = _archives_tool.KNOWN_ARCHIVES
+    orig_active = _archives_tool.active_archives
     orig_lookup = _schema_tool.lookup_schema
     try:
-        _archives_tool.KNOWN_ARCHIVES = _strip_usage_notes(orig_archives)
+        _archives_tool.active_archives = lambda: _strip_usage_notes(orig_active())
         # Force every schema lookup to miss -> vo_schema_describe returns known:false.
         _schema_tool.lookup_schema = lambda *, archive, table: None
         yield
     finally:
-        _archives_tool.KNOWN_ARCHIVES = orig_archives
+        _archives_tool.active_archives = orig_active
         _schema_tool.lookup_schema = orig_lookup
 
 
