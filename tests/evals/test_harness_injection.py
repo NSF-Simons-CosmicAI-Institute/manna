@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from astro_archives_mcp.archives._traps import silent_trap_cheatsheet
+from astro_archives_mcp.archives._traps import loud_trap_guidance, silent_trap_cheatsheet
+from evals.context import ablated_context
 from evals.harness import _anthropic_tools
 
 
@@ -60,3 +61,28 @@ def test_no_discovery_withholds_the_curated_tools():
     names = {t["name"] for t in _anthropic_tools(_tools(), no_discovery=True)}
     assert "vo_archive_list" not in names
     assert "vo_tap_query" in names
+
+
+# ---------- tier-3 ablation must strip BOTH channels ----------
+
+
+def test_ablated_context_strips_both_trap_channels():
+    """Traps are curated knowledge, so the tier-3 ablation has to take them away
+    too — otherwise the 'without curated context' arm silently keeps the server's
+    advantage and the with/without delta understates the ROI.
+
+    This works because ablated_context() blanks usage_notes on the active set and
+    _traps.py resolves through that same patched global. It is load-bearing and
+    easy to break (e.g. by snapshotting traps at import), so pin it.
+    """
+    lower = "SELECT * FROM tap_schema.obscore WHERE LOWER(target_name) = 'm87'"
+    assert silent_trap_cheatsheet() != ""
+    assert loud_trap_guidance("nrao", lower) is not None
+
+    with ablated_context():
+        assert silent_trap_cheatsheet() == ""
+        assert loud_trap_guidance("nrao", lower) is None
+
+    # ...and restored on exit.
+    assert silent_trap_cheatsheet() != ""
+    assert loud_trap_guidance("nrao", lower) is not None

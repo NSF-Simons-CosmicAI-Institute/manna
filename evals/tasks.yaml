@@ -249,11 +249,10 @@
       # tripping the trap once is the PRICE of a reactive channel, not a failure.
       - { arg: adql, op: not_icontains, value: "LOWER(", match: last }
       - { arg: adql, op: not_icontains, value: "UPPER(", match: last }
-  rubric: >-
-    Passes if the model, after NRAO rejected LOWER()/UPPER(), read the error hint and
-    re-issued a working query (exact-case equality or a LIKE pattern) rather than
-    retrying the same rejected function or giving up. Reporting rows is expected;
-    live counts drift, so any plausible row set is acceptable.
+  # No rubric, matching the other arg-check trap tasks in this tier. A rubric
+  # needs a final answer, and these NRAO tasks routinely exhaust max_steps on
+  # upstream async latency — that would score the agent loop's stamina, not
+  # whether the hint got read. The trap is fully visible in the submitted ADQL.
 
 - id: t3-nrao-spatial
   tier: 3
