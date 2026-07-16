@@ -1,6 +1,7 @@
 """Compose the FastMCP server and mount it under Starlette with health probes."""
 
 from fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.responses import JSONResponse
@@ -52,20 +53,38 @@ class RequestIdMiddleware:
             current_request_id.reset(token)
 
 
+# Closed-world: reads only the in-process KB. Open-world: hits live services.
+_LOCAL = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
+_REMOTE = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
+# vo_tap_abort DELETEs an upstream UWS job — not read-only, but idempotent
+# (deleting an already-gone job is a no-op) and destructive.
+_ABORT = ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=True,
+    idempotentHint=True,
+    openWorldHint=True,
+)
+
+
 def build_mcp() -> FastMCP:
-    """Construct the FastMCP server with all tools registered."""
+    """Construct the FastMCP server with all tools registered.
+
+    Every tool is read-only (the server never mutates archive state) except
+    ``vo_tap_abort``, which deletes an upstream UWS job. Tools that hit live
+    archive services are open-world; the two KB readers are closed-world.
+    """
     mcp = FastMCP(name="astro-archives-mcp")
-    mcp.tool(vo_archive_list)
-    mcp.tool(vo_tap_query)
-    mcp.tool(vo_tap_status)
-    mcp.tool(vo_tap_results)
-    mcp.tool(vo_tap_abort)
-    mcp.tool(vo_registry_search)
-    mcp.tool(vo_registry_describe)
-    mcp.tool(vo_schema_describe)
-    mcp.tool(vo_target_resolve)
-    mcp.tool(vo_cone_search)
-    mcp.tool(vo_sia_search)
+    mcp.tool(vo_archive_list, annotations=_LOCAL)
+    mcp.tool(vo_tap_query, annotations=_REMOTE)
+    mcp.tool(vo_tap_status, annotations=_REMOTE)
+    mcp.tool(vo_tap_results, annotations=_REMOTE)
+    mcp.tool(vo_tap_abort, annotations=_ABORT)
+    mcp.tool(vo_registry_search, annotations=_REMOTE)
+    mcp.tool(vo_registry_describe, annotations=_REMOTE)
+    mcp.tool(vo_schema_describe, annotations=_REMOTE)
+    mcp.tool(vo_target_resolve, annotations=_REMOTE)
+    mcp.tool(vo_cone_search, annotations=_REMOTE)
+    mcp.tool(vo_sia_search, annotations=_REMOTE)
     return mcp
 
 

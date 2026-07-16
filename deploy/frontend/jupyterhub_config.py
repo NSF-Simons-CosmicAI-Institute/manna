@@ -38,6 +38,15 @@ c.DockerSpawner.environment = {
     if os.environ.get(k)
 }
 
+# The Claude Agent SDK (behind the @claude ACP persona) makes background,
+# non-essential calls to the REAL api.anthropic.com (mcp-registry, telemetry,
+# session "teleport") using the persona credential. Against the datalab/vLLM
+# proxy that key 401s there, and the SDK surfaces the 401 as "not authenticated ·
+# run /login", killing an otherwise-working session mid-run. Disable that traffic
+# so only inference (→ ANTHROPIC_BASE_URL) ever leaves the container.
+c.DockerSpawner.environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+c.DockerSpawner.environment["DISABLE_TELEMETRY"] = "1"
+
 # --- Auth: DUMMY, local dev only. Replace with a real authenticator for prod --
 c.JupyterHub.authenticator_class = "jupyterhub.auth.DummyAuthenticator"
 c.DummyAuthenticator.password = os.environ.get("JUPYTERHUB_DUMMY_PASSWORD", "changeme")

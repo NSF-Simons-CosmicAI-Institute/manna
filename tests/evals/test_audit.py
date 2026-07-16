@@ -63,3 +63,43 @@ def test_count_missing_column_is_stale_and_named(monkeypatch):
     row = check_note(_StubArchive(), n, control_ok=True)
     assert row["status"] == "stale"
     assert "facility_name" in row["detail"]
+
+
+# --------------------------------------------------------------------------- #
+# endpoint_dead — a hard 404 endpoint is a stale-KB signal, not a blip
+# --------------------------------------------------------------------------- #
+def test_control_state_dead_on_404(monkeypatch):
+    monkeypatch.setattr(
+        audit,
+        "_probe",
+        lambda client, endpoint, adql, retries=1: (
+            "service_error",
+            0,
+            [],
+            "ArchiveError: 404 Client Error: Not Found for url: https://x/tap/sync",
+        ),
+    )
+    assert audit._control_state("https://x/tap", audit._CONTROL_ADQL) == "dead"
+
+
+def test_control_state_down_on_timeout(monkeypatch):
+    monkeypatch.setattr(
+        audit,
+        "_probe",
+        lambda client, endpoint, adql, retries=1: ("service_error", 0, [], "ReadTimeout"),
+    )
+    assert audit._control_state("https://x/tap", audit._CONTROL_ADQL) == "down"
+
+
+def test_check_note_reports_endpoint_dead(monkeypatch):
+    from astro_archives_mcp.archives._model import Archive
+
+    arch = Archive(
+        short_name="x",
+        display_name="X",
+        host_substrings=("x.example",),
+        tap_url="https://x.example/tap",
+        usage_notes=(Note(id="n1", text="claim", audit=Audit.probe(expect="ok", adql="SELECT 1")),),
+    )
+    row = check_note(arch, arch.usage_notes[0], control_ok=False, control_dead=True)
+    assert row["status"] == "endpoint_dead"

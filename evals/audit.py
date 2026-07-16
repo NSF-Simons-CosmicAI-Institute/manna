@@ -59,9 +59,14 @@ _CONTROL_ADQL = "SELECT TOP 1 table_name FROM tap_schema.tables"
 _STATUS = {
     "still_true": "STILL-TRUE ",
     "stale": "  STALE   ",
+    "endpoint_dead": "ENDPT-DEAD ",
     "unreachable": "UNREACHABLE",
     "manual": "  MANUAL  ",
 }
+
+# Gaia routinely takes 30-120s on trivial sync queries; the interactive 20s
+# default misreports it UNREACHABLE. Audits are batch — be patient.
+_PROBE_TIMEOUT_S = 90.0
 
 
 def _probe(
@@ -132,8 +137,11 @@ def _source(archive: Archive, note: Note) -> str:
     return f"archives/{archive.short_name}.py :: {note.id}"
 
 
-def check_note(archive: Archive, note: Note, *, control_ok: bool) -> dict:
-    """Judge one note. `control_ok` gates STALE vs UNREACHABLE for its archive."""
+def check_note(
+    archive: Archive, note: Note, *, control_ok: bool, control_dead: bool = False
+) -> dict:
+    """Judge one note. `control_ok` gates STALE vs UNREACHABLE for its archive;
+    `control_dead` marks a hard-404 endpoint (the archive moved/retired it)."""
     a = note.audit
     row = {
         "archive": archive.short_name,
@@ -147,10 +155,18 @@ def check_note(archive: Archive, note: Note, *, control_ok: bool) -> dict:
     endpoint = getattr(archive, "tap_url", None)
     if not endpoint:
         return {**row, "status": "unreachable", "detail": "no tap_url for archive"}
+    if control_dead:
+        return {
+            **row,
+            "status": "endpoint_dead",
+            "detail": "TAP endpoint is a hard 404 — the archive moved or retired it; fix tap_url",
+        }
     if not control_ok:
         return {**row, "status": "unreachable", "detail": "archive control probe failed"}
 
-    outcome, n_rows, vals, detail = _probe(TapClient(), endpoint, a.adql)
+    outcome, n_rows, vals, detail = _probe(
+        TapClient(sync_timeout_seconds=_PROBE_TIMEOUT_S), endpoint, a.adql
+    )
     if a.expect == "count":
         n_expected = len(a.columns)
         if outcome == "service_error":
@@ -170,9 +186,17 @@ def check_note(archive: Archive, note: Note, *, control_ok: bool) -> dict:
     return {**row, "status": status, "outcome": outcome, "n_rows": n_rows, "detail": detail}
 
 
-def _control_ok(endpoint: str, control_adql: str) -> bool:
-    outcome, _, _, _ = _probe(TapClient(), endpoint, control_adql)
-    return outcome == "ok"
+def _control_state(endpoint: str, control_adql: str) -> str:
+    """'ok' | 'dead' (hard 404 — the endpoint moved/retired: a KB bug) |
+    'down' (timeout / 5xx / network — can't judge this run)."""
+    outcome, _, _, detail = _probe(
+        TapClient(sync_timeout_seconds=_PROBE_TIMEOUT_S), endpoint, control_adql
+    )
+    if outcome == "ok":
+        return "ok"
+    if "404" in detail:
+        return "dead"
+    return "down"
 
 
 def run(archives: tuple[Archive, ...] | None = None, *, workers: int = 8) -> list[dict]:
@@ -192,14 +216,17 @@ def run(archives: tuple[Archive, ...] | None = None, *, workers: int = 8) -> lis
         control = dict(
             zip(
                 control_endpoints,
-                ex.map(lambda url: _control_ok(url, _CONTROL_ADQL), control_endpoints.values()),
+                ex.map(lambda url: _control_state(url, _CONTROL_ADQL), control_endpoints.values()),
                 strict=True,
             )
         )
         rows = list(
             ex.map(
                 lambda an: check_note(
-                    an[0], an[1], control_ok=control.get(an[0].short_name, False)
+                    an[0],
+                    an[1],
+                    control_ok=control.get(an[0].short_name) == "ok",
+                    control_dead=control.get(an[0].short_name) == "dead",
                 ),
                 notes,
             )
@@ -219,7 +246,7 @@ def _print(rows: list[dict], *, probeable_only: bool = False) -> None:
         print(f"\n{arch}")
         for r in shown:
             print(f"  [{_STATUS[r['status']]}] {r['note_id']:30s} {r['claim'][:56]}")
-            if r["status"] in ("stale", "unreachable") and r.get("detail"):
+            if r["status"] in ("stale", "unreachable", "endpoint_dead") and r.get("detail"):
                 print(f"                  ↳ {r['detail'][:110]}")
                 if r.get("source"):
                     print(f"                  ↳ update: {r['source']}")
@@ -227,11 +254,14 @@ def _print(rows: list[dict], *, probeable_only: bool = False) -> None:
     print("\n" + "-" * 78)
     print(
         f"  {counts['still_true']} still-true   {counts['stale']} STALE   "
+        f"{counts['endpoint_dead']} endpoint-dead   "
         f"{counts['unreachable']} unreachable   {counts['manual']} manual   "
         f"({len(rows)} notes)"
     )
     if counts["stale"]:
         print("  ⚠ STALE notes mean the archive changed — update the KB at the printed source.")
+    if counts["endpoint_dead"]:
+        print("  ⚠ ENDPT-DEAD notes have an unreachable endpoint — update the KB at the source.")
 
 
 def main() -> int:
@@ -270,7 +300,7 @@ def main() -> int:
     out = RESULTS_DIR / f"audit-{stamp}.json"
     out.write_text(json.dumps({"timestamp": stamp, "rows": rows}, indent=2, default=str))
     print(f"\nWrote {out}")
-    stale = sum(r["status"] == "stale" for r in rows)
+    stale = sum(r["status"] in ("stale", "endpoint_dead") for r in rows)
     return 1 if stale else 0  # non-zero exit if any note went stale (CI-friendly)
 
 

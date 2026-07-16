@@ -181,7 +181,7 @@ class TaskRun:
 # and genuinely needs preventive guidance. Loud traps (LOWER/UPPER, sync 5xx) throw,
 # so they belong in the error `hint`, not here — keeping this ~10% the size of the
 # raw usage_notes it replaces (a tool description is re-sent every turn). A real
-# server-side version would derive this from tagged notes in KNOWN_ARCHIVES.
+# server-side version would derive this from tagged notes on the active archives.
 _SILENT_TRAP_CHEATSHEET = (
     "Archive quirks that FAIL SILENTLY (wrong results, no error) — apply before querying:\n"
     "- Astro Data Lab (datalab.noirlab): ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT "
@@ -236,7 +236,12 @@ def _anthropic_tools(
 
 
 def _result_payload(result) -> tuple[Any, bool]:
-    """Extract a JSON-able payload + error flag from a FastMCP call result."""
+    """Extract a JSON-able payload + error flag from a FastMCP call result.
+
+    The server returns tool errors as ordinary payloads discriminated by
+    `error_class` (never MCP isError — see tools/_constants.py), so the flag
+    alone undercounts: treat an error_class-carrying payload as an error call.
+    """
     is_error = bool(getattr(result, "is_error", False))
     payload = getattr(result, "structured_content", None)
     if payload is None:
@@ -244,6 +249,8 @@ def _result_payload(result) -> tuple[Any, bool]:
         blocks = getattr(result, "content", None) or []
         texts = [getattr(b, "text", "") for b in blocks]
         payload = {"text": "".join(texts)}
+    if isinstance(payload, dict) and "error_class" in payload:
+        is_error = True
     return payload, is_error
 
 

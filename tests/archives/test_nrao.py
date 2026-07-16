@@ -43,3 +43,8 @@ def test_key_note_audits_have_expected_outcomes():
     notes = {n.id: n for n in ARCHIVE.usage_notes}
     assert notes["sync-5xx-on-obscore"].audit.expect == "error"
     assert notes["obscore-ivoa-absent"].audit.expect == "empty"
+
+
+def test_lower_upper_note_is_probeable():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["lower-upper-fail"].audit.expect == "error"

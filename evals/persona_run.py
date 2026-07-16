@@ -17,19 +17,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import os
-import time
 from pathlib import Path
 
 import httpx
 
-from evals.mcp_quality import _accuracy, _judge_from_env
+from evals._common import judge_from_env, write_results
+from evals.mcp_quality import _accuracy
 from evals.personas import PersonaConfig, make_persona
 from evals.score import load_tasks, score_task
 
 TASKS_PATH = Path(__file__).with_name("mcp_quality_tasks.yaml")
-RESULTS_DIR = Path(__file__).with_name("results")
 _SCRATCH = os.environ.get("TMPDIR", "/tmp")  # neutral cwd for the persona subprocess
 
 
@@ -87,7 +85,7 @@ async def _main(args: argparse.Namespace) -> int:
     tasks = load_tasks(TASKS_PATH)
     if args.limit:
         tasks = tasks[: args.limit]
-    judge = _judge_from_env()
+    judge = judge_from_env()
     base_name = args.persona  # registry key (e.g. "claude-code"); label may get an @model suffix
     p_env, p_model, p_label = {}, args.model, args.persona
     if args.same_model:
@@ -148,15 +146,9 @@ async def _main(args: argparse.Namespace) -> int:
     for k, v in summary.items():
         print(f"  {k:20s} {v}")
 
-    RESULTS_DIR.mkdir(exist_ok=True)
-    stamp = time.strftime("%Y%m%dT%H%M%S")
-    out = RESULTS_DIR / f"persona-{args.persona}-{stamp}.json"
-    out.write_text(
-        json.dumps(
-            {"persona": args.persona, "summary": summary, "runs": [r.to_dict() for r in runs]},
-            indent=2,
-            default=str,
-        )
+    out = write_results(
+        {"persona": args.persona, "summary": summary, "runs": [r.to_dict() for r in runs]},
+        prefix=f"persona-{args.persona}",
     )
     print(f"\nWrote {out}")
     return 0
