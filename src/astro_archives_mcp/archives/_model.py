@@ -4,11 +4,10 @@ An **archive** is the portable, plugin-style unit of curated knowledge: its
 identity + endpoints + usage_notes, together with the per-table `Schema`
 entries for that same archive. One archive = one file under `archives/`.
 
-`Archive` and `Schema` live here (not in `known_archives` / `schema_kb`) so the
-model is a dependency-free leaf. Those old modules re-export both for backward
-compatibility, so `from astro_archives_mcp.known_archives import Archive` and
-`from astro_archives_mcp.schema_kb import Schema` keep working. `Note` (one
-atomic curated claim) and its `Audit` (how the live runner re-checks it) also
+`Archive` and `Schema` live here so the model is a dependency-free leaf; the
+endpoint/schema helpers in `archives/_endpoints.py` and `archives/_knowledge.py`
+import them from here. `Note` (one atomic curated claim) and its `Audit` (how
+the live runner re-checks it) also
 live here — every `usage_notes` / `Schema.notes` entry is a `Note`, no other
 form accepted.
 """

@@ -7,6 +7,10 @@ from pydantic import Field
 
 from astro_archives_mcp import job_store
 from astro_archives_mcp._archive_label import archive_label
+from astro_archives_mcp.archives._endpoints import (
+    tap_endpoint_description,
+    tap_endpoint_urls,
+)
 from astro_archives_mcp.backends.tap import TapClient
 from astro_archives_mcp.config import get_settings
 from astro_archives_mcp.errors import (
@@ -16,10 +20,6 @@ from astro_archives_mcp.errors import (
     TimeoutArchiveError,
     ValidationError,
     wrap_tool_errors,
-)
-from astro_archives_mcp.known_archives import (
-    tap_endpoint_description,
-    tap_endpoint_urls,
 )
 from astro_archives_mcp.shaper import (
     is_oversize,

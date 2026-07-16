@@ -21,15 +21,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
-import time
-from pathlib import Path
 from typing import Any
 
+from evals._common import judge_from_env, write_results
 from evals.harness import ModelConfig, TaskRun, run_task
 from evals.score import TaskScore, load_tasks, score_task
-
-RESULTS_DIR = Path(__file__).with_name("results")
 
 
 def _conditions_for(task: dict[str, Any], cli: str) -> list[str]:
@@ -58,14 +54,6 @@ async def _run_one(
     unscored = " (has unscored checks)" if score.has_unscored else ""
     print(f"  [{status}] {task['id']} [{condition}]{unscored}")
     return run, score
-
-
-def _judge_from_env() -> ModelConfig | None:
-    import os
-
-    if not (os.getenv("EVAL_JUDGE_NAME") or os.getenv("EVAL_JUDGE_BASE_URL")):
-        return None
-    return ModelConfig.from_env(prefix="EVAL_JUDGE")
 
 
 def _summarize(scores: list[TaskScore]) -> dict[str, Any]:
@@ -152,7 +140,7 @@ async def _main_async(args: argparse.Namespace) -> int:
         return 0
 
     cfg = ModelConfig.from_env()
-    judge = _judge_from_env()
+    judge = judge_from_env()
     print(f"Model under test : {cfg.label}  (base_url={cfg.base_url or 'hosted'})")
     print(f"Judge            : {judge.label if judge else 'none (rubric tasks unscored)'}")
     print(f"Running {len(tasks)} task(s), concurrency={args.concurrency}\n")
@@ -182,20 +170,14 @@ async def _main_async(args: argparse.Namespace) -> int:
     summary = _summarize(scores)
     _print_report(summary, runs)
 
-    RESULTS_DIR.mkdir(exist_ok=True)
-    stamp = time.strftime("%Y%m%dT%H%M%S")
-    out = RESULTS_DIR / f"{stamp}.json"
-    out.write_text(
-        json.dumps(
-            {
-                "model": cfg.label,
-                "summary": summary,
-                "scores": [s.to_dict() for s in scores],
-                "runs": [r.to_dict() for r in runs],
-            },
-            indent=2,
-            default=str,
-        )
+    out = write_results(
+        {
+            "model": cfg.label,
+            "summary": summary,
+            "scores": [s.to_dict() for s in scores],
+            "runs": [r.to_dict() for r in runs],
+        },
+        prefix="run",
     )
     print(f"\nWrote {out}")
     return 0

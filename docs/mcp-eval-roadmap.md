@@ -58,6 +58,12 @@ surfaced and filed: **#41** (ESO has no `usage_notes` → agents flail) and **#4
 download stops at the DataLink VOTable, never resolves the FITS). Full findings in memory
 `eval-harness-findings`.
 
+> **Correction (2026-07-15 audit):** the "0 tool-errors" mcp figure predates the
+> harness fix that counts error-as-payload results; and tier-3 ablation numbers
+> recorded between the 0.5.0 archives refactor and 2026-07-15 are invalid (the
+> ablation raised AttributeError and scored every ablated run as FAIL). Re-run
+> both before quoting.
+
 ## Pillar 2 — model / harness matrix + rubric — **SHIPPED**
 
 - **Model-adapter layer** (`evals/model_backends.py`): neutral `ModelBackend` +

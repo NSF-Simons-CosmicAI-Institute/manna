@@ -6,7 +6,7 @@ MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab
 
 ```bash
 uv sync                                  # install deps + dev deps
-uv run pytest --record-mode=none         # 409 tests, offline replay (incl. tests/evals/)
+uv run pytest --record-mode=none         # 440 tests, offline replay (incl. tests/evals/)
 uv run pytest --record-mode=once -k <t>  # re-record one cassette (needs net)
 uv run ruff check .                      # lint
 uv run python -m astro_archives_mcp      # boot server on :8000 (STABLE_PORT to override)
@@ -34,9 +34,9 @@ src/astro_archives_mcp/
 │   ├── _model.py      # Archive, Schema dataclasses (leaf)
 │   ├── _select.py     # pure parse_allow/sort/select/validate helpers
 │   ├── __init__.py    # registry: discover_archives() + get_active_archives()
+│   ├── _endpoints.py  # endpoint lists/descriptions over the active set (Field examples, label map)
+│   ├── _knowledge.py  # per-table schema lookups (lookup_schema, active_schema_kb, schema_to_dict)
 │   └── <archive>.py   # ARCHIVE = Archive(..., schemas=(...), priority=N)
-├── known_archives.py  # compat VIEW over active archives — KNOWN_ARCHIVES, helpers
-├── schema_kb.py       # compat VIEW over active archives — SCHEMA_KB, lookup_schema
 ├── _serialization.py  # shared dataclass → JSON-friendly dict helper
 ├── shaper.py          # astropy.Table → inline envelope; oversize → result-URL/fetch_recipe
 ├── errors.py          # ToolExecutionError taxonomy + error_to_payload (spec §7)
@@ -48,7 +48,7 @@ src/astro_archives_mcp/
 
 Knowledge layer — **per-archive modules** (`archives/<short_name>.py`, see docs/archives-spec.md):
 - Each archive is one portable, plugin-style file: a single `Archive` dataclass carrying its identity (URLs, waveband), `usage_notes`, **its own per-table `Schema` entries**, and a `priority`. One archive = one file, exporting `ARCHIVE = Archive(...)`.
-- **`known_archives.py`** and **`schema_kb.py`** are now thin **compat views** over the active archive set — `KNOWN_ARCHIVES` / `SCHEMA_KB` / the helpers still work unchanged. Archive-level quirks live in `usage_notes` (surfaced by `vo_archive_list`); table-specific facts live in `Archive.schemas` (surfaced by `vo_schema_describe`), NOT in usage_notes.
+- Derived helpers over the active archive set live in the package: **`archives/_endpoints.py`** (endpoint URL lists + Field-example descriptions, the `_archive_label` substring map) and **`archives/_knowledge.py`** (`lookup_schema` / `active_schema_kb` / `schema_to_dict`). Both resolve from the `lru_cache`d `get_active_archives()` at call time — no import-time snapshot. Archive-level quirks live in `usage_notes` (surfaced by `vo_archive_list`); table-specific facts live in `Archive.schemas` (surfaced by `vo_schema_describe`), NOT in usage_notes.
 - **Archives are additive, never gating.** A missing archive just means no curated claims about it; it stays reachable via `vo_registry_search`. Selection: delete archive files, or set `STABLE_ARCHIVES=datalab,alma` (unset ⇒ all). `priority` (ascending) sets order.
 
 Result handling (stateless — the server never persists result bytes):
@@ -66,7 +66,7 @@ Tests mirror the source: `tests/unit/` (pure), `tests/archives/` (registry mecha
 - **`README.md` is NOT in `.dockerignore`.** uv reads `pyproject.toml`'s `readme=` during install. Resist the shrink-the-build-context instinct.
 - **`POST /mcp` 307-redirects to `/mcp/`** because of Starlette `Mount`. Inspector follows redirects; bare `curl /mcp` does not. Use `curl -L` or `/mcp/`.
 - **Default for replay is `--record-mode=none`.** New cassettes need explicit `--record-mode=once -k <test>` + network access.
-- **NRAO obscore requires `mode='async'`.** The `/sync` TAP endpoint returns 5xx on data reads against `tap_schema.obscore`. Metadata queries (`tap_schema.tables`, `tap_schema.columns`) work in sync. This is encoded in `known_archives.py` usage_notes and `schema_kb.py`.
+- **NRAO obscore requires `mode='async'`.** The `/sync` TAP endpoint returns 5xx on data reads against `tap_schema.obscore`. Metadata queries (`tap_schema.tables`, `tap_schema.columns`) work in sync. This is encoded in `archives/nrao.py`.
 
 ## Reliability contracts (don't break)
 

@@ -116,13 +116,13 @@ src/astro_archives_mcp/
 │   ├── _select.py      # PURE parse_allow / sort / select / validate
 │   ├── datalab.py      # ARCHIVE = Archive(...)
 │   ├── alma.py … sdss.py
-├── known_archives.py   # thin compat view: Archive re-export + KNOWN_ARCHIVES + helpers
-├── schema_kb.py        # thin compat view: Schema re-export + SCHEMA_KB + lookup_schema
+│   ├── _endpoints.py    # endpoint lists + Field descriptions over the active set
+│   ├── _knowledge.py    # per-table schema lookups (lookup_schema, active_schema_kb)
 ```
 
-`Archive`/`Schema` live in `archives/_model.py`; `known_archives.py` and
-`schema_kb.py` re-export them so every existing
-`from astro_archives_mcp.known_archives import Archive` keeps working.
+`Archive`/`Schema` live in `archives/_model.py`; the derived helpers in
+`archives/_endpoints.py` and `archives/_knowledge.py` resolve from the active
+archive set at call time.
 
 ### 3.4 The registry
 
@@ -151,15 +151,17 @@ test.
 `get_active_archives()` is cached like `get_settings()`. Tests reset it with
 `get_active_archives.cache_clear()`.
 
-### 3.5 Compat views — consumers barely change
+### 3.5 Compat views — a migration bridge, since removed
 
-`KNOWN_ARCHIVES = active_archives()` (snapshot at import) and
-`SCHEMA_KB = active_schema_kb()` (the active archives' schemas, flattened). The
-snapshot feeds import-time machinery (the `_archive_label` map, the
-`Field(examples=…)` in tool schemas) so it matches the frozen tool schema; the
-two knowledge tools read live accessors (`active_archives()` /
-`active_schema_kb()`, via `lookup_schema`) so they honor a mid-process
-re-selection. Every current consumer keeps working untouched:
+*Design-history note.* During the split, `known_archives.py`/`schema_kb.py`
+survived as thin compat views (`KNOWN_ARCHIVES`, `SCHEMA_KB`, and the helpers
+re-exported over the active archive set) so existing consumers kept working
+unchanged. Once no consumer imported those symbols, the views were folded into
+`archives/_endpoints.py` (endpoint lists + `Field(examples=…)` descriptions, the
+`_archive_label` map) and `archives/_knowledge.py` (`lookup_schema` /
+`active_schema_kb` / `schema_to_dict`) in 0.5.x, and the two modules were
+deleted. Both helpers resolve from the active archive set at call time, so they
+honor a mid-process re-selection. Consumers of the derived helpers:
 
 - `_archive_label._STATIC_MAP` — from `host_substring_to_short_name()`.
 - `tools/archives.py::vo_archive_list` — iterates `active_archives()`; drops the
@@ -203,8 +205,8 @@ reachability:
 
 There is **no fetch/SSRF gating tied to archives.** The 0.4.0 stateless refactor
 removed `vo_sia_fetch`, so the old `host_substrings`-derived allow-list has no
-consumer. `_archive_label.is_known_archive_url()` is vestigial (only its own
-test references it) — a follow-up may drop it.
+consumer; the vestigial `_archive_label.is_known_archive_url()` helper was
+dropped once its last caller was gone.
 
 ## 6. Testing
 
@@ -218,7 +220,7 @@ tests/archives/
   an archive deletes its test.
 - **Structural** assertions (helpers, integrity, `cross_refs` resolve over the
   full set) live in `test_registry.py` and the two `tests/unit/` view tests
-  (`test_known_archives.py`, `test_schema_kb.py`).
+  (`test_archive_endpoints.py`, `test_archive_knowledge.py`).
 - `EXPECTED_ORDER` in `test_registry.py` pins the shipped membership + order, so
   adding/removing/re-prioritizing an archive forces a conscious test edit.
 

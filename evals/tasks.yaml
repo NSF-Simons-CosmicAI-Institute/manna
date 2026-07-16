@@ -178,7 +178,7 @@
 
 # =====================================================================
 # Tier 3 — contextual-value ablation (trap avoidance)
-# Each runs twice: with vs. without curated context (usage_notes + schema_kb).
+# Each runs twice: with vs. without curated context (usage_notes + schema KB).
 # "Avoided" == the arg_checks below pass. The with/without delta is the headline.
 # =====================================================================
 

@@ -13,8 +13,8 @@ from typing import Annotated
 
 from pydantic import Field
 
+from astro_archives_mcp.archives._knowledge import lookup_schema, schema_to_dict
 from astro_archives_mcp.errors import ValidationError, wrap_tool_errors
-from astro_archives_mcp.schema_kb import lookup_schema, schema_to_dict
 from astro_archives_mcp.tools._constants import _ERROR_DOCSTRING
 
 

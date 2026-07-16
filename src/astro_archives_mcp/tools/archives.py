@@ -1,4 +1,4 @@
-"""Tool for surfacing the curated KNOWN_ARCHIVES registry to the LLM.
+"""Tool for surfacing the curated archive registry to the LLM.
 
 `vo_archive_list` is the agent-facing entry point into the project's
 knowledge base of well-known IVOA archives. Each returned entry carries
@@ -9,7 +9,7 @@ conventions, etc.).
 
 The knowledge is now backed by per-archive modules (`archives/<name>.py`):
 this tool surfaces the deployment's active archives via
-`known_archives.active_archives()`, so it honors the `STABLE_ARCHIVES`
+`archives._endpoints.active_archives()`, so it honors the `STABLE_ARCHIVES`
 selection. An absent archive simply carries no curated claims — it stays
 reachable via `vo_registry_search`. The tool contract is unchanged: per-table
 `schemas` (served by `vo_schema_describe`) and the internal `priority` are not
@@ -21,9 +21,9 @@ from typing import Annotated
 from pydantic import Field
 
 from astro_archives_mcp._serialization import dataclass_to_jsonable_dict
+from astro_archives_mcp.archives._endpoints import active_archives
 from astro_archives_mcp.archives._model import note_texts
 from astro_archives_mcp.errors import wrap_tool_errors
-from astro_archives_mcp.known_archives import active_archives
 from astro_archives_mcp.tools._constants import _ERROR_DOCSTRING
 
 
