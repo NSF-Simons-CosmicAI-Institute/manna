@@ -41,8 +41,34 @@ def test_obscore_schema_missing_columns_and_enums():
 
 def test_key_note_audits_have_expected_outcomes():
     notes = {n.id: n for n in ARCHIVE.usage_notes}
-    assert notes["sync-5xx-on-obscore"].audit.expect == "error"
+    assert notes["sync-unfiltered-reads-fail"].audit.expect == "error"
     assert notes["obscore-ivoa-absent"].audit.expect == "empty"
+
+
+def test_sync_notes_do_not_overstate_async_requirement():
+    """Live-probed 2026-07-16 (issue #58): unfiltered obscore reads DO still fail in
+    sync, but spatially-filtered reads succeed when NRAO is responsive. So the KB
+    must recommend auto/async rather than claim sync is categorically broken —
+    otherwise the eval penalises the now-correct mode='auto' behaviour."""
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    routing = notes["async-or-auto-for-data"].text.lower()
+    assert "auto" in routing, "the routing note must offer mode='auto', not async-only"
+
+    sync = notes["sync-unfiltered-reads-fail"].text.lower()
+    # The observed failure is HTTP 200 + VOTable QUERY_STATUS='ERROR' (or a read
+    # timeout), never an actual 5xx — pin the real mechanism so the old, wrong
+    # "the /sync endpoint returns 5xx" claim can't creep back in.
+    assert "query_status" in sync
+    assert "times out" in sync
+    assert "filtered" in sync, "the note must distinguish unfiltered from filtered reads"
+
+
+def test_load_dependent_claims_are_manual_not_probed():
+    """A filtered-sync-succeeds probe would report STALE on a transient timeout
+    (_verdict maps service_error -> stale for expect='nonempty'), so load-dependent
+    claims must stay manual."""
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["async-or-auto-for-data"].audit.expect == "manual"
 
 
 def test_lower_upper_note_is_probeable():

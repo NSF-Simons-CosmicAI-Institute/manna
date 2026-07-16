@@ -112,7 +112,8 @@
   sequence: true
   arg_checks:
     vo_tap_query:
-      - { arg: mode, op: iequals, value: "async", match: all }
+      # 'auto' is as correct as 'async' here — see t3-nrao-async / issue #58.
+      - { arg: mode, op: regex, value: "(?i)^(async|auto)$", match: all }
   rubric: >-
     Passes if the model consulted the archive notes, submitted an async TAP query
     against NRAO obscore with a spatial predicate, and reported a row/observation count
@@ -161,7 +162,8 @@
     vo_tap_query:
       # instrument_name enum is {EVLA,VLA,VLBA,GBT}; correct value is 'GBT'
       - { arg: adql, op: contains, value: "GBT" }
-      - { arg: mode, op: iequals, value: "async", match: all }
+      # 'auto' is as correct as 'async' here — see t3-nrao-async / issue #58.
+      - { arg: mode, op: regex, value: "(?i)^(async|auto)$", match: all }
 
 - id: t2-datalab-geometry
   tier: 2
@@ -184,12 +186,17 @@
 
 - id: t3-nrao-async
   tier: 3
-  probes_trap: "NRAO data reads require mode='async' (/sync 5xxs)"
+  probes_trap: "NRAO obscore data reads must not ride bare mode='sync'"
   prompt: "Get me 20 rows from NRAO's obscore table for VLA observations near RA=250, Dec=-30."
   expect_tools: [vo_tap_query]
   arg_checks:
     vo_tap_query:
-      - { arg: mode, op: iequals, value: "async", match: all }
+      # The trap is riding bare mode='sync' (unfiltered obscore reads error out;
+      # filtered ones are load-dependent and timeout-prone). BOTH escape hatches
+      # count: explicit 'async', and 'auto' — which runs sync first and promotes
+      # to async on timeout/oversize. match: all still fails a bare-sync retry
+      # loop, which is the behaviour actually being probed. See issue #58.
+      - { arg: mode, op: regex, value: "(?i)^(async|auto)$", match: all }
 
 - id: t3-obscore-location
   tier: 3

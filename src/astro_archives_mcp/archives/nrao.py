@@ -26,19 +26,34 @@ ARCHIVE = Archive(
     notable_tables=("tap_schema.obscore",),
     usage_notes=(
         Note(
-            id="async-required-all-data",
-            text="USE mode='async' for all DATA queries against tap_schema.obscore.",
+            id="async-or-auto-for-data",
+            text=(
+                "Use mode='auto' (or mode='async') for DATA queries against "
+                "tap_schema.obscore. Sync reads are unreliable here: unfiltered or "
+                "heavy reads always fail, and even spatially-filtered reads are "
+                "load-dependent — they can return in seconds or blow past the sync "
+                "timeout. mode='auto' tries sync first and promotes to async on a "
+                "timeout, so it is the safe default; mode='async' is always safe."
+            ),
             audit=Audit.manual(
-                "All DATA queries must use mode='async' (sync 5xxs on obscore reads)."
+                "Which mode succeeds is load-dependent, so no single probe settles "
+                "it: filtered sync reads returned rows in ~3s on 2026-07-16 but were "
+                "pure read-timeouts the evening before. The deterministic half — "
+                "unfiltered reads never succeeding — is probed by "
+                "sync-unfiltered-reads-fail."
             ),
         ),
         Note(
-            id="sync-5xx-on-obscore",
+            id="sync-unfiltered-reads-fail",
             text=(
-                "The /sync TAP endpoint returns 5xx errors on reads against "
-                "tap_schema.obscore — even for trivial `SELECT TOP 1 *`. Metadata "
-                "queries against tap_schema.tables, tap_schema.columns work fine in "
-                "sync."
+                "Unfiltered reads against tap_schema.obscore FAIL in sync — even a "
+                "trivial `SELECT TOP 1 *`. The failure is NOT a clean 5xx: /sync "
+                "returns HTTP 200 with a VOTable carrying QUERY_STATUS='ERROR' after "
+                "~50-60s, or the read simply times out. Spatially-filtered reads "
+                "(CONTAINS/CIRCLE on s_ra, s_dec) DO complete in sync when the server "
+                "is responsive, but are load-dependent — prefer mode='auto'. Metadata "
+                "queries against tap_schema.tables / tap_schema.columns are fast and "
+                "reliable in sync."
             ),
             audit=Audit.probe(expect="error", adql="SELECT TOP 1 * FROM tap_schema.obscore"),
         ),
