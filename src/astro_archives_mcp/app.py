@@ -15,6 +15,7 @@ from astro_archives_mcp.observability import (
 from astro_archives_mcp.tools import (
     vo_archive_list,
     vo_cone_search,
+    vo_find_observations,
     vo_registry_describe,
     vo_registry_search,
     vo_schema_describe,
@@ -71,7 +72,9 @@ def build_mcp() -> FastMCP:
 
     Every tool is read-only (the server never mutates archive state) except
     ``vo_tap_abort``, which deletes an upstream UWS job. Tools that hit live
-    archive services are open-world; the two KB readers are closed-world.
+    archive services are open-world; vo_archive_list is the one closed-world
+    KB reader (vo_schema_describe left that set when it grew a live column
+    fetch).
     """
     mcp = FastMCP(name="astro-archives-mcp")
     mcp.tool(vo_archive_list, annotations=_LOCAL)
@@ -85,6 +88,7 @@ def build_mcp() -> FastMCP:
     mcp.tool(vo_target_resolve, annotations=_REMOTE)
     mcp.tool(vo_cone_search, annotations=_REMOTE)
     mcp.tool(vo_sia_search, annotations=_REMOTE)
+    mcp.tool(vo_find_observations, annotations=_REMOTE)
     return mcp
 
 
