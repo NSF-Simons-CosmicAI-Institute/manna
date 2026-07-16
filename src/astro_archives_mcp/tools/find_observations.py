@@ -25,12 +25,12 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from astro_archives_mcp.archives._endpoints import active_archives
 from astro_archives_mcp.archives._model import note_texts
 from astro_archives_mcp.backends.cone import ConeSearchClient
 from astro_archives_mcp.backends.resolver import ResolverClient
 from astro_archives_mcp.backends.sia import SiaClient
 from astro_archives_mcp.errors import ValidationError, wrap_tool_errors
-from astro_archives_mcp.known_archives import active_archives
 from astro_archives_mcp.shaper import shape_table
 from astro_archives_mcp.tools._constants import _ERROR_DOCSTRING
 

@@ -41,8 +41,10 @@ __all__ = [
 def discover_archives() -> tuple[Archive, ...]:
     """Import every archive module in this package and collect its ``ARCHIVE``.
 
-    Modules whose name starts with ``_`` (``_model``, ``_select``) are
-    skipped. A non-underscore module without an ``ARCHIVE`` attribute is a
+    Modules whose name starts with ``_`` are skipped: the leaf dataclasses and
+    pure helpers (``_model``, ``_select``, ``_audit``) plus the derived-view
+    helper modules (``_endpoints``, ``_knowledge``) — none of them define an
+    ``ARCHIVE``. A non-underscore module without an ``ARCHIVE`` attribute is a
     developer error and raises. The returned tuple is validated
     (:func:`_select.validate_archives`) and sorted by (priority, short_name).
     """

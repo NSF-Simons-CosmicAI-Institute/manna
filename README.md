@@ -81,10 +81,12 @@ docker run -p 8000:8000 astro-archives-mcp:dev
 
 ## Forking for a specific deployment
 
-This repo is the multi-archive base. To target a subset of archives, fork and prune two files in parallel — no other files need touching:
+This repo is the multi-archive base. Each archive is one self-contained file — its endpoints, usage notes, and per-table schemas all live in `src/astro_archives_mcp/archives/<short_name>.py`. Shape which archives make curated claims two ways:
 
-- `src/astro_archives_mcp/known_archives.py` — remove unused `Archive` entries from `KNOWN_ARCHIVES`
-- `src/astro_archives_mcp/schema_kb.py` — remove the corresponding `Schema` entries from `SCHEMA_KB`
+- **Physical** — delete the unwanted `src/astro_archives_mcp/archives/<short_name>.py` files. Discovery picks up whatever remains; no other file needs touching.
+- **Runtime** — set `STABLE_ARCHIVES=datalab,alma` (comma-separated short_names) to narrow a shared image without deleting files. Unset/empty ⇒ every archive active.
+
+A dropped or deselected archive loses only the server's *curated claims* about it — never its reachability. It's still reachable via `vo_registry_search`.
 
 ## Refreshing recorded cassettes
 

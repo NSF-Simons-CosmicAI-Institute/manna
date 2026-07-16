@@ -21,7 +21,7 @@ task prompt ─► model under test (Anthropic Messages API)  ─► emits tool_
 
 - **`tasks.yaml`** — the versioned task suite (4 tiers; see the plan). The review target.
 - **`harness.py`** — the agent loop + model config (`ModelConfig.from_env`).
-- **`context.py`** — the Tier-3 ablation: strips `usage_notes` + `schema_kb` so we can
+- **`context.py`** — the Tier-3 ablation: strips `usage_notes` + the schema KB so we can
   compare trap-avoidance **with vs. without** curated context.
 - **`score.py`** — programmatic checks (tools, order, args, ground truth, safety scan)
   plus an optional LLM judge for open-ended `rubric` tasks.
@@ -93,6 +93,11 @@ uv run python -m evals.mcp_quality                 # 3-arm comparison
 uv run python -m evals.mcp_quality --set-baseline  # record results/mcp-quality-baseline.json
 ```
 
+> **Metric change (2026-07):** `tool_error_calls` now counts the server's
+> error-as-payload results (`error_class` present), which the mcp arm
+> previously could never register. Re-record baselines (`--set-baseline`)
+> before trusting version-over-version diffs that span this change.
+
 **2 — model × harness matrix** (`model_backends.py`, `personas.py`, `persona_run.py`,
 `scorecard.py`): how well do different **models** and **harnesses** work with the server?
 `make_backend` drives Anthropic (Messages) **or** OpenAI (Chat Completions) models via one
@@ -107,8 +112,12 @@ uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/
 ```
 
 **3 — archive note regression** (`audit.py`): keep the KB honest. **Model-free** — one
-live ADQL probe per each `Note`'s audit, keyed to `archives/<archive>.py :: <note_id>`,
-reporting STILL-TRUE / STALE / UNREACHABLE. Non-zero exit on STALE (cron/CI-friendly).
+live ADQL probe per each probeable `Note` audit, keyed to `archives/<archive>.py ::
+<note_id>`, reporting STILL-TRUE / STALE / ENDPT-DEAD / UNREACHABLE. Notes whose claims
+a single ADQL probe can't check are tagged MANUAL and listed for hand-verification —
+run `--list` for the current probeable/manual split, and prefer a probeable `Audit`
+whenever one exists (the one stale note the 2026-07 audit found was hiding in the
+manual pile). Non-zero exit on STALE or ENDPT-DEAD (cron/CI-friendly).
 
 ```bash
 uv run python -m evals.audit --list          # list notes, no probes

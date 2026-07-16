@@ -90,3 +90,51 @@ def test_vo_tap_query_error_path_returns_structured_payload(exc, expected_error_
     )
     assert payload["error_class"] == expected_error_class
     assert "retry_strategy" in payload
+
+
+# --------------------------------------------------------------------------- #
+# the shipped few-shot example must not teach a trap
+#
+# The old example ran CONTAINS(POINT(...)) against smash_dr2.object, a Data Lab
+# table. Verified live 2026-07-15: it fails with
+#   "function point(unknown, double precision, double precision) does not exist"
+# — the exact construct datalab.py's geometry-contains-untranslated note
+# documents as broken and tasks.yaml's t3-datalab-geometry docks models for
+# emitting. The Field description is re-sent to the model on EVERY turn, so we
+# taught the trap continuously and then penalized the model for copying us.
+# --------------------------------------------------------------------------- #
+def _adql_field_examples() -> list[str]:
+    """The `examples` the model actually sees on vo_tap_query's adql parameter."""
+    import inspect
+
+    from astro_archives_mcp.tools.tap import vo_tap_query
+
+    param = inspect.signature(vo_tap_query).parameters["adql"]
+    field = param.annotation.__metadata__[0]
+    return list(field.examples or [])
+
+
+def _datalab_examples() -> list[str]:
+    return [e for e in _adql_field_examples() if "smash_dr2" in e or "nsc_dr2" in e]
+
+
+def test_datalab_example_does_not_teach_the_geometry_trap():
+    examples = _datalab_examples()
+    assert examples, "expected at least one Data Lab example"
+    for example in examples:
+        assert "CONTAINS(" not in example.upper()
+        assert "POINT(" not in example.upper()
+
+
+def test_datalab_example_uses_the_verified_q3c_form():
+    assert any("q3c_radial_query" in e and "= 't'" in e for e in _datalab_examples()), (
+        "Data Lab cones need q3c_radial_query(...) = 't' — the = 't' literal is required"
+    )
+
+
+def test_an_example_still_shows_standard_geometry_for_obscore():
+    """CONTAINS genuinely works on obscore services — don't overcorrect into
+    teaching that ADQL geometry is universally broken."""
+    obscore = [e for e in _adql_field_examples() if "obscore" in e.lower()]
+    assert obscore, "expected an obscore example"
+    assert any("CONTAINS(" in e.upper() for e in obscore)

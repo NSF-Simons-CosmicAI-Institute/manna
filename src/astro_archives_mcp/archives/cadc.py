@@ -7,18 +7,23 @@ ARCHIVE = Archive(
     short_name="cadc",
     display_name="Canadian Astronomy Data Centre",
     host_substrings=("cadc-ccda.hia-iha", "ws.cadc-ccda"),
-    tap_url="https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap",
+    tap_url="https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/argus",
     sia_url="https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/sia",
     waveband="multi",
     description=("Multi-mission archive — TESS, JWST, CFHT, HST imaging available via SIA2."),
     usage_notes=(
         Note(
-            id="tap-reachable",
+            id="tap-at-argus",
             text=(
-                "CADC TAP serves the caom2 tables (e.g. caom2.Observation) — the "
-                "baseline the SIA2/DataLink caveats below build on."
+                "CADC TAP is served at /argus "
+                "(https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/argus) — the old "
+                "/tap path is a hard 404. It serves the caom2.* tables (e.g. "
+                "caom2.Observation) plus an ivoa.ObsCore view."
             ),
-            audit=Audit.probe(expect="ok", adql="SELECT TOP 1 * FROM caom2.Observation"),
+            audit=Audit.probe(
+                expect="ok",
+                adql="SELECT TOP 1 collection FROM caom2.Observation",
+            ),
         ),
         Note(
             id="sia2-datalink-indirection",
@@ -50,9 +55,18 @@ ARCHIVE = Archive(
             ),
         ),
         Note(
-            id="obs-collection-column",
-            text="Use `obs_collection` to filter by mission: 'TESS', 'JWST', 'CFHT', 'HST', etc.",
-            audit=Audit.count(table="caom2.Observation", columns=("obs_collection",)),
+            id="collection-column",
+            text=(
+                "To filter by mission on caom2.Observation use `collection` "
+                "('TESS', 'JWST', 'CFHT', 'HST', ...). The ObsCore-standard "
+                "`obs_collection` column exists only on the ivoa.ObsCore view "
+                "— referencing it on caom2.Observation errors. Match the "
+                "column to the table you query."
+            ),
+            audit=Audit.probe(
+                expect="nonempty",
+                adql=("SELECT TOP 1 collection FROM caom2.Observation WHERE collection = 'JWST'"),
+            ),
         ),
     ),
     priority=50,

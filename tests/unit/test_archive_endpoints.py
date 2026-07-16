@@ -1,8 +1,8 @@
-"""Tests for the known_archives compatibility view over the archive registry.
+"""Tests for the archives._endpoints helpers over the archive registry.
 
 Archive-specific *content* (NRAO async-only, ALMA INTERSECTS, datalab Q3C,
 etc.) is asserted per-archive in `tests/archives/test_<archive>.py`. This file
-covers the view + derived-lookup contract that downstream modules
+covers the endpoint + derived-lookup contract that downstream modules
 (`_archive_label`, tool Field examples) depend on.
 """
 
@@ -10,9 +10,8 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from astro_archives_mcp.known_archives import (
-    KNOWN_ARCHIVES,
-    Archive,
+from astro_archives_mcp.archives._endpoints import (
+    active_archives,
     by_short_name,
     host_substring_to_short_name,
     scs_endpoint_description,
@@ -22,16 +21,17 @@ from astro_archives_mcp.known_archives import (
     tap_endpoint_description,
     tap_endpoint_urls,
 )
+from astro_archives_mcp.archives._model import Archive
 
 
 def test_archive_dataclass_is_frozen():
-    a = KNOWN_ARCHIVES[0]
+    a = active_archives()[0]
     with pytest.raises(FrozenInstanceError):
         a.short_name = "mutated"  # type: ignore[misc]
 
 
-def test_known_archives_short_names_unique():
-    names = [a.short_name for a in KNOWN_ARCHIVES]
+def test_active_archives_short_names_unique():
+    names = [a.short_name for a in active_archives()]
     assert len(names) == len(set(names))
 
 
@@ -62,7 +62,7 @@ def test_each_primary_archive_has_at_least_one_usage_note():
     must_have_notes = {"datalab", "nrao", "alma", "cadc", "gaia"}
     for name in must_have_notes:
         a = by_short_name(name)
-        assert a is not None, f"{name} not found in KNOWN_ARCHIVES"
+        assert a is not None, f"{name} not found in active archives"
         assert len(a.usage_notes) >= 1, f"{name} has no usage_notes"
 
 
@@ -82,7 +82,7 @@ def test_view_order_reflects_card_priority():
     """The view is ordered by archive priority: NOIRLab leads, then ALMA, then
     NRAO. The first TAP-having archives surface as the endpoint examples
     shown to the LLM."""
-    order = [a.short_name for a in KNOWN_ARCHIVES]
+    order = [a.short_name for a in active_archives()]
     assert order.index("datalab") < order.index("alma")
     assert order.index("alma") < order.index("nrao")
 
