@@ -93,14 +93,24 @@ def vo_tap_query(
         str,
         Field(
             description=(
-                "ADQL query. Use CIRCLE/POINT/CONTAINS for sky-region "
-                "cuts. Use SELECT TOP N to cap row counts. Use ORDER BY for "
-                "deterministic results."
+                "ADQL query. Geometry support is archive-specific: standard "
+                "CIRCLE/POINT/CONTAINS work on obscore services (ALMA, NRAO) but "
+                "NOT on Astro Data Lab, which passes them to PostgreSQL and needs "
+                "q3c_radial_query(...) = 't' instead — call vo_archive_list for the "
+                "archive's quirks before composing. Use SELECT TOP N to cap row "
+                "counts, project an explicit column list rather than SELECT * "
+                "(vo_schema_describe returns the table's real columns), and ORDER BY "
+                "for deterministic results."
             ),
             examples=[
+                # Data Lab: ADQL geometry is NOT translated (it reaches PostgreSQL
+                # as-is and errors). Verified live 2026-07-15: returns 100 rows.
                 "SELECT TOP 100 ra, dec, gmag FROM smash_dr2.object "
-                "WHERE 1=CONTAINS(POINT('ICRS', ra, dec), "
-                "CIRCLE('ICRS', 185.43, -31.99, 0.2))",
+                "WHERE q3c_radial_query(ra, dec, 185.43, -31.99, 0.2) = 't'",
+                # obscore services DO support standard ADQL geometry.
+                "SELECT TOP 100 obs_id, s_ra, s_dec FROM ivoa.obscore "
+                "WHERE CONTAINS(POINT('ICRS', s_ra, s_dec), "
+                "CIRCLE('ICRS', 187.7, 12.39, 0.1)) = 1",
             ],
         ),
     ],

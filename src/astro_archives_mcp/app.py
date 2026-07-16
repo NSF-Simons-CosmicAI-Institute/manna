@@ -81,7 +81,7 @@ def build_mcp() -> FastMCP:
     mcp.tool(vo_tap_abort, annotations=_ABORT)
     mcp.tool(vo_registry_search, annotations=_REMOTE)
     mcp.tool(vo_registry_describe, annotations=_REMOTE)
-    mcp.tool(vo_schema_describe, annotations=_LOCAL)
+    mcp.tool(vo_schema_describe, annotations=_REMOTE)
     mcp.tool(vo_target_resolve, annotations=_REMOTE)
     mcp.tool(vo_cone_search, annotations=_REMOTE)
     mcp.tool(vo_sia_search, annotations=_REMOTE)

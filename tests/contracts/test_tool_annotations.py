@@ -5,8 +5,9 @@ from fastmcp import Client
 from astro_archives_mcp.app import build_mcp
 
 # Tools that only read the in-process KB (closed world); everything else
-# hits live archive services (open world).
-_LOCAL_TOOLS = {"vo_archive_list", "vo_schema_describe"}
+# hits live archive services (open world). vo_schema_describe left this set
+# when it started fetching real column lists from tap_schema.columns.
+_LOCAL_TOOLS = {"vo_archive_list"}
 
 
 async def test_all_tools_are_annotated_read_only():
