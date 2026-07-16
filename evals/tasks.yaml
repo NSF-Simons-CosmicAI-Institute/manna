@@ -16,6 +16,9 @@
 #                    op (numeric): near {value, tol} | gte | lte
 #                    arg supports dotted paths into nested args
 #                    match: any (>=1 call satisfies, default) | all (every call must satisfy)
+#                           | last (only the FINAL call must satisfy — scores where the
+#                             model ended up; use for traps served reactively via the
+#                             error hint, which cannot fire until the model trips them)
 #   ground_truth:  deterministic check on the FINAL answer text
 #                    type: coords {ra,dec,tol_deg} | contains {values:[...]} | regex {pattern}
 #   rubric:        free-text criteria for the LLM judge (open-ended answers)
@@ -215,15 +218,42 @@
 
 - id: t3-nrao-lowerupper
   tier: 3
-  probes_trap: "LOWER/UPPER string functions fail on NRAO TAP"
+  probes_trap: "LOWER/UPPER string functions fail on NRAO TAP (PREVENTION)"
   prompt: >-
     Query NRAO obscore for observations whose target name matches 'm87'
     case-insensitively. Return 10 rows.
   expect_tools: [vo_tap_query]
   arg_checks:
     vo_tap_query:
+      # PREVENTION: never trip the trap at all. This is EXPECTED TO FAIL as long
+      # as the lower-upper note is delivered only reactively (Trap(kind='loud')
+      # -> error hint, issue #57) — the hint cannot arrive until the model has
+      # already written LOWER(). Kept deliberately strict: it is the measurement
+      # that would flip if we ever spent description budget on this trap, and
+      # pairing it with -recovery below is what makes the two channels legible.
+      # Do NOT loosen it to make a green run; loosen the pair, or change channel.
       - { arg: adql, op: not_icontains, value: "LOWER(", match: all }
       - { arg: adql, op: not_icontains, value: "UPPER(", match: all }
+
+- id: t3-nrao-lowerupper-recovery
+  tier: 3
+  probes_trap: "recovers from the NRAO LOWER/UPPER rejection via the error hint"
+  prompt: >-
+    Query NRAO obscore for observations whose target name matches 'm87'
+    case-insensitively. Return 10 rows.
+  expect_tools: [vo_tap_query]
+  arg_checks:
+    vo_tap_query:
+      # RECOVERY: the question the hint channel can actually answer — did the
+      # model end on a query free of the rejected functions? match: last, because
+      # tripping the trap once is the PRICE of a reactive channel, not a failure.
+      - { arg: adql, op: not_icontains, value: "LOWER(", match: last }
+      - { arg: adql, op: not_icontains, value: "UPPER(", match: last }
+  rubric: >-
+    Passes if the model, after NRAO rejected LOWER()/UPPER(), read the error hint and
+    re-issued a working query (exact-case equality or a LIKE pattern) rather than
+    retrying the same rejected function or giving up. Reporting rows is expected;
+    live counts drift, so any plausible row set is acceptable.
 
 - id: t3-nrao-spatial
   tier: 3
