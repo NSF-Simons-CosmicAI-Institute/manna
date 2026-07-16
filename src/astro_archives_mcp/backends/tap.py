@@ -10,11 +10,24 @@ import pyvo
 import requests
 from astropy.table import Table
 from pyvo.dal import AsyncTAPJob
-from pyvo.dal.exceptions import DALQueryError, DALServiceError
+from pyvo.dal.exceptions import DALFormatError, DALQueryError, DALServiceError
 
 from astro_archives_mcp.errors import ArchiveError, DalQueryError, TimeoutArchiveError
 
 log = logging.getLogger(__name__)
+
+
+def _is_timeout(e: DALFormatError) -> bool:
+    """True if a DALFormatError wraps a requests read/connect timeout.
+
+    pyvo carries the original exception on `.cause`; we also check the
+    standard `__cause__`/`__context__` chain as a fallback for pyvo
+    versions that raise via `raise ... from`.
+    """
+    for candidate in (getattr(e, "cause", None), e.__cause__, e.__context__):
+        if isinstance(candidate, requests.exceptions.Timeout):
+            return True
+    return False
 
 
 class TapClient:
@@ -64,6 +77,13 @@ class TapClient:
             raise DalQueryError(message=str(e)) from e
         except DALServiceError as e:
             raise ArchiveError(message=str(e)) from e
+        except DALFormatError as e:
+            # pyvo wraps a read timeout during response fetch/parse here.
+            # DALFormatError is a sibling of DALServiceError under
+            # DALProtocolError, so it reaches this clause unshadowed.
+            if _is_timeout(e):
+                raise TimeoutArchiveError(message=f"TAP sync request timed out: {e}") from e
+            raise ArchiveError(message=str(e)) from e
         except requests.exceptions.Timeout as e:
             raise TimeoutArchiveError(message=f"TAP sync request timed out: {e}") from e
         return result.to_table()
@@ -96,6 +116,12 @@ class TapClient:
         except DALQueryError as e:
             raise DalQueryError(message=str(e)) from e
         except DALServiceError as e:
+            raise ArchiveError(message=str(e)) from e
+        except DALFormatError as e:
+            # A read timeout during submit is still just an archive error
+            # here — submit_async has no auto-promote path to feed.
+            if _is_timeout(e):
+                raise ArchiveError(message=f"TAP async submit timed out: {e}") from e
             raise ArchiveError(message=str(e)) from e
         except requests.exceptions.Timeout as e:
             raise ArchiveError(message=f"TAP async submit timed out: {e}") from e
