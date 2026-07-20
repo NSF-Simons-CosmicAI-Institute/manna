@@ -52,6 +52,24 @@ def test_shape_promotion_next_steps_reference_lifecycle_and_fetch():
     assert "vo_tap_results" in joined or "fetch_recipe" in joined
 
 
+def test_shape_promotion_next_steps_forbid_abandoning_the_job():
+    # The promotion envelope must pre-commit the model to the full
+    # lifecycle: poll → results → execute recipe. Without the explicit
+    # anti-abandon instruction, small models drop completed jobs and
+    # re-submit the query from scratch.
+    env = shape_promotion(
+        job_id="0abc",
+        job_url=_JOB_URL,
+        archive="datalab",
+        phase="QUEUED",
+        submitted_at=datetime.now(UTC),
+    )
+    joined = " ".join(env["next_steps"])
+    assert "code-execution tool" in joined
+    assert "do not abandon" in joined
+    assert "re-submit" in joined
+
+
 def test_shape_promotion_omits_tabular_keys():
     # Disjoint shape: no rows / columns / resource fields.
     env = shape_promotion(
