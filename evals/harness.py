@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from astro_archives_mcp.archives._traps import strip_cheatsheet
+from astro_archives_mcp.archives._traps import CHEATSHEET_HEADER
 from evals.context import ablated_context, full_context
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
@@ -183,6 +183,19 @@ class TaskRun:
 # vo_tap_query's description by default (archives/_traps.py), so the harness no longer
 # ADDS anything — the ablation arm SUBTRACTS it instead. Keeping a second copy here
 # would silently drift from what the server actually serves.
+
+
+def strip_cheatsheet(description: str) -> str:
+    """`description` with the server-injected trap cheatsheet removed.
+
+    The subtraction lives here, not in the server package: only the ablation arm
+    ever wants the blob back OUT of an otherwise identical tool surface.
+    `CHEATSHEET_HEADER` is the seam the server exposes for exactly this cut.
+    No-op if the blob isn't there.
+    """
+    head, sep, _ = description.partition(CHEATSHEET_HEADER)
+    return head.rstrip() if sep else description
+
 
 # Tools that surface the server's CURATED archive knowledge. Withholding them
 # (no_discovery) forces the quirks to reach the model only via injected tool

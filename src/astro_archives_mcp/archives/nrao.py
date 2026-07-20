@@ -64,10 +64,9 @@ ARCHIVE = Archive(
                 ),
             ),
             # Querying ivoa.obscore here errors, but with a bare "table not found"
-            # that never reveals where obscore actually lives — so prevention is
-            # the only channel that helps.
+            # that never reveals where obscore actually lives — so prevention
+            # (a silent trap, no triggers) is the only channel that helps.
             trap=Trap(
-                kind="silent",
                 guidance="obscore is at tap_schema.obscore, NOT ivoa.obscore (which does not exist).",
             ),
         ),
@@ -102,9 +101,8 @@ ARCHIVE = Archive(
             # The trap issue #57 is named after: true, probed, and served by
             # vo_archive_list — and the model wrote LOWER() anyway, in BOTH eval
             # conditions. It throws, so the fix rides the error hint rather than
-            # the description budget.
+            # the description budget (a loud trap: triggers decide when it fires).
             trap=Trap(
-                kind="loud",
                 guidance=(
                     "NRAO's TAP rejects the ADQL string functions LOWER() and UPPER(). "
                     "Re-run without them: match exact case (instrument_name = 'GBT') or "

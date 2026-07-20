@@ -252,17 +252,17 @@ diff to a single file.
 - **Implemented.** A `Note` may also carry a `Trap`, which says how the claim is
   *delivered* — because the eval showed reachable knowledge isn't used knowledge
   (issue #57: the NRAO LOWER/UPPER note was true, probed and served by
-  `vo_archive_list`, and the model wrote `LOWER()` anyway). `Trap(kind="silent")`
-  means the model gets no usable correction signal (no error at all, or one too
-  cryptic to act on), so the `guidance` is pushed up-front — `archives/_traps.py`
+  `vo_archive_list`, and the model wrote `LOWER()` anyway). A `Trap` without
+  `triggers` is *silent*: the model gets no usable correction signal (no error
+  at all, or one too cryptic to act on), so the `guidance` is pushed up-front — `archives/_traps.py`
   derives a cheatsheet from the ACTIVE set and `build_mcp()` appends it to
   `vo_tap_query`'s description. That channel is re-sent every turn, so it is
   capped at `CHEATSHEET_TOKEN_BUDGET` (200): if a new trap doesn't fit, write
   terser `guidance` rather than raise the ceiling, and remember `vo_archive_list`
-  is still the place for everything that isn't a trap. `Trap(kind="loud")` means
-  the query throws and `triggers` can spot the cause in the submitted ADQL, so
-  the `guidance` rides the error payload's `hint` and costs nothing until it
-  fires. Gated by `tests/archives/test_traps.py` +
+  is still the place for everything that isn't a trap. A `Trap` with `triggers`
+  is *loud*: the query throws and the triggers spot the cause in the submitted
+  ADQL, so the `guidance` rides the error payload's `hint` and costs nothing
+  until it fires. Gated by `tests/archives/test_traps.py` +
   `tests/contracts/test_trap_delivery.py`.
 - Structured `Schema` fields (`missing_standard_columns`, `value_enums`) are not
   yet under the audit gate — a documented follow-up. If a structured fact needs

@@ -13,11 +13,8 @@ form accepted.
 """
 
 from dataclasses import dataclass, field
-from typing import Literal
 
 from astro_archives_mcp.archives._audit import Audit
-
-TRAP_KINDS: frozenset[str] = frozenset({"silent", "loud"})
 
 
 @dataclass(frozen=True)
@@ -30,39 +27,36 @@ class Trap:
     the model still wrote LOWER()). Like `Audit`, this is declarative: it
     carries no delivery code. `archives/_traps.py` reads these.
 
-    Two kinds, split by whether the model can self-correct from the failure:
+    Two kinds, split by whether the model can self-correct from the failure,
+    and told apart entirely by ``triggers``:
 
-    - ``silent`` — the model gets NO usable correction signal, so the claim
-      must arrive BEFORE the query. Either the query silently returns a wrong
-      answer (ALMA: COUNT(*) over-counts, no error) or it errors so cryptically
-      that the message doesn't imply the fix (Data Lab: ADQL geometry surfaces
-      as `function point(...) does not exist`, which never suggests q3c). These
-      go in the `vo_tap_query` description — the expensive channel, re-sent
-      every turn, so the bar is high and `guidance` must be terse.
-    - ``loud`` — the query throws, and we can recognise the cause from the
-      submitted ADQL. `guidance` rides the error payload's `hint` instead, so
-      it costs nothing until it fires. Needs `triggers`.
+    - **silent** (no ``triggers``) — the model gets NO usable correction
+      signal, so the claim must arrive BEFORE the query. Either the query
+      silently returns a wrong answer (ALMA: COUNT(*) over-counts, no error)
+      or it errors so cryptically that the message doesn't imply the fix
+      (Data Lab: ADQL geometry surfaces as `function point(...) does not
+      exist`, which never suggests q3c). These go in the `vo_tap_query`
+      description — the expensive channel, re-sent every turn, so the bar is
+      high and `guidance` must be terse.
+    - **loud** (``triggers`` set) — the query throws, and the triggers
+      recognise the cause in the submitted ADQL. `guidance` rides the error
+      payload's `hint` instead, so it costs nothing until it fires.
 
     `guidance` is the compact, imperative fix — not the note's full prose.
     """
 
-    kind: Literal["silent", "loud"]
     guidance: str
     # Case-insensitive substrings of the submitted ADQL that fire a loud trap.
+    # Empty ⇒ silent (preventive, always shown); non-empty ⇒ loud (reactive).
     triggers: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.kind not in TRAP_KINDS:
-            raise ValueError(f"unknown trap kind {self.kind!r}; one of {sorted(TRAP_KINDS)}")
         if not self.guidance:
             raise ValueError("Trap.guidance must be non-empty")
-        if self.kind == "loud" and not self.triggers:
-            raise ValueError("a loud trap needs triggers — they decide when the hint fires")
-        if self.kind == "silent" and self.triggers:
-            raise ValueError(
-                "a silent trap must not carry triggers: it is preventive and always shown, "
-                "so there is nothing to match against"
-            )
+
+    @property
+    def is_loud(self) -> bool:
+        return bool(self.triggers)
 
     def fires_on(self, adql: str) -> bool:
         """Whether `adql` trips this trap. Silent traps never fire (no triggers)."""

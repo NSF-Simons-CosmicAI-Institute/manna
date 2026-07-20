@@ -3,7 +3,7 @@ curated archive quirks when the model can't (or won't) consult the discovery too
 
 Since issue #57 this measures a SHIPPED feature, not a hypothetical: the server
 injects the silent-trap cheatsheet into vo_tap_query's description by default
-(archives/_traps.py, derived from notes tagged `Trap(kind="silent")`). So the
+(archives/_traps.py, derived from notes tagged with a triggerless `Trap`). So the
 `inject` axis inverted — cell C now STRIPS the blob rather than cell D adding it.
 The cells and the decisive comparison are otherwise unchanged, so the numbers
 below remain the reference.

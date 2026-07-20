@@ -26,7 +26,6 @@ __all__ = [
     "estimate_tokens",
     "loud_trap_guidance",
     "silent_trap_cheatsheet",
-    "strip_cheatsheet",
     "trap_notes",
 ]
 
@@ -35,8 +34,8 @@ __all__ = [
 # trap won't fit, the fix is a terser `guidance`, not a bigger budget.
 CHEATSHEET_TOKEN_BUDGET = 200
 
-# Public because it is the seam `strip_cheatsheet` cuts on: the eval's ablation
-# arm needs to remove the blob to measure what injecting it is worth.
+# Public because it is the seam the eval's ablation arm cuts on: the harness's
+# strip_cheatsheet removes the blob to measure what injecting it is worth.
 CHEATSHEET_HEADER = (
     "Archive quirks that give wrong results or unactionable errors — apply BEFORE querying:"
 )
@@ -48,8 +47,8 @@ def estimate_tokens(text: str) -> int:
     return len(text) // 4
 
 
-def trap_notes(archive: Archive, kind: str) -> list[Note]:
-    """The archive's notes carrying a trap of `kind`, in declaration order.
+def trap_notes(archive: Archive, *, loud: bool) -> list[Note]:
+    """The archive's loud (or silent) trap notes, in declaration order.
 
     Covers usage_notes and per-table schema notes — a trap is worth pushing
     wherever it was curated.
@@ -57,7 +56,7 @@ def trap_notes(archive: Archive, kind: str) -> list[Note]:
     notes = list(archive.usage_notes)
     for schema in archive.schemas:
         notes.extend(schema.notes)
-    return [n for n in notes if n.trap is not None and n.trap.kind == kind]
+    return [n for n in notes if n.trap is not None and n.trap.is_loud == loud]
 
 
 def _cheatsheet_key(archive: Archive) -> str:
@@ -68,13 +67,8 @@ def _cheatsheet_key(archive: Archive) -> str:
     'data-query.nrao.edu'), which would send the model looking for the wrong
     archive's advice.
     """
-    if archive.tap_url:
-        host = urlparse(archive.tap_url).hostname or ""
-        # Trim the public suffix: 'data-query.nrao.edu' -> 'data-query.nrao',
-        # matching the substring style the model sees in endpoint examples.
-        if host:
-            return host.rsplit(".", 1)[0] if host.count(".") > 1 else host
-    return archive.host_substrings[0] if archive.host_substrings else archive.short_name
+    host = urlparse(archive.tap_url).hostname if archive.tap_url else None
+    return host or archive.short_name
 
 
 def _cheatsheet_line(archive: Archive, note: Note) -> str:
@@ -91,22 +85,11 @@ def silent_trap_cheatsheet() -> str:
     lines = [
         _cheatsheet_line(a, n)
         for a in sorted(active_archives(), key=lambda a: (a.priority, a.short_name))
-        for n in trap_notes(a, "silent")
+        for n in trap_notes(a, loud=False)
     ]
     if not lines:
         return ""
     return "\n".join([CHEATSHEET_HEADER, *lines])
-
-
-def strip_cheatsheet(description: str) -> str:
-    """`description` with the injected cheatsheet removed.
-
-    Exists for the eval's ablation arm only: injection is default-on server-side
-    now, so measuring its value means taking it back OUT of an otherwise
-    identical tool surface. No-op if the blob isn't there.
-    """
-    head, sep, _ = description.partition(CHEATSHEET_HEADER)
-    return head.rstrip() if sep else description
 
 
 def loud_trap_guidance(archive_short_name: str, adql: str) -> str | None:
@@ -119,7 +102,7 @@ def loud_trap_guidance(archive_short_name: str, adql: str) -> str | None:
     archive = by_short_name(archive_short_name)
     if archive is None:
         return None
-    for note in trap_notes(archive, "loud"):
+    for note in trap_notes(archive, loud=True):
         assert note.trap is not None  # guaranteed by trap_notes
         if note.trap.fires_on(adql):
             return note.trap.guidance

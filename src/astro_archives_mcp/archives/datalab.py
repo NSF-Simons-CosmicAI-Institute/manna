@@ -73,12 +73,12 @@ ARCHIVE = Archive(
                     "WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', 10.0, 10.0, 0.01)) = 1"
                 ),
             ),
-            # Loud by mechanism, silent in effect: the raw PostgreSQL complaint
-            # ("function point(...) does not exist") never hints that q3c is the
-            # answer, so the model can't recover from it. Prevention is what
-            # exp_a_matrix measured working (C=0/15 blind -> D=12/15 injected).
+            # Loud by mechanism, silent in effect (so: no triggers): the raw
+            # PostgreSQL complaint ("function point(...) does not exist") never
+            # hints that q3c is the answer, so the model can't recover from it.
+            # Prevention is what exp_a_matrix measured working (C=0/15 blind ->
+            # D=12/15 injected).
             trap=Trap(
-                kind="silent",
                 guidance=(
                     "ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT translated and errors. "
                     "For a cone use q3c_radial_query(ra, dec, <ra0>, <dec0>, <radius_deg>) = 't'; "

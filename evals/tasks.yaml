@@ -226,7 +226,7 @@
   arg_checks:
     vo_tap_query:
       # PREVENTION: never trip the trap at all. This is EXPECTED TO FAIL as long
-      # as the lower-upper note is delivered only reactively (Trap(kind='loud')
+      # as the lower-upper note is delivered only reactively (a loud Trap
       # -> error hint, issue #57) — the hint cannot arrive until the model has
       # already written LOWER(). Kept deliberately strict: it is the measurement
       # that would flip if we ever spent description budget on this trap, and

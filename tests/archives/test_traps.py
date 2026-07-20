@@ -107,7 +107,7 @@ def test_loud_trap_silent_on_clean_adql_and_other_archives():
     assert loud_trap_guidance("nonesuch", "SELECT LOWER(x) FROM y") is None
 
 
-def test_trap_notes_partitions_by_kind():
+def test_trap_notes_partitions_by_loudness():
     nrao = next(a for a in get_active_archives() if a.short_name == "nrao")
-    assert [n.id for n in trap_notes(nrao, "loud")] == ["lower-upper-fail"]
-    assert "lower-upper-fail" not in [n.id for n in trap_notes(nrao, "silent")]
+    assert [n.id for n in trap_notes(nrao, loud=True)] == ["lower-upper-fail"]
+    assert "lower-upper-fail" not in [n.id for n in trap_notes(nrao, loud=False)]
