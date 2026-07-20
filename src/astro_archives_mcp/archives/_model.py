@@ -18,6 +18,53 @@ from astro_archives_mcp.archives._audit import Audit
 
 
 @dataclass(frozen=True)
+class Trap:
+    """How a note's claim gets DELIVERED to the model, and when.
+
+    A note in `vo_archive_list` is knowledge the model *can* reach. A trap is
+    knowledge we push at it, because the eval showed reachable isn't enough
+    (issue #57: the NRAO LOWER/UPPER note was true, probed, and served — and
+    the model still wrote LOWER()). Like `Audit`, this is declarative: it
+    carries no delivery code. `archives/_traps.py` reads these.
+
+    Two kinds, split by whether the model can self-correct from the failure,
+    and told apart entirely by ``triggers``:
+
+    - **silent** (no ``triggers``) — the model gets NO usable correction
+      signal, so the claim must arrive BEFORE the query. Either the query
+      silently returns a wrong answer (ALMA: COUNT(*) over-counts, no error)
+      or it errors so cryptically that the message doesn't imply the fix
+      (Data Lab: ADQL geometry surfaces as `function point(...) does not
+      exist`, which never suggests q3c). These go in the `vo_tap_query`
+      description — the expensive channel, re-sent every turn, so the bar is
+      high and `guidance` must be terse.
+    - **loud** (``triggers`` set) — the query throws, and the triggers
+      recognise the cause in the submitted ADQL. `guidance` rides the error
+      payload's `hint` instead, so it costs nothing until it fires.
+
+    `guidance` is the compact, imperative fix — not the note's full prose.
+    """
+
+    guidance: str
+    # Case-insensitive substrings of the submitted ADQL that fire a loud trap.
+    # Empty ⇒ silent (preventive, always shown); non-empty ⇒ loud (reactive).
+    triggers: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.guidance:
+            raise ValueError("Trap.guidance must be non-empty")
+
+    @property
+    def is_loud(self) -> bool:
+        return bool(self.triggers)
+
+    def fires_on(self, adql: str) -> bool:
+        """Whether `adql` trips this trap. Silent traps never fire (no triggers)."""
+        low = adql.lower()
+        return any(t.lower() in low for t in self.triggers)
+
+
+@dataclass(frozen=True)
 class Note:
     """One ATOMIC curated claim + the audit that re-checks it live.
 
@@ -25,11 +72,13 @@ class Note:
     stale audit prints so you can jump straight to the note to fix. `text` is
     the single-claim, LLM-facing prose surfaced by vo_archive_list /
     vo_schema_describe. `audit` (mandatory) is how the live runner re-checks it.
+    `trap` (optional) opts the claim into a push channel — see `Trap`.
     """
 
     id: str
     text: str
     audit: Audit
+    trap: Trap | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -38,6 +87,8 @@ class Note:
             raise ValueError("Note.text must be non-empty")
         if not isinstance(self.audit, Audit):
             raise TypeError(f"Note.audit must be an Audit, got {type(self.audit).__name__}")
+        if self.trap is not None and not isinstance(self.trap, Trap):
+            raise TypeError(f"Note.trap must be a Trap, got {type(self.trap).__name__}")
 
 
 def note_texts(notes: tuple[Note, ...]) -> list[str]:

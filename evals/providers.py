@@ -70,7 +70,7 @@ class MCPToolProvider(ToolProvider):
 
     label = "mcp"
 
-    def __init__(self, *, inject_notes: bool = False, no_discovery: bool = False):
+    def __init__(self, *, inject_notes: bool = True, no_discovery: bool = False):
         self._inject_notes = inject_notes
         self._no_discovery = no_discovery
         self._client: Client | None = None
@@ -184,7 +184,7 @@ class RawWebToolProvider(ToolProvider):
 
 
 def make_provider(
-    arm: str, *, inject_notes: bool = False, no_discovery: bool = False
+    arm: str, *, inject_notes: bool = True, no_discovery: bool = False
 ) -> ToolProvider:
     if arm == "mcp":
         return MCPToolProvider(inject_notes=inject_notes, no_discovery=no_discovery)

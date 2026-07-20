@@ -1,7 +1,7 @@
 """NRAO Science Data Archive."""
 
 from astro_archives_mcp.archives._audit import Audit
-from astro_archives_mcp.archives._model import Archive, Note, Schema
+from astro_archives_mcp.archives._model import Archive, Note, Schema, Trap
 
 ARCHIVE = Archive(
     short_name="nrao",
@@ -78,6 +78,12 @@ ARCHIVE = Archive(
                     "WHERE table_name = 'tap_schema.obscore'"
                 ),
             ),
+            # Querying ivoa.obscore here errors, but with a bare "table not found"
+            # that never reveals where obscore actually lives — so prevention
+            # (a silent trap, no triggers) is the only channel that helps.
+            trap=Trap(
+                guidance="obscore is at tap_schema.obscore, NOT ivoa.obscore (which does not exist).",
+            ),
         ),
         Note(
             id="spatial-predicate-required",
@@ -106,6 +112,18 @@ ARCHIVE = Archive(
                     "SELECT TOP 1 table_name FROM tap_schema.tables "
                     "WHERE LOWER(table_name) = 'tap_schema.obscore'"
                 ),
+            ),
+            # The trap issue #57 is named after: true, probed, and served by
+            # vo_archive_list — and the model wrote LOWER() anyway, in BOTH eval
+            # conditions. It throws, so the fix rides the error hint rather than
+            # the description budget (a loud trap: triggers decide when it fires).
+            trap=Trap(
+                guidance=(
+                    "NRAO's TAP rejects the ADQL string functions LOWER() and UPPER(). "
+                    "Re-run without them: match exact case (instrument_name = 'GBT') or "
+                    "use a LIKE pattern."
+                ),
+                triggers=("LOWER(", "UPPER("),
             ),
         ),
         Note(

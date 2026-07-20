@@ -18,6 +18,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from astro_archives_mcp.archives._traps import CHEATSHEET_HEADER
 from evals.context import ablated_context, full_context
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
@@ -176,29 +177,24 @@ class TaskRun:
         }
 
 
-# Distilled to the behavior-changing bits of the SILENT-failure traps — the ones
-# that return wrong data with no error, so the model can't self-correct reactively
-# and genuinely needs preventive guidance. Loud traps (LOWER/UPPER, sync 5xx) throw,
-# so they belong in the error `hint`, not here — keeping this ~10% the size of the
-# raw usage_notes it replaces (a tool description is re-sent every turn). A real
-# server-side version would derive this from tagged notes on the active archives.
-_SILENT_TRAP_CHEATSHEET = (
-    "Archive quirks that FAIL SILENTLY (wrong results, no error) — apply before querying:\n"
-    "- Astro Data Lab (datalab.noirlab): ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT "
-    "translated (passed to PostgreSQL, errors). For a cone use "
-    "q3c_radial_query(ra, dec, <ra0>, <dec0>, <radius_deg>) = 't'; a ra/dec BETWEEN box "
-    "also works but returns a box, not a circle.\n"
-    "- ALMA (almascience): rows are per spectral-window; count observations with "
-    "COUNT(DISTINCT member_ous_uid), not COUNT(*).\n"
-    "- NRAO (data-query.nrao): obscore table is tap_schema.obscore (not ivoa.obscore); "
-    "data reads need mode='async'."
-)
+# The hand-written _SILENT_TRAP_CHEATSHEET that used to live here is gone: its own
+# comment said "a real server-side version would derive this from tagged notes on the
+# active archives", and issue #57 did exactly that. The server now ships the blob on
+# vo_tap_query's description by default (archives/_traps.py), so the harness no longer
+# ADDS anything — the ablation arm SUBTRACTS it instead. Keeping a second copy here
+# would silently drift from what the server actually serves.
 
 
-def _archive_notes_blob() -> str:
-    """Compact, preventive archive-quirk cheatsheet injected into the vo_tap_query
-    description (experiment (a)). Deliberately tiny — see the constant's rationale."""
-    return _SILENT_TRAP_CHEATSHEET
+def strip_cheatsheet(description: str) -> str:
+    """`description` with the server-injected trap cheatsheet removed.
+
+    The subtraction lives here, not in the server package: only the ablation arm
+    ever wants the blob back OUT of an otherwise identical tool surface.
+    `CHEATSHEET_HEADER` is the seam the server exposes for exactly this cut.
+    No-op if the blob isn't there.
+    """
+    head, sep, _ = description.partition(CHEATSHEET_HEADER)
+    return head.rstrip() if sep else description
 
 
 # Tools that surface the server's CURATED archive knowledge. Withholding them
@@ -208,23 +204,23 @@ _DISCOVERY_TOOLS = {"vo_archive_list", "vo_schema_describe"}
 
 
 def _anthropic_tools(
-    mcp_tools, inject_notes: bool = False, no_discovery: bool = False
+    mcp_tools, inject_notes: bool = True, no_discovery: bool = False
 ) -> list[dict[str, Any]]:
     """Convert FastMCP tool descriptors to Anthropic tool-use format.
 
-    - ``inject_notes``: append the archive-quirk cheatsheet to vo_tap_query's
-      description (experiment (a) — context-in-tool-descriptions).
+    - ``inject_notes``: keep the server's silent-trap cheatsheet on vo_tap_query's
+      description. Defaults True because that is now production behaviour; passing
+      False STRIPS it, which is how experiment (a) isolates the injection's value.
     - ``no_discovery``: withhold the curated-knowledge tools (vo_archive_list,
       vo_schema_describe) so the model can't consult them.
     """
-    blob = _archive_notes_blob() if inject_notes else ""
     out = []
     for t in mcp_tools:
         if no_discovery and t.name in _DISCOVERY_TOOLS:
             continue
         desc = t.description or ""
-        if inject_notes and t.name == "vo_tap_query":
-            desc = f"{desc}\n\n{blob}"
+        if not inject_notes and t.name == "vo_tap_query":
+            desc = strip_cheatsheet(desc)
         out.append(
             {
                 "name": t.name,
@@ -278,7 +274,7 @@ async def run_task(
     task: dict[str, Any],
     cfg: ModelConfig,
     condition: str,
-    inject_notes: bool = False,
+    inject_notes: bool = True,
     no_discovery: bool = False,
     arm: str = "mcp",
 ) -> TaskRun:
@@ -286,6 +282,8 @@ async def run_task(
 
     `arm` selects the tool provider: 'mcp' (full server), 'raw_tap', or 'raw_web'
     (the MCP-quality no-curation baselines). inject_notes/no_discovery apply to 'mcp'.
+    inject_notes defaults True to mirror production; False strips the server's
+    silent-trap cheatsheet back off.
     """
     from evals.model_backends import make_backend
     from evals.providers import make_provider

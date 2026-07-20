@@ -1,5 +1,7 @@
 """Tools for IVOA TAP."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
@@ -11,6 +13,7 @@ from astro_archives_mcp.archives._endpoints import (
     tap_endpoint_description,
     tap_endpoint_urls,
 )
+from astro_archives_mcp.archives._traps import loud_trap_guidance
 from astro_archives_mcp.backends.tap import TapClient
 from astro_archives_mcp.config import get_settings
 from astro_archives_mcp.errors import (
@@ -40,6 +43,27 @@ def _get_tap() -> TapClient:
             sync_timeout_seconds=get_settings().tap_sync_timeout_seconds,
         )
     return _tap
+
+
+@contextmanager
+def _trap_hint(*, endpoint: str, adql: str) -> Iterator[None]:
+    """Attach curated loud-trap guidance to a rejected query's `hint`.
+
+    The error payload is the one channel the model reliably reads at failure
+    time — issue #57 measured it writing LOWER() against NRAO even with the
+    note served by vo_archive_list. So when the archive rejects an ADQL that
+    trips a curated loud trap, the fix rides back with the rejection.
+
+    Only DalQueryError: that means the archive UNDERSTOOD the query and refused
+    it, which is when curated guidance is trustworthy. A timeout or 5xx says
+    nothing about the ADQL. An existing hint is never overwritten.
+    """
+    try:
+        yield
+    except DalQueryError as err:
+        if err.hint is None:
+            err.hint = loud_trap_guidance(archive_label(endpoint), adql)
+        raise
 
 
 def _promote_async(*, endpoint: str, adql: str, maxrec: int) -> dict:
@@ -166,36 +190,39 @@ def vo_tap_query(
     COMPLETED, then call vo_tap_results(job_id) — or fetch client-side
     with the pyvo fetch_recipe carried on the promotion envelope.
     """
-    if mode == "async":
-        return _promote_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
+    # Every path that can surface a DalQueryError runs inside _trap_hint, so a
+    # rejected query carries its curated fix regardless of which mode found it.
+    with _trap_hint(endpoint=endpoint, adql=adql):
+        if mode == "async":
+            return _promote_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
 
-    if mode == "sync":
-        table = _get_tap().query(endpoint=endpoint, adql=adql, maxrec=maxrec)
+        if mode == "sync":
+            table = _get_tap().query(endpoint=endpoint, adql=adql, maxrec=maxrec)
+            if is_oversize(table):
+                raise ValidationError(
+                    message=(
+                        f"Result ({len(table)} rows) exceeds the inline cap. "
+                        "Re-run vo_tap_query with mode='async' to get a job_url + "
+                        "fetch_recipe for client-side loading."
+                    ),
+                    retry_strategy="fix_and_retry",
+                )
+            return shape_inline_table(table, archive=archive_label(endpoint), maxrec=maxrec)
+
+        # mode == "auto": try sync, promote to async on a sync timeout OR when the
+        # sync result is too large to inline. The timeout discriminator is the
+        # exception TYPE (TimeoutArchiveError), not a substring — other archive
+        # errors (unreachable host, 5xx) are plain ArchiveError and propagate.
+        try:
+            table = _get_tap().query(endpoint=endpoint, adql=adql, maxrec=maxrec)
+        except TimeoutArchiveError:
+            return _auto_promote(endpoint=endpoint, adql=adql, maxrec=maxrec)
         if is_oversize(table):
-            raise ValidationError(
-                message=(
-                    f"Result ({len(table)} rows) exceeds the inline cap. "
-                    "Re-run vo_tap_query with mode='async' to get a job_url + "
-                    "fetch_recipe for client-side loading."
-                ),
-                retry_strategy="fix_and_retry",
-            )
+            # We already ran it once synchronously; re-submit as async so the
+            # archive holds the bytes and we can hand back a fetch URL. The first
+            # (discarded) execution is the cost of not knowing the size upfront.
+            return _auto_promote(endpoint=endpoint, adql=adql, maxrec=maxrec)
         return shape_inline_table(table, archive=archive_label(endpoint), maxrec=maxrec)
-
-    # mode == "auto": try sync, promote to async on a sync timeout OR when the
-    # sync result is too large to inline. The timeout discriminator is the
-    # exception TYPE (TimeoutArchiveError), not a substring — other archive
-    # errors (unreachable host, 5xx) are plain ArchiveError and propagate.
-    try:
-        table = _get_tap().query(endpoint=endpoint, adql=adql, maxrec=maxrec)
-    except TimeoutArchiveError:
-        return _auto_promote(endpoint=endpoint, adql=adql, maxrec=maxrec)
-    if is_oversize(table):
-        # We already ran it once synchronously; re-submit as async so the
-        # archive holds the bytes and we can hand back a fetch URL. The first
-        # (discarded) execution is the cost of not knowing the size upfront.
-        return _auto_promote(endpoint=endpoint, adql=adql, maxrec=maxrec)
-    return shape_inline_table(table, archive=archive_label(endpoint), maxrec=maxrec)
 
 
 vo_tap_query.__doc__ = (vo_tap_query.__doc__ or "") + _ERROR_DOCSTRING

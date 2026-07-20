@@ -88,6 +88,9 @@ def _dotted(d: Any, path: str) -> Any:
     return cur
 
 
+_MATCH_POLICIES: frozenset[str] = frozenset({"any", "all", "last"})
+
+
 def _apply_op(value: Any, check: dict[str, Any]) -> bool:
     op = check["op"]
     if op == "present":
@@ -127,10 +130,23 @@ def _apply_op(value: Any, check: dict[str, Any]) -> bool:
 
 
 def _check_calls(calls: list[dict[str, Any]], check: dict[str, Any]) -> bool:
-    """Apply one arg-check across all calls to a tool per its match policy."""
+    """Apply one arg-check across all calls to a tool per its match policy.
+
+    match: any (>=1 call) | all (every call) | last (the final call only).
+
+    `last` scores where the model ENDED UP. It exists for loud traps, whose
+    guidance rides the error `hint` and so can only arrive AFTER the model trips
+    them once — `all` would score those FAIL however well the hint worked.
+    """
     if not calls:
         return False
     match = check.get("match", "any")
+    if match not in _MATCH_POLICIES:
+        raise ValueError(
+            f"unknown arg-check match policy: {match!r}; one of {sorted(_MATCH_POLICIES)}"
+        )
+    if match == "last":
+        return _apply_op(_dotted(calls[-1]["args"], check["arg"]), check)
     results = [_apply_op(_dotted(c["args"], check["arg"]), check) for c in calls]
     return all(results) if match == "all" else any(results)
 
