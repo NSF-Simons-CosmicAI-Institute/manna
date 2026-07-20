@@ -15,6 +15,13 @@ FROM ${BASE_IMAGE}
 USER ${NB_UID}
 RUN pip install --no-cache-dir "jupyter-ai>=3" jupyterlab jupyterhub
 
+# Core scientific + IVOA/VO stack, so every spawned notebook has a standard
+# archive workflow ready off the bat. The minimal-notebook base ships WITHOUT
+# numpy/pandas/scipy/matplotlib (that's scipy-notebook), so install them here
+# alongside the astronomy libs (astropy, pyvo).
+RUN pip install --no-cache-dir \
+    numpy pandas scipy matplotlib astropy pyvo
+
 # Node + the persona binaries: claude-agent-acp wraps the `claude` CLI, need both.
 USER root
 RUN mamba install -y -c conda-forge nodejs && mamba clean -afy \
