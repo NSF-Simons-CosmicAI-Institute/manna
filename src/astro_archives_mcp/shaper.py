@@ -175,25 +175,49 @@ def shape_result_url(
     Carries the upstream job URL, the direct result URL, and a pyvo
     fetch recipe. No result bytes flow through the server — the client
     loads the data itself.
+
+    next_steps is written for the weakest reader: imperative, names the
+    model's own code-execution tool, and forbids re-running the query.
+    Small models (observed: Qwen behind the Jupyter AI persona) treat
+    descriptive phrasing like "fetch client-side" as someone else's job
+    and abandon the completed result.
     """
+    next_steps = [
+        "The query already ran and its full result is ready — do NOT re-run "
+        "it. Execute the Python in fetch_recipe.code with your "
+        "code-execution tool (e.g. run it in a notebook cell); it loads the "
+        "result as an astropy Table named `table`.",
+    ]
+    if result_url:
+        next_steps.append(
+            "If `import pyvo` fails, execute fetch_recipe.alternative "
+            "instead — it needs only astropy."
+        )
+    next_steps.append(
+        "Only if you cannot execute code at all: re-run vo_tap_query with a "
+        "narrower query (SELECT TOP N, tighter WHERE, or aggregates like "
+        "COUNT/GROUP BY) so the result fits inline."
+    )
     return {
         "phase": phase,
         "job_url": job_url,
         "result_url": result_url,
         "format": "votable",
         "archive": archive,
-        "next_steps": [
-            "Fetch the result client-side using fetch_recipe (pyvo).",
-            "Anonymous archives only — authenticated archives are not yet "
-            "supported for client-side fetch.",
-        ],
+        "next_steps": next_steps,
         "fetch_recipe": build_fetch_recipe(job_url, result_url),
         "hints": [
             {
                 "kind": "tip",
                 "text": "result_url is valid until the archive expires the async job.",
                 "source": None,
-            }
+            },
+            {
+                "kind": "tip",
+                "text": "Anonymous archives only — authenticated archives are "
+                "not yet supported for client-side fetch.",
+                "source": None,
+            },
         ],
     }
 
@@ -429,7 +453,10 @@ def shape_promotion(
         "archive": archive,
         "next_steps": [
             "Poll vo_tap_status(job_id) until phase is COMPLETED or ERROR.",
-            "Then call vo_tap_results(job_id), or fetch directly with fetch_recipe.",
+            "When COMPLETED, call vo_tap_results(job_id) to get the result_url and a fetch_recipe.",
+            "Then execute the fetch_recipe code with your code-execution "
+            "tool to load the data — do not abandon the job or re-submit "
+            "the query.",
         ],
         "fetch_recipe": build_fetch_recipe(job_url),
     }

@@ -302,6 +302,10 @@ def vo_tap_results(
     loads the data itself (e.g. in a Jupyter kernel). Anonymous access
     only.
 
+    After calling this, execute the returned fetch_recipe code with your
+    code-execution tool to load the data. The query already ran — do not
+    re-submit it.
+
     If the job is not yet COMPLETED, raises job_not_ready (retry_strategy=poll).
     If the job ended in ERROR, raises tap_query_error with the upstream
     message.

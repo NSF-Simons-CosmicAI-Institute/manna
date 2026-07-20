@@ -129,3 +129,33 @@ def test_shape_result_url_tolerates_missing_result_url():
     # The pyvo recipe still works from job_url alone; no astropy alternative.
     assert "alternative" not in out["fetch_recipe"]
     assert job_url in out["fetch_recipe"]["code"]
+
+
+def test_shape_result_url_next_steps_command_recipe_execution():
+    # Small models treat descriptive next_steps as someone else's job and
+    # abandon completed results (observed with Qwen in the jhub persona).
+    # The steps must be imperative, name the model's own code-execution
+    # tool, and forbid re-running the query.
+    out = shape_result_url(
+        job_url="https://x/async/1",
+        result_url="https://x/async/1/results/result",
+        archive="x",
+    )
+    joined = " ".join(out["next_steps"])
+    assert "fetch_recipe.code" in joined
+    assert "code-execution tool" in joined
+    assert "do NOT re-run" in joined
+    # Fallback when pyvo is missing from the client's kernel.
+    assert "fetch_recipe.alternative" in joined
+    # Last resort for clients that cannot execute code at all.
+    assert "SELECT TOP" in joined
+    assert "vo_tap_query" in joined
+
+
+def test_shape_result_url_omits_alternative_step_without_result_url():
+    out = shape_result_url(job_url="https://x/async/1", result_url=None, archive="x")
+    joined = " ".join(out["next_steps"])
+    # No result_url ⇒ no fetch_recipe.alternative ⇒ the step must not point
+    # at a field that does not exist.
+    assert "fetch_recipe.alternative" not in joined
+    assert "fetch_recipe.code" in joined
