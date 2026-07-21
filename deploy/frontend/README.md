@@ -26,7 +26,7 @@ cp .env.example .env          # set the model endpoint + token (or leave blank f
 
 # chat mode
 docker compose --profile chat up --build
-# → open http://localhost:8888, open the Jupyter AI chat, @-mention @cosmic-coder
+# → open http://localhost:8888, open the Jupyter AI chat, @-mention @CosmicCoder
 
 # hub mode
 docker compose build lab      # build the single-user image DockerSpawner launches
@@ -56,7 +56,7 @@ docker compose --profile hub up --build
   gp13 may instead **colocate** MCP inside each user image (Topology A,
   `../../docs/examples/gp13/`) — the persona config is otherwise identical.
 - **Persona** = `claude-agent-acp` wrapping the `claude` CLI; reads the model endpoint
-  from the injected `ANTHROPIC_*` env. The image **rebrands it as `@cosmic-coder`**
+  from the injected `ANTHROPIC_*` env. The image **rebrands it as `@CosmicCoder`**
   (CosmicAI) by patching the pinned persona's display name/avatar in place — behavior is
   unchanged. See "Renaming the persona" in `../../docs/jupyter-ai-integration.md` for why
   it's a patch and not config, and why `jupyter-ai`/`jupyter-ai-acp-client` are pinned.

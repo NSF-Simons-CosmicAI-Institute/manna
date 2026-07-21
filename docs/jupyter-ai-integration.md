@@ -111,17 +111,17 @@ discovery/metadata tools, but cannot materialize a large result — it can only 
    ```bash
    jupyter lab
    ```
-   Open a chat, `@`-mention the agent (e.g. `@cosmic-coder` in the deploy images, or the
+   Open a chat, `@`-mention the agent (e.g. `@CosmicCoder` in the deploy images, or the
    stock `@Claude` in a plain install), authenticate if prompted, then ask
    something that exercises a tool, e.g.:
    > "Use the astro-archives tools to list available archives, then resolve the
    > coordinates of M51."
    The persona should call `vo_archive_list` / `vo_target_resolve`.
 
-## Renaming the persona (`@claude` → `@cosmic-coder`)
+## Renaming the persona (`@claude` → `@CosmicCoder`)
 
 The deploy images (`deploy/frontend/frontend.Dockerfile`, `docs/examples/gp13/Dockerfile`)
-present the agent as **`@cosmic-coder`** rather than the stock `@Claude`. This is a
+present the agent as **`@CosmicCoder`** rather than the stock `@Claude`. This is a
 CosmicAI rebrand only — the underlying engine (`claude-agent-acp` wrapping the `claude`
 CLI), model backend, and MCP tools are unchanged.
 
@@ -137,8 +137,8 @@ Why it's done by patching the installed package rather than by config:
 - The chat `@`-handle is derived from the persona's **display name** by
   `jupyterlab_chat.models.User.mention_name` = `display_name.replace(" ", "-")` (no
   lowercasing). So the display name **is** the handle. We set it to the exact string
-  `cosmic-coder` to get the literal `@cosmic-coder`. A prettier `"Cosmic Coder"` label
-  would render as `@Cosmic-Coder`.
+  `CosmicCoder` (no space) to get the literal `@CosmicCoder`. A space-separated
+  `"Cosmic Coder"` label would instead render as `@Cosmic-Coder`.
 
 So the Dockerfiles override `ClaudeAcpPersona.defaults` (name/description/avatar) in the
 **pinned** installed `jupyter_ai_acp_client/acp_personas/claude.py`. The versions are

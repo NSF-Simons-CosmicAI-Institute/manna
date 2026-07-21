@@ -40,26 +40,26 @@ COPY --chown=${NB_UID}:${NB_GID} mcp_settings.json /home/${NB_USER}/.jupyter/mcp
 # permission prompt (Claude Code reads permissions.allow from ~/.claude/settings.json).
 COPY --chown=${NB_UID}:${NB_GID} claude_settings.json /home/${NB_USER}/.claude/settings.json
 
-# Rebrand the Claude Code ACP persona as `@cosmic-coder` (CosmicAI). jupyter-ai 3.0.1
+# Rebrand the Claude Code ACP persona as `@CosmicCoder` (CosmicAI). jupyter-ai 3.0.1
 # discovers personas via the `jupyter_ai.personas` entry points with no allow/disable
 # knob, and derives the chat `@`-handle from the persona's display name — so we override
 # `ClaudeAcpPersona.defaults` (name/description/avatar) in the pinned installed package.
 # Behavior (engine, model backend, MCP tools) is unchanged; only the identity changes.
 # The grep guards fail the build if a version bump moves the patched lines.
 # See docs/jupyter-ai-integration.md "Renaming the persona".
-COPY --chown=${NB_UID}:${NB_GID} cosmic-coder.svg /tmp/cosmic-coder.svg
+COPY --chown=${NB_UID}:${NB_GID} CosmicCoder.svg /tmp/CosmicCoder.svg
 RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname(jupyter_ai_acp_client.__file__))") && \
     CLAUDE_PY="$PKG_DIR/acp_personas/claude.py" && \
     STATIC_DIR="$PKG_DIR/static" && \
-    cp /tmp/cosmic-coder.svg "$STATIC_DIR/cosmic-coder.svg" && \
-    sed -i 's/name="Claude"/name="cosmic-coder"/' "$CLAUDE_PY" && \
+    cp /tmp/CosmicCoder.svg "$STATIC_DIR/CosmicCoder.svg" && \
+    sed -i 's/name="Claude"/name="CosmicCoder"/' "$CLAUDE_PY" && \
     sed -i 's#description="Claude Code as an ACP agent persona."#description="CosmicAI archive assistant — Claude Code with the astro-archives MCP tools."#' "$CLAUDE_PY" && \
-    sed -i 's/"claude.svg"/"cosmic-coder.svg"/' "$CLAUDE_PY" && \
-    grep -q 'name="cosmic-coder"' "$CLAUDE_PY" && \
-    grep -q 'cosmic-coder.svg' "$CLAUDE_PY" && \
-    test -f "$STATIC_DIR/cosmic-coder.svg" && \
-    rm /tmp/cosmic-coder.svg && \
-    echo "persona rebranded: @cosmic-coder"
+    sed -i 's/"claude.svg"/"CosmicCoder.svg"/' "$CLAUDE_PY" && \
+    grep -q 'name="CosmicCoder"' "$CLAUDE_PY" && \
+    grep -q 'CosmicCoder.svg' "$CLAUDE_PY" && \
+    test -f "$STATIC_DIR/CosmicCoder.svg" && \
+    rm /tmp/CosmicCoder.svg && \
+    echo "persona rebranded: @CosmicCoder"
 
 # Persona credentials/model endpoint are injected at runtime (compose env_file),
 # never baked: ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / ANTHROPIC_DEFAULT_*_MODEL
