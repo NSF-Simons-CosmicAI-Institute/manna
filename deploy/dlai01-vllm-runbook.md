@@ -53,6 +53,7 @@ JupyterLab (Jupyter AI v3)
 | 2026-06-29 | MCP server rootless on dlai01; persona chain proven with **hosted Claude** (headless `claude -p`, M51 resolved via `vo_target_resolve`). |
 | 2026-06-30 | **Local-model plumbing** proven — Qwen2.5-7B on vLLM (sm_120 works out of the box; native `/v1/messages`; tool call fired). |
 | 2026-07-01 | **Production model** proven — **Qwen3.5-122B-A10B-FP8**, TP=4, resolved M51 (RA 202.469575 / Dec +47.19525833 ICRS) via a real tool call. |
+| 2026-07-21 | **3-GPU scale-back** proven — same model on **PP=3 / TP=1** (device_ids 0–2), freeing GPU 3. Booted clean (`world_size=3`, per-stage ~39.9 GiB, KV 44.78 GiB/GPU, 131072 window intact). See "Scaling GPU count" below. |
 
 ## Prerequisites (resolved by IT, 2026-06-29)
 
@@ -220,6 +221,35 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
 6. **FP8 KV cache left OFF for now.** `--kv-cache-dtype fp8` roughly halves KV memory
    (a big concurrency lever) but is unvalidated on sm_120 here, and reportedly produced
    garbled output for another model on this GPU — validate before enabling.
+
+## Scaling GPU count (freeing a Blackwell for other work)
+
+**You cannot just drop `--tensor-parallel-size` to 3.** Qwen3.5-122B-A10B-FP8 has **32
+attention heads**, and vLLM enforces `num_attention_heads % TP == 0` → TP must be 1, 2,
+or 4. `TP=3` aborts at startup (`heads must be divisible by tensor parallel size`), and
+with `restart: unless-stopped` the container then crash-loops and 502s the endpoint.
+
+To use exactly **3 of the 4 GPUs**, use **pipeline parallelism** instead (validated
+2026-07-21): in `dlai01-vllm/docker-compose.yml`, replace `--tensor-parallel-size=4`
+with `--pipeline-parallel-size=3 --tensor-parallel-size=1` (48 hidden layers / 3 = 16
+per GPU, clean), and pin the container to specific GPUs so one stays idle:
+`device_ids: ['0','1','2']` (replacing `count: all`). Trade-off: PP favors concurrent
+throughput over single-request latency. Alternative if you'd rather keep tensor
+parallelism: `TP=2` (frees **two** GPUs, tighter KV headroom).
+
+**Swap procedure (the running container is a bare `docker run`, not this compose
+project, so compose won't adopt it — you must remove it first):**
+
+```bash
+# snapshot the old args for rollback, then swap
+docker inspect vllm --format '{{json .Args}}'      # record the TP=4 command
+docker rm -f vllm                                  # brief downtime starts here
+cd deploy/dlai01-vllm && docker compose up -d && docker compose logs -f
+# ✅ look for "Application startup complete" + Worker_PP0/PP1/PP2 (world_size=3)
+# confirm: nvidia-smi shows the pinned-out GPU at 0 MiB / 0%
+```
+
+Revert = restore `--tensor-parallel-size=4` / `count: all` and recreate.
 
 ## Current status & next steps
 
