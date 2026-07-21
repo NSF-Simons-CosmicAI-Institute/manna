@@ -47,18 +47,18 @@ COPY --chown=${NB_UID}:${NB_GID} claude_settings.json /home/${NB_USER}/.claude/s
 # Behavior (engine, model backend, MCP tools) is unchanged; only the identity changes.
 # The grep guards fail the build if a version bump moves the patched lines.
 # See docs/jupyter-ai-integration.md "Renaming the persona".
-COPY --chown=${NB_UID}:${NB_GID} CosmicCoder.svg /tmp/CosmicCoder.svg
+COPY --chown=${NB_UID}:${NB_GID} CosmicCoder.png /tmp/CosmicCoder.png
 RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname(jupyter_ai_acp_client.__file__))") && \
     CLAUDE_PY="$PKG_DIR/acp_personas/claude.py" && \
     STATIC_DIR="$PKG_DIR/static" && \
-    cp /tmp/CosmicCoder.svg "$STATIC_DIR/CosmicCoder.svg" && \
+    cp /tmp/CosmicCoder.png "$STATIC_DIR/CosmicCoder.png" && \
     sed -i 's/name="Claude"/name="CosmicCoder"/' "$CLAUDE_PY" && \
     sed -i 's#description="Claude Code as an ACP agent persona."#description="CosmicAI archive assistant — Claude Code with the astro-archives MCP tools."#' "$CLAUDE_PY" && \
-    sed -i 's/"claude.svg"/"CosmicCoder.svg"/' "$CLAUDE_PY" && \
+    sed -i 's/"claude.svg"/"CosmicCoder.png"/' "$CLAUDE_PY" && \
     grep -q 'name="CosmicCoder"' "$CLAUDE_PY" && \
-    grep -q 'CosmicCoder.svg' "$CLAUDE_PY" && \
-    test -f "$STATIC_DIR/CosmicCoder.svg" && \
-    rm /tmp/CosmicCoder.svg && \
+    grep -q 'CosmicCoder.png' "$CLAUDE_PY" && \
+    test -f "$STATIC_DIR/CosmicCoder.png" && \
+    rm /tmp/CosmicCoder.png && \
     echo "persona rebranded: @CosmicCoder"
 
 # Persona credentials/model endpoint are injected at runtime (compose env_file),
