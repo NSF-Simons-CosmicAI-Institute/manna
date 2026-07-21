@@ -111,11 +111,40 @@ discovery/metadata tools, but cannot materialize a large result — it can only 
    ```bash
    jupyter lab
    ```
-   Open a chat, `@`-mention the agent (e.g. `@Claude`), authenticate if prompted, then ask
+   Open a chat, `@`-mention the agent (e.g. `@cosmic-coder` in the deploy images, or the
+   stock `@Claude` in a plain install), authenticate if prompted, then ask
    something that exercises a tool, e.g.:
    > "Use the astro-archives tools to list available archives, then resolve the
    > coordinates of M51."
    The persona should call `vo_archive_list` / `vo_target_resolve`.
+
+## Renaming the persona (`@claude` → `@cosmic-coder`)
+
+The deploy images (`deploy/frontend/frontend.Dockerfile`, `docs/examples/gp13/Dockerfile`)
+present the agent as **`@cosmic-coder`** rather than the stock `@Claude`. This is a
+CosmicAI rebrand only — the underlying engine (`claude-agent-acp` wrapping the `claude`
+CLI), model backend, and MCP tools are unchanged.
+
+Why it's done by patching the installed package rather than by config:
+
+- Personas are discovered via the `jupyter_ai.personas` entry-point group and instantiated
+  by `PersonaManager`. As of **jupyter-ai 3.0.1 / jupyter-ai-acp-client 0.1.5** there is
+  **no allow/block/disable trait** for personas, and local `.jupyter/personas/` files only
+  *add* personas — so you cannot hide the stock `@Claude` via configuration. (The
+  declarative `.persona.md` + "disable default persona" work is a jupyter-ai **3.2**
+  roadmap item; 3.2 is unreleased, and that roadmap still lists the disable piece as
+  unresolved.)
+- The chat `@`-handle is derived from the persona's **display name** by
+  `jupyterlab_chat.models.User.mention_name` = `display_name.replace(" ", "-")` (no
+  lowercasing). So the display name **is** the handle. We set it to the exact string
+  `cosmic-coder` to get the literal `@cosmic-coder`. A prettier `"Cosmic Coder"` label
+  would render as `@Cosmic-Coder`.
+
+So the Dockerfiles override `ClaudeAcpPersona.defaults` (name/description/avatar) in the
+**pinned** installed `jupyter_ai_acp_client/acp_personas/claude.py`. The versions are
+pinned precisely so this in-place patch stays deterministic; the build includes `grep`
+guards that fail if a version bump moves the patched lines. To bump jupyter-ai, update the
+pins and re-verify the patch still matches.
 
 ## gp13 deployment notes (after local works)
 
