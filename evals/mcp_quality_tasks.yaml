@@ -155,3 +155,16 @@
   rubric: >-
     Passes if the assistant ran a positional Gaia DR3 query around the given coordinates
     and reported an integer count with at least one example source_id.
+
+- id: mq-async-handoff-nrao
+  tier: 5
+  prompt: >-
+    Pull 2000 rows (all columns) of observation metadata from the NRAO archive's
+    obscore table, and give me everything I need to load the full result into an
+    astropy Table in my own Python session.
+  rubric: >-
+    Passes if the assistant ran an asynchronous query to completion (or clearly
+    reported a still-running job with its job URL) AND delivered a concrete handoff:
+    a result URL and/or runnable pyvo/astropy code the user can execute to load the
+    table. Fails if it abandoned the job, claimed the data was inaccessible, or
+    delivered neither a URL nor code.
