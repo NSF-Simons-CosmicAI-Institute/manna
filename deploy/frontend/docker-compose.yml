@@ -37,8 +37,8 @@ services:
   lab:
     profiles: ["chat"]
     build:
-      context: .
-      dockerfile: frontend.Dockerfile
+      context: ../..
+      dockerfile: deploy/frontend/frontend.Dockerfile
     image: ${FRONTEND_IMAGE:-astro-frontend:dev}
     command: ["start-notebook.py", "--IdentityProvider.token="]  # no token, local only
     # JUPYTER_PORT (from .env) is honored by docker-stacks as the IN-container port,

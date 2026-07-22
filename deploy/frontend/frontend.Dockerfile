@@ -34,11 +34,19 @@ RUN mamba install -y -c conda-forge nodejs && mamba clean -afy \
 # Seed the MCP config where Jupyter AI resolves it (JupyterLab root = $HOME).
 # Points at the shared `mcp` service, not loopback.
 USER ${NB_UID}
-COPY --chown=${NB_UID}:${NB_GID} mcp_settings.json /home/${NB_USER}/.jupyter/mcp_settings.json
+COPY --chown=${NB_UID}:${NB_GID} deploy/frontend/mcp_settings.json /home/${NB_USER}/.jupyter/mcp_settings.json
 
 # Pre-allow all astro-archives MCP tools so the persona runs them without a per-call
 # permission prompt (Claude Code reads permissions.allow from ~/.claude/settings.json).
-COPY --chown=${NB_UID}:${NB_GID} claude_settings.json /home/${NB_USER}/.claude/settings.json
+COPY --chown=${NB_UID}:${NB_GID} deploy/frontend/claude_settings.json /home/${NB_USER}/.claude/settings.json
+
+# Workflow skills (repo skills/): teach the persona the multi-tool archive workflows.
+# Claude Code auto-discovers Agent Skills under ~/.claude/skills/. Copied per-folder
+# (not skills/ wholesale) so the repo-level README doesn't ship into the skills dir.
+# Build context is the repo root — see docker-compose.yml.
+COPY --chown=${NB_UID}:${NB_GID} skills/vo-data-discovery /home/${NB_USER}/.claude/skills/vo-data-discovery
+COPY --chown=${NB_UID}:${NB_GID} skills/vo-async-results /home/${NB_USER}/.claude/skills/vo-async-results
+COPY --chown=${NB_UID}:${NB_GID} skills/vo-adql /home/${NB_USER}/.claude/skills/vo-adql
 
 # Rebrand the Claude Code ACP persona as `@CosmicCoder` (CosmicAI). jupyter-ai 3.0.1
 # discovers personas via the `jupyter_ai.personas` entry points with no allow/disable
@@ -47,7 +55,7 @@ COPY --chown=${NB_UID}:${NB_GID} claude_settings.json /home/${NB_USER}/.claude/s
 # Behavior (engine, model backend, MCP tools) is unchanged; only the identity changes.
 # The grep guards fail the build if a version bump moves the patched lines.
 # See docs/jupyter-ai-integration.md "Renaming the persona".
-COPY --chown=${NB_UID}:${NB_GID} CosmicCoder.png /tmp/CosmicCoder.png
+COPY --chown=${NB_UID}:${NB_GID} deploy/frontend/CosmicCoder.png /tmp/CosmicCoder.png
 RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname(jupyter_ai_acp_client.__file__))") && \
     CLAUDE_PY="$PKG_DIR/acp_personas/claude.py" && \
     STATIC_DIR="$PKG_DIR/static" && \

@@ -84,6 +84,23 @@ Two ways to shape which archives make curated claims (see docs/archives-spec.md)
 
 A dropped/deselected archive removes only the server's *claims* about it — never its reachability (still works via `vo_registry_search`).
 
+## Workflow skills (skills/)
+
+Client-side Claude Code Agent Skills (`skills/vo-*`) that teach an agent to orchestrate
+the tools for larger workflows: `vo-data-discovery` (the resolve → archive-notes →
+schema → query chain), `vo-async-results` (job lifecycle + `fetch_recipe` handoff),
+`vo-adql` (compose/debug discipline). The server itself is untouched by them.
+
+- **Archive-agnostic by rule.** Skills never name curated archives or embed table
+  facts — those live in `archives/<short_name>.py` and reach the model via
+  `vo_archive_list` / `vo_schema_describe`. `tests/skills/` enforces this, plus
+  tool-name drift (a renamed tool fails `test_drift.py` until its skill mention is
+  updated — land both in the same PR).
+- **Delivery:** users symlink `skills/vo-*` into `.claude/skills/` (see
+  `skills/README.md`); the CosmicCoder persona bakes them in via
+  `deploy/frontend/frontend.Dockerfile` (build context = repo root for this reason).
+- **A/B eval:** `uv run python -m evals.exp_skills` (persona path, skills on/off).
+
 ## Git flow
 
 Three branch kinds:

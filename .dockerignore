@@ -10,3 +10,4 @@ __pycache__/
 docs/
 tests/
 deploy/
+!deploy/frontend/
