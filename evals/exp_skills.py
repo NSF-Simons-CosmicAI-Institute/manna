@@ -1,9 +1,9 @@
 """Experiment: do the repo's workflow skills (skills/vo-*) improve multi-step
 archive workflows?
 
-A/B over the PERSONA path only — real `claude -p` natively loads Agent Skills from
-<cwd>/.claude/skills/, so the lever is simply what the cwd contains (the same
-mechanism exp_verbosity uses for its concision CLAUDE.md):
+A/B over the PERSONA path only — the lever is simply what the cwd contains: real
+`claude -p` natively loads Agent Skills from <cwd>/.claude/skills/, so seeding (or
+not seeding) that directory before the persona runs is enough to flip the arm:
 
   S0  baseline persona, empty cwd
   S1  identical persona, cwd seeded with skills/vo-* from this repo
@@ -12,7 +12,7 @@ Prompts are the workflow-heavy subset of mcp_quality_tasks.yaml (incl. the
 async-handoff task). Rubric accuracy needs EVAL_JUDGE_*; without a judge those
 tasks report completion + efficiency only.
 
-Run (with evals/.env present; uses the dlai01 vLLM endpoint like exp_verbosity):
+Run (with evals/.env present; uses the dlai01 vLLM endpoint):
     uv run python -m evals.exp_skills --dry-run     # show the plan, no calls
     uv run python -m evals.exp_skills --reps 3
 """
@@ -28,8 +28,9 @@ from typing import Any
 
 from evals._common import judge_from_env, mean, write_results
 from evals.harness import TaskRun
+from evals.mcp_quality import _accuracy
 from evals.personas import PersonaConfig, make_persona
-from evals.score import TaskScore, load_tasks, score_task
+from evals.score import load_tasks, score_task
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = REPO_ROOT / "skills"
@@ -64,13 +65,6 @@ def write_cwd(with_skills: bool) -> str:
         for src in sorted(SKILLS_DIR.glob("vo-*")):
             shutil.copytree(src, dest / src.name)
     return d
-
-
-def _accuracy(score: TaskScore) -> bool | None:
-    """Ground-truth verdict if present, else judged rubric, else None (unscored)."""
-    if "ground_truth" in score.checks:
-        return score.checks["ground_truth"]
-    return score.checks.get("rubric")
 
 
 def metric_row(
@@ -169,7 +163,7 @@ async def _main(args: argparse.Namespace) -> int:
             try:
                 run = await _run_arm(arm, task, mcp_url, base_env, model_name)
             except Exception as exc:  # never let one flaky call kill the matrix
-                run = TaskRun(task["id"], task["tier"], "full", arm)
+                run = TaskRun(task["id"], task["tier"], "full", arm, arm="claude-code")
                 run.error = f"{type(exc).__name__}: {exc}"
         acc = _accuracy(await score_task(task, run, judge))
         row = metric_row(arm, task, run, acc, rep)

@@ -17,7 +17,7 @@ never abandon a job, never claim the data is inaccessible.
 1. **Submit:** `vo_tap_query` with `mode='async'` (or `mode='auto'`, which promotes
    an oversize sync result to async on its own). Record the `job_id`.
 2. **Poll:** `vo_tap_status` until the phase is terminal (`COMPLETED`, `ERROR`,
-   `ABORTED`). Back off between polls — wait several seconds, longer each round.
+   `ABORTED`, `ARCHIVED`). Back off between polls — wait several seconds, longer each round.
    Never burn your whole step budget on back-to-back polls of a QUEUED job.
 3. **Fetch pointers:** `vo_tap_results` returns `job_url`, `result_url`, and a
    `fetch_recipe` (runnable pyvo code). It does NOT return the data.

@@ -29,7 +29,8 @@ src/astro_archives_mcp/
 │   ├── resolver.py    # vo_target_resolve
 │   ├── registry.py    # vo_registry_search, vo_registry_describe
 │   ├── cone.py        # vo_cone_search
-│   └── sia.py         # vo_sia_search
+│   ├── sia.py         # vo_sia_search
+│   └── find_observations.py  # vo_find_observations
 ├── archives/          # per-archive knowledge (one <short_name>.py each)
 │   ├── _model.py      # Archive, Schema dataclasses (leaf)
 │   ├── _select.py     # pure parse_allow/sort/select/validate helpers

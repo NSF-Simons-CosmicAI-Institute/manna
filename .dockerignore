@@ -11,3 +11,4 @@ docs/
 tests/
 deploy/
 !deploy/frontend/
+deploy/frontend/.env*
