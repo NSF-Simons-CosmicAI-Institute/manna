@@ -22,3 +22,9 @@ def test_frontmatter_valid(skill):
 def test_skill_is_bounded(skill):
     lines = (skill / "SKILL.md").read_text().splitlines()
     assert len(lines) <= MAX_SKILL_LINES, f"{skill.name} has grown past {MAX_SKILL_LINES} lines"
+
+
+def test_expected_skill_set_shipped():
+    """The three workflow skills the docs/deploy reference must all exist."""
+    names = {p.name for p in skill_dirs()}
+    assert {"vo-data-discovery", "vo-async-results", "vo-adql"} <= names
