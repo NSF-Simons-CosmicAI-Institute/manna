@@ -28,9 +28,11 @@ FROM ${BASE_IMAGE}
 USER ${NB_UID}
 # Tracks the `dev` integration branch (0.4.0, stateless result-URL model). Pin to a
 # release tag (e.g. @v0.4.0) once dev is promoted to main and tagged.
+# jupyter-ai/acp-client are PINNED (not `>=3`) because the persona rebrand below
+# patches the installed acp-client persona in place — see frontend.Dockerfile.
 RUN pip install --no-cache-dir \
       "astro-archives-mcp @ git+https://github.com/dangause/astro-archives-mcp.git@dev" \
-      "jupyter-ai>=3" jupyterlab
+      "jupyter-ai==3.0.1" "jupyter-ai-acp-client==0.1.5" jupyterlab
 
 # --- Node + the Claude persona's binaries ---
 # The Jupyter AI "Claude" persona launches `claude-agent-acp`, which in turn
@@ -61,4 +63,23 @@ RUN chmod +x /usr/local/bin/before-notebook.d/10-astro-archives-mcp.sh
 # so we stage it under /opt and let the startup hook place it every spawn.
 COPY mcp_settings.json /opt/astro-archives/mcp_settings.json
 
+# --- Rebrand the Claude Code ACP persona as `@CosmicCoder` (CosmicAI) ---
+# Same override as deploy/frontend/frontend.Dockerfile: jupyter-ai 3.0.1 has no
+# persona allow/disable knob and derives the `@`-handle from the persona's display
+# name, so we patch `ClaudeAcpPersona.defaults` (name/description/avatar) in the
+# pinned installed package. Engine/model/MCP behavior is unchanged. The grep guards
+# fail the build if a version bump moves the patched lines.
 USER ${NB_UID}
+COPY CosmicCoder.png /tmp/CosmicCoder.png
+RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname(jupyter_ai_acp_client.__file__))") && \
+    CLAUDE_PY="$PKG_DIR/acp_personas/claude.py" && \
+    STATIC_DIR="$PKG_DIR/static" && \
+    cp /tmp/CosmicCoder.png "$STATIC_DIR/CosmicCoder.png" && \
+    sed -i 's/name="Claude"/name="CosmicCoder"/' "$CLAUDE_PY" && \
+    sed -i 's#description="Claude Code as an ACP agent persona."#description="CosmicAI archive assistant — Claude Code with the astro-archives MCP tools."#' "$CLAUDE_PY" && \
+    sed -i 's/"claude.svg"/"CosmicCoder.png"/' "$CLAUDE_PY" && \
+    grep -q 'name="CosmicCoder"' "$CLAUDE_PY" && \
+    grep -q 'CosmicCoder.png' "$CLAUDE_PY" && \
+    test -f "$STATIC_DIR/CosmicCoder.png" && \
+    rm /tmp/CosmicCoder.png && \
+    echo "persona rebranded: @CosmicCoder"
