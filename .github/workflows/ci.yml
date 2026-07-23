@@ -80,6 +80,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, container]
     if: github.event_name == 'push'
+    concurrency:
+      group: publish-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
@@ -97,15 +100,29 @@ jobs:
           VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           IMAGE="ghcr.io/${OWNER}/astro-archives-mcp"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           if [ "${GITHUB_REF_NAME}" = "main" ]; then
             echo "tags=${IMAGE}:${VERSION} ${IMAGE}:latest" >> "$GITHUB_OUTPUT"
           else
             echo "tags=${IMAGE}:dev" >> "$GITHUB_OUTPUT"
           fi
+      - name: Guard - version tag is immutable
+        if: github.ref_name == 'main'
+        run: |
+          IMAGE="${{ steps.tags.outputs.image }}"
+          VERSION="${{ steps.tags.outputs.version }}"
+          if docker manifest inspect "${IMAGE}:${VERSION}" >/dev/null 2>&1; then
+            echo "::error::${IMAGE}:${VERSION} already exists on GHCR. Version tags are immutable - bump the version in pyproject.toml before publishing." >&2
+            exit 1
+          fi
+          echo "${IMAGE}:${VERSION} is unpublished, proceeding"
       - name: Build and push
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
         run: |
           docker build -t local/astro-archives-mcp .
-          for t in ${{ steps.tags.outputs.tags }}; do
+          for t in $TAGS; do
             docker tag local/astro-archives-mcp "$t"
             docker push "$t"
           done
