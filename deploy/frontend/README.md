@@ -90,9 +90,12 @@ faithful stand-in for a single spawned user session.
   for the local backend; **comment out for hosted Claude** or Claude Code requests a
   "Qwen/…" model Anthropic doesn't have ("model may not exist"). See `.env.example`.
 - **`<think>` leak — FIXED (2026-07-23).** Qwen's replies used to begin with a reasoning
-  preamble ending in `</think>`. Turned off at the model server via
-  `--default-chat-template-kwargs='{"enable_thinking": false}'` (runbook Gotcha 5 /
-  `dlai01-vllm/docker-compose.yml`). Requires the dlai01 vLLM to be redeployed with that flag.
+  preamble ending in `</think>`. Root cause: Claude Code sends `output_config.effort=high`,
+  which makes vLLM reason; without a reasoning parser that reasoning leaked into the reply.
+  Fixed at the model server with **`--reasoning-parser=qwen3`** (+ an `enable_thinking:false`
+  default) so the reasoning goes to a separate block, not the visible text — tool calls still
+  fire and workflow quality is unchanged (runbook Gotcha 5 / `dlai01-vllm/docker-compose.yml`).
+  Requires the dlai01 vLLM to be redeployed with those flags.
 - **`hub` mode VALIDATED against vLLM** (2026-07-02): a hub-spawned single-user container
   inherited the forwarded `ANTHROPIC_*` env (incl. `ANTHROPIC_CUSTOM_HEADERS`, with
   `AUTH_TOKEN` unset) and its persona resolved M51 via the MCP tool through vLLM. Note:
