@@ -89,8 +89,10 @@ faithful stand-in for a single spawned user session.
 - **Gotcha — `ANTHROPIC_DEFAULT_*_MODEL` is backend-coupled.** Set to vLLM's served name
   for the local backend; **comment out for hosted Claude** or Claude Code requests a
   "Qwen/…" model Anthropic doesn't have ("model may not exist"). See `.env.example`.
-- **Cosmetic — `<think>` leak.** Qwen's replies begin with a reasoning preamble ending in
-  `</think>` before the answer (runbook Gotcha 5). Harmless; deferred.
+- **`<think>` leak — FIXED (2026-07-23).** Qwen's replies used to begin with a reasoning
+  preamble ending in `</think>`. Turned off at the model server via
+  `--default-chat-template-kwargs='{"enable_thinking": false}'` (runbook Gotcha 5 /
+  `dlai01-vllm/docker-compose.yml`). Requires the dlai01 vLLM to be redeployed with that flag.
 - **`hub` mode VALIDATED against vLLM** (2026-07-02): a hub-spawned single-user container
   inherited the forwarded `ANTHROPIC_*` env (incl. `ANTHROPIC_CUSTOM_HEADERS`, with
   `AUTH_TOKEN` unset) and its persona resolved M51 via the MCP tool through vLLM. Note:

@@ -213,11 +213,18 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
    tools" rumor (the model is actually top of open-weight BFCL). **Mitigation: omit
    `--reasoning-parser`** — the call stays in `content` where `qwen3_coder` finds it.
    Verified working (thinking stays on, tool still fires). **Side effect:** raw
-   `<think>…</think>` text leaks into the reply. Cosmetic; deferred to gp13-deployment
-   cleanup. The clean fix is a request-level `chat_template_kwargs:{enable_thinking:
-   false}`, which Claude Code doesn't expose — so it'll need a thin proxy that injects
-   it, a custom chat template baked into the served model, or a non-thinking checkpoint.
-   (`vllm serve --help` crashes in this build, so there's no easy serve-flag route.)
+   `<think>…</think>` text leaks into the reply.
+   **FIXED (2026-07-23):** turn Qwen3 thinking OFF by default with the serve flag
+   **`--default-chat-template-kwargs='{"enable_thinking": false}'`** (now in
+   `dlai01-vllm/docker-compose.yml`). This is the SERVER-level equivalent of the
+   request-level `chat_template_kwargs:{enable_thinking:false}` that Claude Code can't send —
+   so the persona gets thinking off without any per-request cooperation (a client can still
+   re-enable per-request via `extra_body`). With thinking off there is no `<think>` to hide a
+   `<tool_call>` in, so the tool-drop footgun above is moot and we KEEP `--reasoning-parser`
+   omitted. Validated indirectly by the 2026-07-22 verbosity A/B (per-request
+   `enable_thinking:false` was the only arm with a 0% `<think>`-leak rate); confirm on dlai01
+   by watching startup (flag accepted, no crash-loop) then chatting via the frontend. If an
+   older cached image rejects the flag, `docker compose pull` first (added to vLLM ~2025).
 6. **FP8 KV cache left OFF for now.** `--kv-cache-dtype fp8` roughly halves KV memory
    (a big concurrency lever) but is unvalidated on sm_120 here, and reportedly produced
    garbled output for another model on this GPU — validate before enabling.
@@ -309,7 +316,9 @@ overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
   `VLLM_API_KEY` (uncomment the `--api-key` line in the compose) and have Chadd inject it
   upstream.
 - **`hub` mode against vLLM** — re-validate JupyterHub + DockerSpawner with the same `.env`.
-- **Thinking-off** cleanup (Gotcha 5) for clean chat UX.
+- ~~**Thinking-off** cleanup (Gotcha 5) for clean chat UX.~~ **DONE (2026-07-23):**
+  `--default-chat-template-kwargs='{"enable_thinking": false}'` in the compose. Deploy on
+  dlai01 (`docker compose up -d`) and confirm the `<think>` preamble is gone in the frontend chat.
 - **Concurrency load test** at agentic context lengths (KV cache is the limiter;
   prefix-caching the ~24.5K static tool-schema prefix is the big lever) to size gp13.
 
