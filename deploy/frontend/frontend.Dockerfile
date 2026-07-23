@@ -40,6 +40,12 @@ COPY --chown=${NB_UID}:${NB_GID} mcp_settings.json /home/${NB_USER}/.jupyter/mcp
 # permission prompt (Claude Code reads permissions.allow from ~/.claude/settings.json).
 COPY --chown=${NB_UID}:${NB_GID} claude_settings.json /home/${NB_USER}/.claude/settings.json
 
+# Concise-output + astronomy role framing for the persona (verbosity experiment 2026-07-22:
+# the `strong` concision arm cut output tokens ~67% with the tool-correctness guardrail held).
+# Claude Code loads ~/.claude/CLAUDE.md as user-scope context. Does NOT fix the <think> leak —
+# that needs a vLLM-layer enable_thinking:false default (deploy/dlai01-vllm-runbook.md Gotcha 5).
+COPY --chown=${NB_UID}:${NB_GID} CLAUDE.md /home/${NB_USER}/.claude/CLAUDE.md
+
 # Rebrand the Claude Code ACP persona as `@CosmicCoder` (CosmicAI). jupyter-ai 3.0.1
 # discovers personas via the `jupyter_ai.personas` entry points with no allow/disable
 # knob, and derives the chat `@`-handle from the persona's display name — so we override
