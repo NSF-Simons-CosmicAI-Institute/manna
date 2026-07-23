@@ -11,6 +11,8 @@ uv run pytest --record-mode=once -k <t>  # re-record one cassette (needs net)
 uv run ruff check .                      # lint
 uv run python -m astro_archives_mcp      # boot server on :8000 (STABLE_PORT to override)
 docker build -t astro-archives-mcp:dev . # container build
+uv run python scripts/dump_tool_schema.py    # regenerate contracts/tool-schema.json after tool changes
+uv run python scripts/knowledge_audit.py     # model-free live audit of curated archive notes (network)
 npx -y @modelcontextprotocol/inspector --cli http://localhost:8000/mcp --method tools/list
 ```
 
@@ -75,6 +77,7 @@ Tests mirror the source: `tests/unit/` (pure), `tests/archives/` (registry mecha
 - **`truncated` is always a top-level boolean.** Never silently true. The ALMA_MCP prototype's `df.head(20)` is the explicit anti-pattern. Enforced in `shape_inline_table`.
 - **Error payloads carry `error_class` + `retry_strategy`.** `error_class` is the discriminator the LLM branches on. No `isError` key (intentional — see `tools/tap.py` docstring).
 - **Tokens / raw tracebacks never reach the LLM.** `InternalError.redact_message = True` (ClassVar) drives `error_to_payload` to swap in `_INTERNAL_GENERIC_MESSAGE`. Server logs retain the cause via `__cause__`.
+- **The server is agent-agnostic.** `src/` never imports `evals`, `deploy`, `anthropic`, or `openai` — enforced by `tests/contracts/test_agent_agnostic.py`. Client-facing guarantees are frozen in `docs/seam-contract.md`; `contracts/tool-schema.json` is the committed tool contract (regenerate deliberately, never let it drift silently).
 
 ## Forking for a deployment
 

@@ -79,6 +79,14 @@ docker build -t astro-archives-mcp:dev .
 docker run -p 8000:8000 astro-archives-mcp:dev
 ```
 
+### Container image
+
+Published to GHCR on every `main` promotion (versioned) and `dev` merge (`:dev`):
+
+    docker pull ghcr.io/dangause/astro-archives-mcp:0.5.0
+
+Pin exact versions in production clients. See `docs/seam-contract.md` for what clients may rely on.
+
 ## Forking for a specific deployment
 
 This repo is the multi-archive base. Each archive is one self-contained file — its endpoints, usage notes, and per-table schemas all live in `src/astro_archives_mcp/archives/<short_name>.py`. Shape which archives make curated claims two ways:

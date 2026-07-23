@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 jobs:
@@ -22,6 +22,15 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Sync deps
         run: uv sync --python ${{ matrix.python-version }}
+      - name: Guard - eval-only deps must not be present in the server env
+        run: |
+          uv run python - <<'EOF'
+          import importlib.util, sys
+          present = [m for m in ("anthropic", "openai") if importlib.util.find_spec(m)]
+          if present:
+              sys.exit(f"eval-only deps leaked into the server install: {present}")
+          print("server env is model-vendor free")
+          EOF
       - name: Lint + format check
         run: |
           uv run ruff check .
@@ -66,3 +75,37 @@ jobs:
       - name: Stop container
         if: always()
         run: docker stop aamcp || true
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [test, container]
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute image tags
+        id: tags
+        run: |
+          VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${OWNER}/astro-archives-mcp"
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "tags=${IMAGE}:${VERSION} ${IMAGE}:latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=${IMAGE}:dev" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push
+        run: |
+          docker build -t local/astro-archives-mcp .
+          for t in ${{ steps.tags.outputs.tags }}; do
+            docker tag local/astro-archives-mcp "$t"
+            docker push "$t"
+          done
