@@ -1,0 +1,524 @@
+{
+  "tools": [
+    {
+      "description": "List the IVOA archives this server has first-class knowledge of.\n\n    Each entry includes the archive's endpoint URLs (TAP / SIA / SCS),\n    waveband, description, notable tables, and **usage_notes** \u2014 short\n    agent-facing strings capturing archive-specific gotchas like\n    non-standard table locations, sync-vs-async routing recommendations,\n    target-name conventions, and ADQL quirks.\n\n    Call this FIRST when planning a query against an archive whose\n    behavior you don't already know \u2014 it'll save you the trial-and-error\n    of discovering quirks through failed queries. The notes are curated\n    based on real friction encountered while building the server.\n\n    Pass `short_name` and/or `waveband` to narrow the result. With no\n    arguments it returns every known archive (the usage_notes are verbose,\n    so prefer `short_name` once you know which archive you need).\n\n    Archives not listed here still work via `vo_registry_search` followed\n    by `vo_registry_describe` / `vo_tap_query` \u2014 this tool only covers the\n    well-known set.\n\n    Returns:\n        {\n          \"archives\": [\n            {\n              \"short_name\": \"...\",\n              \"display_name\": \"...\",\n              \"host_substrings\": [\"...\"],\n              \"tap_url\": \"...\",\n              \"sia_url\": \"...\" | null,\n              \"scs_url\": \"...\" | null,\n              \"waveband\": \"...\",\n              \"description\": \"...\",\n              \"notable_tables\": [\"...\"],\n              \"usage_notes\": [\n                \"Short agent-facing strings \u2014 read these BEFORE composing \"\n                \"a query. They capture real gotchas like non-standard \"\n                \"table names, required mode='async' routing, target-name \"\n                \"aliasing, etc.\"\n              ]\n            },\n            ...\n          ],\n          \"count\": N\n        }\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "short_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. Return only the archive with this short_name (case-insensitive), e.g. 'nrao'. Use this when you already know which archive you want \u2014 it returns a single entry instead of the full set, saving context. Unknown names return an empty list (count: 0).",
+            "examples": [
+              "nrao",
+              "datalab",
+              "alma"
+            ]
+          },
+          "waveband": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. Return only archives in this waveband (case-insensitive), e.g. 'radio', 'optical', 'millimeter'. Combines with short_name (both must match).",
+            "examples": [
+              "radio",
+              "optical",
+              "millimeter"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "name": "vo_archive_list"
+    },
+    {
+      "description": "Run a Simple Cone Search (SCS) against a catalog endpoint.\n\n    Returns the inline tabular envelope, same shape as vo_tap_query.\n    For most uses, prefer vo_tap_query \u2014 SCS is here for catalogs that\n    only expose the legacy protocol.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "dec": {
+            "description": "Declination (ICRS), degrees.",
+            "type": "number"
+          },
+          "endpoint": {
+            "description": "Simple Cone Search endpoint URL. Example: 'https://gaia.ari.uni-heidelberg.de/cone/gaiadr2?' (Gaia ARI Heidelberg). Prefer vo_tap_query for archives that expose a TAP endpoint \u2014 vo_cone_search is here for SCS-only legacy services.",
+            "examples": [
+              "https://gaia.ari.uni-heidelberg.de/cone/gaiadr2?"
+            ],
+            "type": "string"
+          },
+          "maxrec": {
+            "default": 10000,
+            "description": "Hard cap on rows returned. Default 10_000.",
+            "maximum": 100000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "ra": {
+            "description": "Right ascension (ICRS), degrees.",
+            "type": "number"
+          },
+          "radius_deg": {
+            "description": "Cone radius in degrees.",
+            "maximum": 10.0,
+            "minimum": 0.0001,
+            "type": "number"
+          }
+        },
+        "required": [
+          "endpoint",
+          "ra",
+          "dec",
+          "radius_deg"
+        ],
+        "type": "object"
+      },
+      "name": "vo_cone_search"
+    },
+    {
+      "description": "Find observations of a target in one call (resolve -> select -> search).\n\n    A purpose-driven facade over vo_target_resolve + vo_archive_list +\n    vo_sia_search / vo_cone_search. Pass an object name (auto-resolved) or\n    explicit 'RA DEC'; optionally steer archive choice with `waveband` or an\n    explicit `archive`.\n\n    Returns the standard inline tabular envelope (same shape as vo_sia_search /\n    vo_cone_search \u2014 typed `columns`, `rows`, explicit `truncated` bool) plus:\n\n      - `resolved`: {target, ra, dec, frame} \u2014 the coordinates actually used.\n      - `plan`: {service, chosen_archive, endpoint, alternatives, usage_notes}\n        \u2014 how the archive was picked, and its curated gotchas. Read\n        `plan.usage_notes` before trusting the rows.\n\n    Soft-fails (no error_class) when a name can't be resolved\n    ({\"resolved\": false, ...}) or no archive matches the filter\n    ({\"count\": 0, \"hint\": ...}) \u2014 recover by adjusting the target/filter or\n    dropping to the atomic tools with an explicit endpoint.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "archive": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional short_name override ('nrao', 'datalab') to skip auto-selection. Use when you already know the archive.",
+            "examples": [
+              "nrao",
+              "datalab"
+            ]
+          },
+          "maxrec": {
+            "default": 1000,
+            "description": "Hard cap on rows returned. Default 1_000.",
+            "maximum": 10000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "radius_deg": {
+            "default": 0.1,
+            "description": "Search radius / field size in degrees. Default 0.1.",
+            "maximum": 5.0,
+            "minimum": 0.0001,
+            "type": "number"
+          },
+          "service": {
+            "default": "image",
+            "description": "'image' -> Simple Image Access (rows carry image/cutout access_urls). 'catalog' -> Simple Cone Search (source rows).",
+            "enum": [
+              "image",
+              "catalog"
+            ],
+            "type": "string"
+          },
+          "target": {
+            "description": "Object name (resolved via CDS Sesame \u2014 'M87', 'Cygnus A', '3C 273') OR explicit ICRS coordinates as 'RA DEC' in decimal degrees ('187.7059 12.3911', comma optional). Names are auto-resolved; you do NOT need to call vo_target_resolve first.",
+            "examples": [
+              "M87",
+              "Cygnus A",
+              "187.7059 12.3911"
+            ],
+            "type": "string"
+          },
+          "waveband": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional waveband to auto-select the archive \u2014 'radio', 'optical', 'infrared', 'millimeter'. Omit to use the highest-priority archive offering this service.",
+            "examples": [
+              "radio",
+              "optical"
+            ]
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "type": "object"
+      },
+      "name": "vo_find_observations"
+    },
+    {
+      "description": "Introspect a specific IVOA service: its capabilities, and for TAP\n    services its tables and columns.\n\n    Returns {ivoid, title, description, capabilities, tables, truncated,\n    total_tables} (plus matched_tables when table_filter is used). Use after\n    vo_registry_search to learn what's queryable on a specific service before\n    composing ADQL via vo_tap_query.\n\n    Each table normally carries its full column list. For a very large service\n    the response degrades to a table *catalog* (name + description +\n    column_count per table, no per-column detail) and sets truncated: true.\n    When that happens, either pass table_filter='<keyword>' to narrow to the\n    tables you want (a narrow match returns their columns inline), or get one\n    table's columns by querying tap_schema.columns WHERE table_name = '<table>'\n    via vo_tap_query (or vo_schema_describe for curated tables). See the\n    returned hints.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "ivoid_or_url": {
+            "description": "Either an IVOID (starts with 'ivo://') or a TAP service URL. The tool resolves both forms via RegTAP.",
+            "examples": [
+              "ivo://eso.org/tap_obs",
+              "https://datalab.noirlab.edu/tap"
+            ],
+            "type": "string"
+          },
+          "table_filter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional case-insensitive keyword. When set, only tables whose name or description contains it are returned. Use this on large services (hundreds/thousands of tables) to find the ones you want AND get their columns in one call. Example: 'allwise', 'gaia_source', 'obscore'.",
+            "examples": [
+              "allwise",
+              "gaia_source",
+              "obscore"
+            ]
+          }
+        },
+        "required": [
+          "ivoid_or_url"
+        ],
+        "type": "object"
+      },
+      "name": "vo_registry_describe"
+    },
+    {
+      "description": "Discover IVOA-registered services matching the given constraints.\n\n    Returns a {services: [...], row_count, truncated, truncation_reason}\n    envelope. Each service entry has: ivoid, title, description, publisher,\n    waveband, and one URL per capability (tap_url, sia_url, scs_url,\n    ssa_url; null when the service doesn't expose that capability).\n\n    Use for discovery before calling vo_tap_query / vo_sia_search /\n    vo_cone_search on a specific endpoint. Smaller default maxrec (50)\n    than catalog tools \u2014 discovery is about choice, not bulk data.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "keywords": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Free-text keywords to match against service titles/descriptions. Example: ['Magellanic', 'photometry'].",
+            "examples": [
+              [
+                "magellanic"
+              ],
+              [
+                "RR Lyrae",
+                "variable"
+              ]
+            ]
+          },
+          "maxrec": {
+            "default": 50,
+            "description": "Hard cap on services returned. Default 50.",
+            "maximum": 500,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "servicetype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter by service type: 'tap', 'sia', 'scs', 'ssa'.",
+            "examples": [
+              "tap",
+              "sia"
+            ]
+          },
+          "waveband": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter by waveband: 'radio', 'infrared', 'optical', 'uv', 'euv', 'x-ray', 'gamma-ray'.",
+            "examples": [
+              "optical",
+              "infrared"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "name": "vo_registry_search"
+    },
+    {
+      "description": "Curated quirks + the real column list for one archive table.\n\n    Returns the table's actual columns (name + datatype, fetched live from the\n    archive's tap_schema.columns) alongside table-specific curated facts:\n    missing standard columns, value enums for filterable fields, notes, and\n    cross_refs to related tables.\n\n    For a known archive, exactly one of these is always present:\n      * `columns`: [{\"name\": ..., \"datatype\": ...}] \u2014 the real column list.\n        Project these explicitly rather than SELECT *.\n      * `column_list_recipe`: the query to run yourself, if the fetch failed.\n\n    `known: false` means only that we carry no curated notes for the table \u2014 for\n    a known archive the column list is still returned. Use `vo_registry_describe`\n    to discover which tables an archive has, or `vo_archive_list` for valid\n    archive short_names.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "archive": {
+            "description": "Archive short_name (e.g. 'nrao', 'datalab', 'alma'). Use vo_archive_list to discover available names.",
+            "examples": [
+              "nrao",
+              "datalab",
+              "alma"
+            ],
+            "type": "string"
+          },
+          "table": {
+            "description": "Fully qualified table name as it appears in the archive's TAP schema (e.g. 'tap_schema.obscore', 'ivoa.obscore', 'nsc_dr2.object').",
+            "examples": [
+              "tap_schema.obscore",
+              "ivoa.obscore",
+              "nsc_dr2.object"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "archive",
+          "table"
+        ],
+        "type": "object"
+      },
+      "name": "vo_schema_describe"
+    },
+    {
+      "description": "Discover images at a sky position via Simple Image Access (SIA 2.0 or 1.0).\n\n    Returns the inline tabular envelope. Each row is image metadata; the\n    `access_url` column points at the image (a FITS file, or a cutout-service\n    URL for archives like Data Lab). The server does not download images \u2014\n    fetch an access_url client-side (e.g. astropy.io.fits.open(access_url)).\n\n    Most archives speak SIA2; NOIRLab Data Lab speaks SIA1. With the default\n    version='auto' you don't need to know which \u2014 SIA2 is tried first and\n    SIA1 is used as a fallback.\n\n    For all-sky discovery first, see vo_registry_search with\n    servicetype='sia'.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional waveband filter (e.g. 'optical', 'infrared').",
+            "examples": [
+              "optical"
+            ]
+          },
+          "dec": {
+            "description": "Declination (ICRS), degrees.",
+            "type": "number"
+          },
+          "endpoint": {
+            "description": "SIA endpoint URL \u2014 SIA 2.0 or 1.0. Example: 'https://datalab.noirlab.edu/sia/coadd_all' (NOIRLab Astro Data Lab) or 'https://almascience.nrao.edu/sia2' (ALMA Science Archive). vo_sia_search auto-detects the version (SIA2, falling back to SIA1 as used by NOIRLab Data Lab); pass the version argument to force one. Discover endpoints with vo_registry_search(servicetype='sia').",
+            "examples": [
+              "https://datalab.noirlab.edu/sia/coadd_all",
+              "https://almascience.nrao.edu/sia2"
+            ],
+            "type": "string"
+          },
+          "fmt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional image format (e.g. 'image/fits').",
+            "examples": [
+              "image/fits"
+            ]
+          },
+          "maxrec": {
+            "default": 1000,
+            "description": "Hard cap on rows returned. Default 1_000.",
+            "maximum": 10000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "ra": {
+            "description": "Right ascension (ICRS), degrees.",
+            "type": "number"
+          },
+          "size_deg": {
+            "description": "Field-of-view size in degrees.",
+            "maximum": 5.0,
+            "minimum": 0.0001,
+            "type": "number"
+          },
+          "version": {
+            "default": "auto",
+            "description": "SIA protocol version. 'auto' (default) tries SIA 2.0 and falls back to SIA 1.0 when the endpoint isn't SIA2 (e.g. NOIRLab Data Lab is SIA 1.0). Force with '2' or '1'. The 'band' filter applies to SIA2 only.",
+            "enum": [
+              "auto",
+              "1",
+              "2"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint",
+          "ra",
+          "dec",
+          "size_deg"
+        ],
+        "type": "object"
+      },
+      "name": "vo_sia_search"
+    },
+    {
+      "description": "Cancel a running async TAP job.\n\n    Sends UWS DELETE upstream and evicts the local JobStore entry.\n    Idempotent: aborting an already-deleted or expired job returns the\n    same {job_id, phase=ABORTED} shape rather than raising.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "description": "Opaque 12-character job_id from vo_tap_query (async).",
+            "maxLength": 12,
+            "minLength": 12,
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "name": "vo_tap_abort"
+    },
+    {
+      "description": "Run an ADQL query against any IVOA-compliant TAP service.\n\n    BEFORE composing a query against an archive you don't already know\n    cold, call `vo_archive_list` first. It returns curated usage notes\n    for the well-known archives \u2014 non-standard table locations, required\n    mode='async' routing, ADQL quirks, target-name conventions \u2014 that\n    will save you trial-and-error here.\n\n    The server never holds result bytes. Small results come back inline;\n    anything larger than the inline cap is routed to an async job whose\n    result the client fetches itself (see vo_tap_results / fetch_recipe).\n\n    Returns one of two envelope shapes depending on what happened:\n\n    1. Inline result envelope (row_count, columns, rows).\n       Returned when the result fits the inline cap: mode='sync' with a\n       small result, or mode='auto' when the query finished within the\n       sync timeout AND fit inline. No `mode` key on the response.\n\n    2. Promotion envelope (mode='async', job_id, job_url, fetch_recipe).\n       Returned when mode='async', when mode='auto' and the sync attempt\n       timed out, or when mode='auto' and the sync result was too large\n       to inline. Disambiguate by checking payload.get('mode') == 'async'.\n\n    mode='sync' with an oversize result does NOT auto-promote \u2014 it raises\n    validation_error telling you to re-run with mode='async'.\n\n    For async results, poll vo_tap_status(job_id) until phase is\n    COMPLETED, then call vo_tap_results(job_id) \u2014 or fetch client-side\n    with the pyvo fetch_recipe carried on the promotion envelope.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.\n\nArchive quirks that give wrong results or unactionable errors \u2014 apply BEFORE querying:\n- NOIRLab Astro Data Lab (datalab.noirlab.edu): ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT translated and errors. For a cone use q3c_radial_query(ra, dec, <ra0>, <dec0>, <radius_deg>) = 't'; a ra/dec BETWEEN box also works but is a box, not a circle.\n- ALMA Science Archive (almascience.nrao.edu): rows are per spectral-window, so COUNT(*) over-counts observations \u2014 count with COUNT(DISTINCT member_ous_uid).\n- NRAO Science Data Archive (data-query.nrao.edu): obscore is at tap_schema.obscore, NOT ivoa.obscore (which does not exist).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "adql": {
+            "description": "ADQL query. Geometry support is archive-specific: standard CIRCLE/POINT/CONTAINS work on obscore services (ALMA, NRAO) but NOT on Astro Data Lab, which passes them to PostgreSQL and needs q3c_radial_query(...) = 't' instead \u2014 call vo_archive_list for the archive's quirks before composing. Use SELECT TOP N to cap row counts, project an explicit column list rather than SELECT * (vo_schema_describe returns the table's real columns), and ORDER BY for deterministic results.",
+            "examples": [
+              "SELECT TOP 100 ra, dec, gmag FROM smash_dr2.object WHERE q3c_radial_query(ra, dec, 185.43, -31.99, 0.2) = 't'",
+              "SELECT TOP 100 obs_id, s_ra, s_dec FROM ivoa.obscore WHERE CONTAINS(POINT('ICRS', s_ra, s_dec), CIRCLE('ICRS', 187.7, 12.39, 0.1)) = 1"
+            ],
+            "type": "string"
+          },
+          "endpoint": {
+            "description": "Full TAP service URL. Example: 'https://datalab.noirlab.edu/tap' (NOIRLab Astro Data Lab) or 'https://almascience.nrao.edu/tap' (ALMA Science Archive). Discover other services via vo_registry_search.",
+            "examples": [
+              "https://datalab.noirlab.edu/tap",
+              "https://almascience.nrao.edu/tap"
+            ],
+            "type": "string"
+          },
+          "maxrec": {
+            "default": 10000,
+            "description": "Hard cap on rows returned. Default 10_000.",
+            "maximum": 100000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "mode": {
+            "default": "auto",
+            "description": "Execution mode. 'sync' = TAP /sync only (default Slice-A behavior; times out as archive_error). 'async' = skip sync, submit /async, return a promotion envelope with job_id. 'auto' (default) = try sync first; on timeout, transparently promote to async.",
+            "enum": [
+              "sync",
+              "async",
+              "auto"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint",
+          "adql"
+        ],
+        "type": "object"
+      },
+      "name": "vo_tap_query"
+    },
+    {
+      "description": "Return access info for a COMPLETED async TAP job.\n\n    The server does NOT fetch the result bytes. It returns the upstream\n    job_url, the direct result_url, and a pyvo fetch_recipe so the client\n    loads the data itself (e.g. in a Jupyter kernel). Anonymous access\n    only.\n\n    After calling this, execute the returned fetch_recipe code with your\n    code-execution tool to load the data. The query already ran \u2014 do not\n    re-submit it.\n\n    If the job is not yet COMPLETED, raises job_not_ready (retry_strategy=poll).\n    If the job ended in ERROR, raises tap_query_error with the upstream\n    message.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "description": "Opaque 12-character job_id from vo_tap_query (async).",
+            "maxLength": 12,
+            "minLength": 12,
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "name": "vo_tap_results"
+    },
+    {
+      "description": "Fetch the live UWS phase for an async TAP job.\n\n    Returns {job_id, phase, started_at, ended_at, error_message, archive}.\n    Phase is read live from the upstream service; no local caching.\n\n    Phases per UWS spec: PENDING, QUEUED, EXECUTING, COMPLETED, ERROR,\n    ABORTED, ARCHIVED, HELD, SUSPENDED, UNKNOWN. The LLM branches on\n    the string.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "description": "Opaque 12-character job_id returned by vo_tap_query when it goes async (mode='async' or auto-promote).",
+            "maxLength": 12,
+            "minLength": 12,
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "name": "vo_tap_status"
+    },
+    {
+      "description": "Resolve an object name to RA/Dec (ICRS, decimal degrees).\n\n    Returns ``ra`` and ``dec`` suitable for ``CONTAINS(POINT('ICRS',ra,dec),\n    CIRCLE('ICRS',<ra>,<dec>,<radius>))=1`` ADQL predicates or as the\n    positional input to ``vo_cone_search``.\n\n    On miss returns ``{\"resolved\": false, ...}`` \u2014 try an alternate\n    designation or use ``vo_registry_search`` to locate a catalog by keyword.\n    \n\nOn error, returns a Tool Execution Error payload with `error_class`, `message`, `retry_strategy`, and (when available) `hint`. The presence of `error_class` is the discriminator the LLM should branch on \u2014 do NOT rely on a separate `isError` field.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Astronomical object name to resolve to sky coordinates. Uses the CDS Sesame service (queries SIMBAD, then NED, then VizieR). Common name styles all work: Messier numbers (M87), NGC/IC designations, IAU names (3C 273), proper names (Cygnus A).",
+            "examples": [
+              "NGC 1275",
+              "Cygnus A",
+              "M87",
+              "3C 273"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "name": "vo_target_resolve"
+    }
+  ]
+}
