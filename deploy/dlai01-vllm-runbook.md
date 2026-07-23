@@ -220,17 +220,17 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
    a tool and the model still emitted `tool_use` (`vo_target_resolve({target:"M51"})`,
    `stop_reason=tool_use`). So the parser is safe here.
 
-   **FIX = two serve flags in `dlai01-vllm/docker-compose.yml` (each alone is insufficient):**
-   - **`--reasoning-parser=qwen3`** — the load-bearing one. Routes the effort-triggered
-     reasoning into a separate `thinking` block so it never enters the reply `content`. The
-     model still reasons (so tool-use/ADQL **quality is unchanged**); only the visible output
-     is cleaned. A normal reply comes back as `['thinking','text']` → real answer after the
-     hidden reasoning.
-   - **`--default-chat-template-kwargs='{"enable_thinking": false}'`** — only bites requests
-     that DON'T send `effort` (e.g. the `evals/` harness), turning thinking fully off for them.
-     The persona's `effort=high` overrides it. **Eval caveat:** this flips the eval harness to
-     thinking-off vs. old baselines — pass `extra_body={"chat_template_kwargs":{"enable_thinking":true}}`
-     in the harness for apples-to-apples.
+   **FIX = one serve flag in `dlai01-vllm/docker-compose.yml`: `--reasoning-parser=qwen3`.**
+   It routes the effort-triggered reasoning into a separate `thinking` block so it never enters
+   the reply `content`. The model still reasons (so tool-use/ADQL **quality is unchanged**);
+   only the visible output is cleaned. A normal reply comes back as `['thinking','text']` → real
+   answer after the hidden reasoning.
+
+   We deliberately do **not** add a `--default-chat-template-kwargs '{"enable_thinking": false}'`
+   default. `effort` overrides it for the persona (so it wouldn't help there), and its only real
+   effect would be turning thinking **off** for non-`effort` clients — notably the `evals/`
+   harness — which would silently skew eval scores vs. old thinking-on baselines. The reasoning
+   parser alone is the fix, and it keeps every path (persona + evals) reasoning as before.
 
    Confirm on dlai01: watch startup for both flags accepted (config line shows
    `reasoning_parser='qwen3'`), then chat via the frontend — reply is clean and a tool query
@@ -328,10 +328,9 @@ overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
   upstream.
 - **`hub` mode against vLLM** — re-validate JupyterHub + DockerSpawner with the same `.env`.
 - ~~**Thinking-off** cleanup (Gotcha 5) for clean chat UX.~~ **DONE (2026-07-23):**
-  `--reasoning-parser=qwen3` (+ `--default-chat-template-kwargs='{"enable_thinking": false}'`)
-  in the compose route the effort-triggered reasoning into a separate block instead of leaking
-  it into the reply. Deploy on dlai01 (`docker compose up -d`); confirmed the preamble is gone
-  and tool calls still fire in the frontend chat. See Gotcha 5 for the full root cause.
+  `--reasoning-parser=qwen3` in the compose routes the effort-triggered reasoning into a separate
+  block instead of leaking it into the reply. Deploy on dlai01 (`docker compose up -d`); confirmed
+  the preamble is gone and tool calls still fire in the frontend chat. See Gotcha 5 for the root cause.
 - **Concurrency load test** at agentic context lengths (KV cache is the limiter;
   prefix-caching the ~24.5K static tool-schema prefix is the big lever) to size gp13.
 

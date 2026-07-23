@@ -41,24 +41,19 @@ services:
       - --tensor-parallel-size=1
       - --enable-auto-tool-choice
       - --tool-call-parser=qwen3_coder
-      # ── Kill the leaked <think> preamble ("talks strangely") — runbook Gotcha 5. ──
-      # TWO flags are needed; each alone is insufficient (root-caused 2026-07-23):
-      #
-      # (1) --reasoning-parser=qwen3 — THE load-bearing fix. Claude Code sends
-      #     output_config.effort=high on every request, which vLLM honours as "reason hard"
-      #     and OVERRIDES the enable_thinking:false default below — so the model thinks
-      #     regardless. This parser routes that reasoning into a separate `thinking` block
-      #     instead of leaking it into the reply `content`. Validated on vLLM 0.23.0: the
-      #     qwen3 tool-drop bug (a <tool_call> lost inside <think>) does NOT occur here —
-      #     `effort=high` + a tool still emits tool_use (verified vo_target_resolve fired).
-      #     Quality is unchanged (the model reasons the same; only the OUTPUT is cleaned).
+      # Fix the leaked <think> preamble ("talks strangely") — runbook Gotcha 5. Root-caused
+      # 2026-07-23: Claude Code sends output_config.effort=high on every request, which vLLM
+      # honours as "reason"; without a reasoning parser that reasoning leaked into the reply
+      # `content`. This parser routes it into a SEPARATE `thinking` block instead, so the visible
+      # text is clean. Validated on vLLM 0.23.0: the qwen3 tool-drop bug (a <tool_call> lost
+      # inside <think>) does NOT occur here — effort=high + a tool still emits tool_use (verified
+      # vo_target_resolve fired). The model still reasons, so tool/ADQL quality is UNCHANGED;
+      # only the output is cleaned.
+      #   NB: we deliberately do NOT add a `--default-chat-template-kwargs enable_thinking:false`
+      #   default. effort overrides it for the persona (so it wouldn't help), and its only real
+      #   effect would be turning thinking OFF for non-effort clients like the evals/ harness —
+      #   skewing eval baselines. The reasoning parser alone is the fix.
       - --reasoning-parser=qwen3
-      # (2) enable_thinking:false SERVER default — for clients that DON'T send effort (e.g.
-      #     the evals/ harness): those then skip thinking entirely. The persona's effort=high
-      #     overrides it (hence flag 1 is what actually fixes the persona). A client can force
-      #     thinking back on per-request via extra_body={"chat_template_kwargs":{"enable_thinking":true}}.
-      #     Single-quoted so YAML keeps the JSON intact.
-      - '--default-chat-template-kwargs={"enable_thinking": false}'
       # 131072 assumes the checkpoint's max_position_embeddings allows it (runbook Gotcha 4c);
       # drop to 65536 if vLLM errors at startup on the context length.
       - --max-model-len=${VLLM_MAX_MODEL_LEN:-131072}
