@@ -34,6 +34,14 @@ c.DockerSpawner.environment = {
         "ANTHROPIC_DEFAULT_SONNET_MODEL",
         "ANTHROPIC_DEFAULT_HAIKU_MODEL",
         "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+        # Context-window / auto-compaction (runbook Gotcha 4). Behind ANTHROPIC_BASE_URL
+        # Claude Code can't see the model's real window and assumes ~200K, so it never
+        # compacts before the true 131072 wall → vLLM 500 (mislabeled "not authenticated").
+        # MAX_CONTEXT_TOKENS tells it the truth; the WINDOW/PCT knobs make it compact early
+        # so a long chat auto-summarizes and continues instead of erroring.
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+        "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
     )
     if os.environ.get(k)
 }

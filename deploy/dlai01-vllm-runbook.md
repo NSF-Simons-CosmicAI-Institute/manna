@@ -206,6 +206,19 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
        cone/SIA results truncate inline with a `truncated` flag. These defaults are sized
        for a 64K backend; a single inline result can no longer overflow the window. Raise
        them for large-context models.
+   - **(d) Long chat overflows the window (recurred 2026-07-23 at ~123K in).** Even with a
+     131072 window, a long session's history eventually exceeds it. Root cause: behind
+     `ANTHROPIC_BASE_URL`, Claude Code can't detect the model's real window (assumes ~200K),
+     so its **auto-compaction never fires** before the true 131072 wall. **Fix — tell Claude
+     Code the truth and make it compact early** (persona env, forwarded by
+     `deploy/frontend/jupyterhub_config.py`; see `.env.example`):
+     `CLAUDE_CODE_MAX_CONTEXT_TOKENS=131072` (applies directly for the unrecognized Qwen model
+     name), `CLAUDE_CODE_AUTO_COMPACT_WINDOW=120000` + `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=85`
+     (compact at ~102K, ~29K margin), and lower `CLAUDE_CODE_MAX_OUTPUT_TOKENS` to `4096`.
+     Auto-compaction is a core agent-loop feature (emits `compact_boundary` in the stream), so
+     it runs in the ACP persona session — a long chat then **auto-summarizes and continues in
+     the same conversation** instead of 500-ing. Verify with `claude` + `/context` under the
+     same env, or drive a long frontend session and watch for a compaction instead of the error.
 5. **The Qwen3 `<think>` leak, and how it's actually fixed (root-caused 2026-07-23).**
    Symptom: the persona's replies begin with raw reasoning ("User greeted me, so I should…"
    / a trailing `</think>`). **Root cause** (found by capturing the persona's real request):
