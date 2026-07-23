@@ -31,3 +31,6 @@ build/
 docs/superpowers/
 
 notebooks/
+
+# Live knowledge-audit output (scripts/knowledge_audit.py)
+scripts/audit_results/

@@ -14,7 +14,7 @@ first-run findings), memory `eval-harness-findings` (results vs. live Qwen3.5).
 | 2 — harness axis | `evals/personas.py`, `evals/persona_run.py` | Claude Code persona driver (registry + `Persona` protocol), boots the server, `--same-model` for like-for-like harness comparison |
 | 2 — scorecard | `evals/scorecard.py` | weighted per-`(model×harness)` grade across WORKFLOW + MCP-COMPATIBILITY axes, with a task-set comparability guard |
 | 2 — judge | `evals/score.py` | rubric judge routes through the backend layer → Anthropic **or** OpenAI judge |
-| 3 — audit | `evals/audit.py` | model-free live probe per each `Note`'s audit → STILL-TRUE / STALE / UNREACHABLE, control-gated |
+| 3 — audit | `scripts/knowledge_audit.py` | model-free live probe per each `Note`'s audit → STILL-TRUE / STALE / UNREACHABLE, control-gated |
 
 Shared: `evals/harness.py` (agent loop + neutral conversation), `evals/score.py` (checks +
 judge), `evals/_env.py` (gitignored `evals/.env`), `evals/providers.py` (tool-provider arms),
@@ -92,7 +92,7 @@ harness) genuinely matters, and the scorecard surfaces it.
 
 ## Pillar 3 — archive note regression (keep the KB honest) — **SHIPPED**
 
-`evals/audit.py`. Model-free, deterministic, independent of Pillars 1–2. Each `Note`'s audit
+`scripts/knowledge_audit.py`. Model-free, deterministic, independent of Pillars 1–2. Each `Note`'s audit
 is a falsifiable claim from the KB paired with a small live ADQL probe and an expected outcome
 (`ok` / `error` / `empty`), keyed to `archives/<archive>.py :: <note_id>`. Verdicts:
 **STILL-TRUE / STALE / UNREACHABLE**; a STALE result names the archive + note to edit.
@@ -131,7 +131,7 @@ mapping. **We first got that mapping without the refactor:** keying each note by
 `archives/<archive>.py :: <note_id>` already pointed a STALE result at the exact note, and the
 probes lived in `evals/` (out of the default `pytest` run) — the parallel structure the open
 question leaned toward. The per-archive modularization was later done anyway (unrelated to
-this pillar), and `evals/audit.py` now derives its notes directly from the active archives'
+this pillar), and `scripts/knowledge_audit.py` now derives its notes directly from the active archives'
 `Note`s rather than a hand-maintained `evals/caveats.py` list.
 
 ## Cross-cutting dependencies / notes

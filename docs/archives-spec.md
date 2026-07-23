@@ -242,7 +242,7 @@ diff to a single file.
 - **Implemented.** Each `usage_note` / `Schema.notes` entry is now an atomic
   `Note(id, text, audit)` whose co-located `Audit` (a probe or a `manual`
   marker) re-checks the claim — so the archive is the unit of knowledge *and*
-  its own regression net. `evals/audit.py` derives the live audit straight from
+  its own regression net. `scripts/knowledge_audit.py` derives the live audit straight from
   the active archives' notes (replacing the retired hand-maintained
   `evals/caveats.py`), and a stale probe prints the exact address to fix,
   `archives/<archive>.py :: <note_id>`. Coverage is a construction invariant: a

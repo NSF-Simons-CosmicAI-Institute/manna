@@ -29,10 +29,10 @@ Separating STALE from UNREACHABLE: each archive first runs a **control probe** (
 must work if the service is up). If the control fails, the whole archive is UNREACHABLE and
 its notes are not judged — so a network blip is never misreported as "the KB went stale".
 
-    uv run python -m evals.audit                 # check every note
-    uv run python -m evals.audit --archive nrao  # just one archive's notes
-    uv run python -m evals.audit --list          # list notes, run nothing
-    uv run python -m evals.audit --probeable     # skip MANUAL rows in the report
+    uv run python scripts/knowledge_audit.py                 # check every note
+    uv run python scripts/knowledge_audit.py --archive nrao  # just one archive's notes
+    uv run python scripts/knowledge_audit.py --list          # list notes, run nothing
+    uv run python scripts/knowledge_audit.py --probeable     # skip MANUAL rows in the report
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ from astro_archives_mcp.archives._model import Archive, Note
 from astro_archives_mcp.backends.tap import TapClient
 from astro_archives_mcp.errors import DalQueryError
 
-RESULTS_DIR = Path(__file__).with_name("results")
+RESULTS_DIR = Path(__file__).with_name("audit_results")
 
 # A query that must succeed if the service is up — the STALE-vs-UNREACHABLE discriminator.
 # NRAO's /sync fails on obscore *reads* but tap_schema metadata works in sync (that asymmetry

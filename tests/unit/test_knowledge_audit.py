@@ -1,4 +1,4 @@
-"""Offline unit tests for the derived audit runner (evals/audit.py).
+"""Offline unit tests for the derived audit runner (scripts/knowledge_audit.py).
 
 No network: the live probe (`_probe`) is monkeypatched, so these exercise the verdict
 routing — including the STALE-vs-UNREACHABLE hardening — deterministically.
@@ -10,8 +10,8 @@ import pytest
 
 from astro_archives_mcp.archives._audit import Audit
 from astro_archives_mcp.archives._model import Note
-from evals import audit
-from evals.audit import _verdict, check_note
+from scripts import knowledge_audit as audit
+from scripts.knowledge_audit import _verdict, check_note
 
 
 # --------------------------------------------------------------------------- #
