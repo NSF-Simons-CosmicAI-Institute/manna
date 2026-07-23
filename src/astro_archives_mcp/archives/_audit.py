@@ -1,7 +1,7 @@
 """Audit — the falsifiable probe (or manual marker) a Note carries.
 
 An `Audit` is the declarative half of a curated claim: how to re-check it live.
-It carries NO network code — the live runner (`evals/audit.py`) reads these and
+It carries NO network code — the live runner (`scripts/knowledge_audit.py`) reads these and
 executes them. Keeping `Audit` pure keeps the model layer dependency-free.
 
 `expect` reuses the caveat vocabulary the probe engine already understands:
