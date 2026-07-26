@@ -56,6 +56,10 @@ async def build_snapshot() -> dict:
     prior_value_ablate = os.environ.get(_ABLATE_CONTEXT_ENV_VAR)
     os.environ[_ABLATE_CONTEXT_ENV_VAR] = "0"
     get_settings.cache_clear()
+    # get_active_archives() branches on settings.ablate_context, so it is
+    # cache-sensitive to this override too — clear it here rather than relying
+    # on the archives block above having already done so (no ordering coupling).
+    get_active_archives.cache_clear()
 
     try:
         async with Client(build_mcp()) as client:
