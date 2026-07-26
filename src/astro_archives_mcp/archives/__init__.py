@@ -19,6 +19,7 @@ never its reachability. See docs/archives-spec.md.
 environment call ``get_active_archives.cache_clear()``.
 """
 
+import dataclasses
 import importlib
 import pkgutil
 from functools import lru_cache
@@ -73,9 +74,16 @@ def get_active_archives() -> tuple[Archive, ...]:
 
     Discovers all physically-present archives, then narrows by
     ``STABLE_ARCHIVES`` (unset/empty => all). Resolved once per process;
-    frozen at first call.
+    frozen at first call. With STABLE_ABLATE_CONTEXT set, the same set is returned with usage_notes/schemas stripped (eval-only; see config.py).
     """
     settings = get_settings()
     all_archives = discover_archives()
     allow = _select.parse_allow(settings.archives)
-    return _select.select_archives(all_archives, allow=allow)
+    selected = _select.select_archives(all_archives, allow=allow)
+    if settings.ablate_context:
+        # EVAL-ONLY (STABLE_ABLATE_CONTEXT): strip curated claims while keeping
+        # every archive reachable. This is the single seam all knowledge
+        # consumers resolve through, so stripping here blinds vo_archive_list,
+        # vo_schema_describe, and the tap cheat-sheet at once.
+        return tuple(dataclasses.replace(a, usage_notes=(), schemas=()) for a in selected)
+    return selected

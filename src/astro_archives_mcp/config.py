@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     # the `archives/` package is active. See archives/__init__.py and
     # docs/archives-spec.md.
     archives: str | None = None
+    # EVAL-ONLY: serve with curated context stripped — every active archive
+    # loses its usage_notes and per-table Schema entries, so vo_archive_list
+    # carries no quirk guidance, vo_schema_describe always reports known:false,
+    # and the vo_tap_query cheat-sheet disappears. Lets an MCP client A/B the
+    # value of curated context against a live container without patching server
+    # internals. Archives stay reachable. Never enable in production.
+    ablate_context: bool = False
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     # Slice 5: async TAP family.
     tap_sync_timeout_seconds: float = 20.0
