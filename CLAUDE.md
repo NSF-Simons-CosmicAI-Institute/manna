@@ -87,6 +87,8 @@ Two ways to shape which archives make curated claims (see docs/archives-spec.md)
 
 A dropped/deselected archive removes only the server's *claims* about it — never its reachability (still works via `vo_registry_search`).
 
+- **Eval-only ablation** — `STABLE_ABLATE_CONTEXT=1` serves every active archive with its curated claims stripped (notes, schemas, cheat-sheet) while keeping archives reachable. For client-side context-value A/B evals; never production. Snapshot generation neutralizes it (`tests/contracts/test_tool_schema_snapshot.py`).
+
 ## Git flow
 
 Three branch kinds:

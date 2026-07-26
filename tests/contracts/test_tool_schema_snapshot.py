@@ -52,3 +52,20 @@ async def test_snapshot_ignores_archive_narrowing(monkeypatch):
         "ambient environment; it must always build the full default "
         "archive surface."
     )
+
+
+async def test_snapshot_ignores_ablation_flag(monkeypatch):
+    """An ablated dev env must not regenerate a KB-stripped contract."""
+    from astro_archives_mcp.archives import get_active_archives
+    from astro_archives_mcp.config import get_settings
+
+    monkeypatch.setenv("STABLE_ABLATE_CONTEXT", "1")
+    get_settings.cache_clear()
+    get_active_archives.cache_clear()
+    try:
+        live = await build_snapshot()
+    finally:
+        get_settings.cache_clear()
+        get_active_archives.cache_clear()
+    committed = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    assert committed == live
