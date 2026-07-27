@@ -111,3 +111,9 @@ uv run pytest tests/<area>/<test_module>.py::<test_name> --record-mode=once
 ```
 
 Inspect the cassette diff before committing — large changes in the VOTable namespace URI or response headers may indicate an upstream breaking change.
+
+## Docs
+
+- [`docs/archives-spec.md`](docs/archives-spec.md) — how per-archive knowledge modules work, and how to author one
+- [`docs/jupyter-ai-integration.md`](docs/jupyter-ai-integration.md) — surfacing the tools in Jupyter AI
+- [`deploy/`](deploy/) — deployment runbooks (gp12, dlai01 vLLM, dockerized frontend)

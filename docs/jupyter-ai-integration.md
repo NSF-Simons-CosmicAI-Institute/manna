@@ -156,7 +156,7 @@ shared host. Two topologies:
 | Topology | How it runs | Pros | Cons |
 |----------|-------------|------|------|
 | **A. Colocated per-VM** (recommended to start) | Bake the MCP server into the single-user image; it starts with the VM and listens on `127.0.0.1:8000`. Each user's `mcp_settings.json` points at `http://localhost:8000/mcp/`. | Isolated, no auth needed, identical to the local recipe, no cross-VM networking. | N copies of the server; bumps the image. The server is lightweight and read-only, so this is cheap. |
-| **B. Shared service** | One MCP server on a host reachable from all user VMs (e.g. `http://astro-mcp.internal:8000/mcp/`). | Single deployment to operate/upgrade. | Needs network reachability from spawned VMs + likely auth once off-loopback (see `deploy/dlai01-vllm-runbook.md` for the nginx/auth setup). |
+| **B. Shared service** | One MCP server on a host reachable from all user VMs (e.g. `http://manna.internal:8000/mcp/`). | Single deployment to operate/upgrade. | Needs network reachability from spawned VMs + likely auth once off-loopback (see `deploy/dlai01-vllm-runbook.md` for the nginx/auth setup). |
 
 Because the tools are **anonymous and read-only**, topology A is the path of least
 resistance for a first gp12 rollout — no auth surface, no shared-host networking, and the

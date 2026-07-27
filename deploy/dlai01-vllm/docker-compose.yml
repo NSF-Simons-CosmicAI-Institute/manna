@@ -1,24 +1,10 @@
-# dlai01 vLLM — durable model host (survives reboots via `restart: unless-stopped`).
-#
-# Compose equivalent of the `docker run` in ../dlai01-vllm-runbook.md (Part 2). Use
-# this instead of the raw `docker run` for day-to-day operation on dlai01.
+# dlai01 vLLM — durable model host. See ../dlai01-vllm-runbook.md (Part 2) for
+# prerequisites, exposure/auth, and the env overrides (VLLM_MODEL, VLLM_MAX_MODEL_LEN,
+# VLLM_API_KEY).
 #
 #   cd deploy/dlai01-vllm
 #   docker compose up -d          # start, or restart after a reboot / config change
 #   docker compose logs -f        # watch startup; ~130s to "Application startup complete"
-#   docker compose down           # stop
-#
-# Host requirements (all satisfied on dlai01 — see runbook "Prerequisites"):
-#   - nvidia-container-toolkit (GPU passthrough into the container)
-#   - /mlhome/dgause/hf writable (HF weights cache; ~122 GB on first pull, then cached)
-#
-# Exposure: binds 0.0.0.0:8002 so the OFF-BOX datalab nginx proxy can reach it. vLLM
-# itself runs KEYLESS — nginx terminates TLS + HTTP Basic auth in front of it. See the
-# runbook's "Harden the exposed endpoint" note: confirm the firewall restricts 8002 to
-# the proxy host; if it's broader, set VLLM_API_KEY below and have Chadd inject it upstream.
-#
-# Overridable via the shell env (or a .env file next to this compose):
-#   VLLM_MODEL, VLLM_MAX_MODEL_LEN, VLLM_API_KEY
 
 services:
   vllm:

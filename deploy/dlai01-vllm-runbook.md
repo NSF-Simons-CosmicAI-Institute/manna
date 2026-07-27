@@ -77,10 +77,10 @@ All in-container; no host installs needed from us.
 Runs rootless via `uv` on loopback (read-only VO tools; no auth needed on loopback).
 
 ```bash
-cd ~/sbx/manna
+cd ~/sbx/astro-archives-mcp   # (rename this checkout to ~/sbx/manna when the repo is renamed)
 export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"   # writable astropy/tmp cache
 nohup env MANNA_PORT=8000 uv run python -m manna > ~/sbx/mcp.log 2>&1 &
-curl -fsS http://127.0.0.1:8000/health        # {"status":"ok","version":"0.3.0",...}
+curl -fsS http://127.0.0.1:8000/health        # {"status":"ok","version":"0.5.0",...}
 ```
 
 Register it with Claude Code — **user scope is required** (see Gotcha 3):
@@ -142,7 +142,8 @@ Notes / verified behavior:
 - **Benign multi-GPU warnings on sm_120** (not errors): `SymmMemCommunicator: Device
   capability 12.0 not supported` and `Custom allreduce is disabled … PCIe-only GPUs` →
   both fall back to NCCL.
-- **`--reasoning-parser` is deliberately omitted** — see Gotcha 5.
+- **`--reasoning-parser=qwen3` IS set** — it is the fix for the `<think>` leak into reply
+  `content`; see Gotcha 5. (It was historically omitted; that lore is retired.)
 
 ## Part 3 — consuming it (the Claude Code persona)
 
@@ -325,8 +326,9 @@ proxy is public TLS, the exact same `.env` works from a Data Lab server unchange
 **Done (2026-07-02) — context-overflow fix.** A `vo_tap_query`-heavy agent loop overflowed
 the 65536 window (`57345 + 8192 = 65537`), surfacing as a spurious "You're not authenticated
 with Claude" (Gotcha 4c). Fixed on both sides: `--max-model-len` raised to 131072, and the
-MCP server now spills large tabular results to the Parquet Resource tier at much lower inline
-caps (`MANNA_INLINE_ROW_LIMIT=200`, `MANNA_INLINE_BYTE_LIMIT=48 KB`).
+MCP server now routes large TAP results to an async job and hands back a `result_url` +
+pyvo `fetch_recipe` (the client fetches the bytes itself), at much lower inline caps
+(`MANNA_INLINE_ROW_LIMIT=200`, `MANNA_INLINE_BYTE_LIMIT=48 KB`).
 
 **Done (2026-07-07) — persistence.** vLLM is now a durable compose service
 (`dlai01-vllm/docker-compose.yml`, `restart: unless-stopped`) instead of a bare
@@ -352,7 +354,7 @@ overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
 
 ```bash
 # 1. MCP server (rootless, loopback)
-cd ~/sbx/manna && export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"
+cd ~/sbx/astro-archives-mcp && export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"
 nohup env MANNA_PORT=8000 uv run python -m manna > ~/sbx/mcp.log 2>&1 &
 CLAUDE_CONFIG_DIR=$HOME/.claude-work claude mcp add --scope user --transport http manna http://127.0.0.1:8000/mcp/
 

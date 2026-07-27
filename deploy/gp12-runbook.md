@@ -31,7 +31,7 @@ chat. See `docs/jupyter-ai-integration.md` for the architecture.
 | | **A. Colocated (recommended to prove first)** | **B. Shared service** |
 |---|---|---|
 | Where | MCP server runs *inside* each single-user server on `127.0.0.1` | One MCP deployment all user pods reach over the cluster network |
-| Config URL | `http://127.0.0.1:8000/mcp/` | `http://astro-mcp.<ns>:8000/mcp/` |
+| Config URL | `http://127.0.0.1:8000/mcp/` | `http://manna.<ns>:8000/mcp/` |
 | Auth | none (loopback, anonymous read-only tools) | none needed (anonymous), but exposed off-loopback → see `deploy/dlai01-vllm-runbook.md` proxy/timeout notes |
 | Pros | identical to the proven recipe, zero network/auth surface, per-user isolation | one upgrade path, no per-user process/cache duplication |
 | Cons | N server processes + N astropy caches | requires user-pod → service reachability; one shared blast radius |
@@ -61,8 +61,8 @@ IMAGE=manna-singleuser:dev ./smoke-test.sh
 
 What the image adds, and why:
 
-1. **Python deps** — Jupyter AI v3 + this server. Tracks the `dev` branch (0.4.0) for
-   testing; pin to a release tag (e.g. `@v0.4.0`) once dev is promoted to main and tagged:
+1. **Python deps** — Jupyter AI v3 + this server. Tracks the `dev` branch (0.5.0) for
+   testing; pin to a release tag (e.g. `@v0.5.0`) once dev is promoted to main and tagged:
    ```dockerfile
    RUN pip install --no-cache-dir "jupyter-ai>=3" jupyterlab \
        "manna @ git+https://github.com/dangause/manna.git@dev"
@@ -116,7 +116,7 @@ and (with a token) a live M51 tool call inside the image.
 
 **On gp12 (once available), inside a spawned single-user server:**
 ```bash
-curl -fsS http://127.0.0.1:8000/health                       # MANNA 0.4.0
+curl -fsS http://127.0.0.1:8000/health                       # MANNA 0.5.0
 cat ~/.jupyter/mcp_settings.json                             # points at 127.0.0.1:8000/mcp/
 ps eww $(pgrep -f 'jupyter-lab') | tr ' ' '\n' | grep CLAUDE_CONFIG_DIR  # if pinning an account
 ```

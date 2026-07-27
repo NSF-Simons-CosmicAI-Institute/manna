@@ -2,20 +2,17 @@
 # MANNA MCP server colocated on loopback (Topology A in
 # ../../deploy/gp12-runbook.md).
 #
-# BUILD FROM THIS DIRECTORY as the context — NOT the repo root:
+# BUILD FROM THIS DIRECTORY as the context — NOT the repo root (the repo-root
+# .dockerignore excludes docs/, so a root context can't COPY the hook or config):
 #     docker build -t manna-singleuser docs/examples/gp12/
-# The repo-root .dockerignore excludes docs/ (and deploy/, tests/), so a
-# repo-root context can't see the hook or config. Using this subdir as the
-# context sidesteps that and picks up before-notebook.d/ + mcp_settings.json.
-# (See build.sh / smoke-test.sh in this directory.)
 
 ARG BASE_IMAGE=quay.io/jupyter/minimal-notebook:latest
 FROM ${BASE_IMAGE}
 
 # --- Python deps: this MCP server + Jupyter AI ---
 USER ${NB_UID}
-# Tracks the `dev` integration branch (0.4.0, stateless result-URL model). Pin to a
-# release tag (e.g. @v0.4.0) once dev is promoted to main and tagged.
+# Tracks the `dev` integration branch (0.5.0, stateless result-URL model). Pin to a
+# release tag (e.g. @v0.5.0) once dev is promoted to main and tagged.
 # jupyter-ai/acp-client are PINNED (not `>=3`) because the persona rebrand below
 # patches the installed acp-client persona in place — see frontend.Dockerfile.
 RUN pip install --no-cache-dir \
@@ -31,13 +28,8 @@ USER root
 RUN mamba install -y -c conda-forge nodejs && mamba clean -afy \
     && npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
 
-# --- Persona credentials (injected at spawn time — NEVER baked into the image) ---
-# The persona needs Anthropic auth. The gp12 spawner must inject ONE of:
-#   ANTHROPIC_API_KEY=...            # shared org key (simplest multi-user v1)
-#   CLAUDE_CODE_OAUTH_TOKEN=...      # per-user long-lived token (`claude setup-token`)
-# Optionally pin a config dir (e.g. a work account): CLAUDE_CONFIG_DIR=$HOME/.claude-work
-# See "Persona credentials" in ../../deploy/gp12-runbook.md. The image ships no
-# secret; this stage exists only to document the contract.
+# Persona credentials are injected at spawn time, never baked — see "Persona
+# credentials" in ../../deploy/gp12-runbook.md.
 
 # --- Colocated MCP server: startup hook (loopback, writable cache) ---
 # The hook also seeds mcp_settings.json at spawn time (see below), so config

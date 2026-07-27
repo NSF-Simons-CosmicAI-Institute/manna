@@ -59,6 +59,5 @@ RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname
     rm /tmp/CosmicCoder.png && \
     echo "persona rebranded: @CosmicCoder"
 
-# Persona credentials/model endpoint are injected at runtime (compose env_file),
-# never baked: ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / ANTHROPIC_DEFAULT_*_MODEL
-# / CLAUDE_CODE_MAX_OUTPUT_TOKENS.
+# Persona credentials/model endpoint are injected at runtime (compose env_file), never
+# baked — see .env.example and README.md in this directory.
