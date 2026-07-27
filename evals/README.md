@@ -2,7 +2,13 @@
 
 Measures how well a real LLM (the dlai01 vLLM **Qwen3.5** by default) uses this
 server's MCP tools to answer astronomer tasks — and whether the server's curated
-context actually earns its keep. Design: [`docs/mcp-eval-plan.md`](../docs/mcp-eval-plan.md).
+context actually earns its keep.
+
+The suite is organized in four tiers: **1** tool-selection accuracy (single intent, no
+chaining), **2** multi-step task success (real workflows), **3** a context ablation that
+runs each trap task with and without the server's curated `usage_notes` + schema KB to
+measure trap avoidance, and **4** robustness/safety (error recovery, unknown archives,
+async-job polling, and leak checks).
 
 This is **not** part of the shipped server. It lives outside `tests/` because eval
 runs are **live-network** (they hit the real archives to measure real correctness)
@@ -19,13 +25,25 @@ task prompt ─► model under test (Anthropic Messages API)  ─► emits tool_
                           score.py grades the recorded trace + answer
 ```
 
-- **`tasks.yaml`** — the versioned task suite (4 tiers; see the plan). The review target.
+- **`tasks.yaml`** — the versioned task suite (4 tiers, above). The review target.
 - **`harness.py`** — the agent loop + model config (`ModelConfig.from_env`).
 - **`context.py`** — the Tier-3 ablation: strips `usage_notes` + the schema KB so we can
   compare trap-avoidance **with vs. without** curated context.
 - **`score.py`** — programmatic checks (tools, order, args, ground truth, safety scan)
   plus an optional LLM judge for open-ended `rubric` tasks.
 - **`run.py`** — CLI; aggregates metrics and writes `results/<timestamp>.json`.
+- **`_env.py`** — loads `evals/.env` into the process at startup (dependency-free,
+  `.env`-style parsing) so entrypoints that need model/judge credentials don't need a
+  manual `source`.
+- **`_common.py`** — glue shared by the eval CLIs: judge config, results-file writing,
+  small math helpers.
+- **`exp_a_matrix.py`** — the discovery × description-injection experiment matrix (cells
+  A/C/D) measuring whether curated archive quirks still reach the model when it can't
+  (or won't) call the discovery tools.
+- **`rejudge.py`** — re-scores a saved results file's `rubric` tasks with a (possibly
+  different) judge model, without re-running the agent loop.
+- **`selftest.py`** — offline self-test of the scoring/ablation machinery (`score.py` +
+  `context.py`); no model calls, no network.
 
 ## Install
 
@@ -45,6 +63,7 @@ cp evals/.env.example evals/.env    # then edit evals/.env
 | Var | Purpose |
 |-----|---------|
 | `EVAL_MODEL_NAME` / `_BASE_URL` / `_API_KEY` / `_CUSTOM_HEADERS` | the **model under test** (dlai01 Qwen3.5 via the datalab proxy) |
+| `EVAL_MODEL_BACKEND` (+ `EVAL_JUDGE_BACKEND`) | wire shape: `anthropic` (default) or `openai` |
 | `EVAL_JUDGE_NAME` / `_API_KEY` (+ `_BASE_URL` / `_CUSTOM_HEADERS`) | the rubric **judge** |
 | `EVAL_MAX_STEPS` / `EVAL_ASYNC_POLL_SLEEP` | optional run knobs |
 
@@ -80,8 +99,7 @@ or ADQL `not_contains CONTAINS(`) so it scores without a judge.
 
 ## Three evaluation programs
 
-Beyond the tier suite above, `evals/` hosts three focused programs (full design +
-findings: [`docs/mcp-eval-roadmap.md`](../docs/mcp-eval-roadmap.md)).
+Beyond the tier suite above, `evals/` hosts three focused programs.
 
 **1 — MCP quality** (`mcp_quality.py`): is the server *worth it*? Runs a task suite
 (`mcp_quality_tasks.yaml`) through 3 arms — `mcp` (the tools) vs `raw_tap` vs `raw_web`
