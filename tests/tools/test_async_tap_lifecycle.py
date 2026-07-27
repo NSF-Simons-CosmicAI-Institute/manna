@@ -4,7 +4,6 @@ through an in-memory FastMCP client. Backend is faked — no real HTTP."""
 from datetime import UTC, datetime
 
 import pytest
-from astropy.table import Table
 from fastmcp import Client
 
 from astro_archives_mcp import job_store
@@ -15,28 +14,23 @@ class _FakeAsyncJob:
     """Minimal AsyncTAPJob stand-in for test purposes."""
 
     def __init__(
-        self, phase="EXECUTING", started_at=None, ended_at=None, error_summary=None, table=None
+        self,
+        phase="EXECUTING",
+        started_at=None,
+        ended_at=None,
+        error_summary=None,
+        result_uri="https://datalab.noirlab.edu/tap/async/abc/results/result",
     ):
         self.phase = phase
         self.starttime = started_at
         self.endtime = ended_at
         self._error_summary = error_summary
-        self._table = table
+        self.result_uri = result_uri
         self.deleted = False
 
     @property
     def error_summary(self):
         return self._error_summary
-
-    def fetch_result(self):
-        class _Result:
-            def __init__(self, table):
-                self._table = table
-
-            def to_table(self):
-                return self._table
-
-        return _Result(self._table)
 
     def delete(self):
         self.deleted = True
@@ -137,24 +131,26 @@ async def test_status_phase_error_surfaces_message(mcp_server, fake_tap):
 
 
 @pytest.mark.asyncio
-async def test_results_when_completed_returns_inline_envelope(mcp_server, fake_tap):
+async def test_results_when_completed_returns_result_url_envelope(mcp_server, fake_tap):
+    job_url = "https://datalab.noirlab.edu/tap/async/abc"
     job_id, _ = job_store.put(
-        job_url="https://datalab.noirlab.edu/tap/async/abc",
+        job_url=job_url,
         endpoint="https://datalab.noirlab.edu/tap",
         adql="SELECT TOP 2 ra, dec FROM smash_dr2.object",
     )
-    fake_tap.job = _FakeAsyncJob(
-        phase="COMPLETED",
-        table=Table({"ra": [1.0, 2.0], "dec": [3.0, 4.0]}),
-    )
+    fake_tap.job = _FakeAsyncJob(phase="COMPLETED")
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("vo_tap_results", {"job_id": job_id})
         payload = result.structured_content
-        assert payload["row_count"] == 2
-        assert [c["name"] for c in payload["columns"]] == ["ra", "dec"]
-        assert payload["rows"] == [[1.0, 3.0], [2.0, 4.0]]
+        # No bytes fetched server-side: the client gets URLs + a pyvo recipe.
+        assert payload["phase"] == "COMPLETED"
+        assert payload["job_url"] == job_url
+        assert payload["result_url"].endswith("/results/result")
         assert payload["archive"] == "datalab"
+        assert payload["fetch_recipe"]["module"] == "pyvo"
+        assert job_url in payload["fetch_recipe"]["code"]
+        assert "rows" not in payload
 
 
 @pytest.mark.asyncio

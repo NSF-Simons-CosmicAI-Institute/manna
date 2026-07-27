@@ -1,0 +1,2 @@
+# Run artifacts — regenerable, can be large (multi-MB traces). Not committed.
+*.json

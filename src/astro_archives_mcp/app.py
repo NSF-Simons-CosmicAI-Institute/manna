@@ -1,24 +1,25 @@
 """Compose the FastMCP server and mount it under Starlette with health probes."""
 
 from fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
-from astro_archives_mcp import __version__, job_store, result_store
+from astro_archives_mcp import __version__, job_store
+from astro_archives_mcp.archives._traps import silent_trap_cheatsheet
 from astro_archives_mcp.observability import (
     current_request_id,
     new_request_id,
 )
-from astro_archives_mcp.resources import register_resources
 from astro_archives_mcp.tools import (
     vo_archive_list,
     vo_cone_search,
+    vo_find_observations,
     vo_registry_describe,
     vo_registry_search,
     vo_schema_describe,
-    vo_sia_fetch,
     vo_sia_search,
     vo_tap_abort,
     vo_tap_query,
@@ -54,22 +55,55 @@ class RequestIdMiddleware:
             current_request_id.reset(token)
 
 
+# Closed-world: reads only the in-process KB. Open-world: hits live services.
+_LOCAL = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
+_REMOTE = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
+# vo_tap_abort DELETEs an upstream UWS job — not read-only, but idempotent
+# (deleting an already-gone job is a no-op) and destructive.
+_ABORT = ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=True,
+    idempotentHint=True,
+    openWorldHint=True,
+)
+
+
+def _tap_query_description() -> str:
+    """vo_tap_query's docstring + the derived silent-trap cheatsheet.
+
+    Derived here, at build time, rather than baked into the docstring: the blob
+    depends on which archives are active (``STABLE_ARCHIVES``), and
+    ``silent_trap_cheatsheet`` reads the ``lru_cache``d active set at call time.
+    Empty cheatsheet (e.g. a selection with no tagged traps) leaves the
+    docstring untouched.
+    """
+    base = vo_tap_query.__doc__ or ""
+    cheatsheet = silent_trap_cheatsheet()
+    return f"{base}\n\n{cheatsheet}" if cheatsheet else base
+
+
 def build_mcp() -> FastMCP:
-    """Construct the FastMCP server with all tools registered."""
+    """Construct the FastMCP server with all tools registered.
+
+    Every tool is read-only (the server never mutates archive state) except
+    ``vo_tap_abort``, which deletes an upstream UWS job. Tools that hit live
+    archive services are open-world; vo_archive_list is the one closed-world
+    KB reader (vo_schema_describe left that set when it grew a live column
+    fetch).
+    """
     mcp = FastMCP(name="astro-archives-mcp")
-    mcp.tool(vo_archive_list)
-    mcp.tool(vo_tap_query)
-    mcp.tool(vo_tap_status)
-    mcp.tool(vo_tap_results)
-    mcp.tool(vo_tap_abort)
-    mcp.tool(vo_registry_search)
-    mcp.tool(vo_registry_describe)
-    mcp.tool(vo_schema_describe)
-    mcp.tool(vo_target_resolve)
-    mcp.tool(vo_cone_search)
-    mcp.tool(vo_sia_search)
-    mcp.tool(vo_sia_fetch)
-    register_resources(mcp)
+    mcp.tool(vo_archive_list, annotations=_LOCAL)
+    mcp.tool(vo_tap_query, annotations=_REMOTE, description=_tap_query_description())
+    mcp.tool(vo_tap_status, annotations=_REMOTE)
+    mcp.tool(vo_tap_results, annotations=_REMOTE)
+    mcp.tool(vo_tap_abort, annotations=_ABORT)
+    mcp.tool(vo_registry_search, annotations=_REMOTE)
+    mcp.tool(vo_registry_describe, annotations=_REMOTE)
+    mcp.tool(vo_schema_describe, annotations=_REMOTE)
+    mcp.tool(vo_target_resolve, annotations=_REMOTE)
+    mcp.tool(vo_cone_search, annotations=_REMOTE)
+    mcp.tool(vo_sia_search, annotations=_REMOTE)
+    mcp.tool(vo_find_observations, annotations=_REMOTE)
     return mcp
 
 
@@ -82,7 +116,6 @@ def build_app() -> Starlette:
             {
                 "status": "ok",
                 "version": __version__,
-                "store": result_store.size_estimate(),
                 "job_store": job_store.size_estimate(),
             }
         )

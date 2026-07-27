@@ -11,13 +11,12 @@ MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab
 | `vo_target_resolve` | Sesame | Resolve an object name (e.g. "M87", "Cygnus A") to RA/Dec coordinates |
 | `vo_tap_query` | TAP | Submit sync or async ADQL queries; returns inline or promoted results |
 | `vo_tap_status` | TAP | Poll an async job by ID |
-| `vo_tap_results` | TAP | Fetch completed async job results |
+| `vo_tap_results` | TAP | Return a completed async job's result URL + pyvo fetch recipe (client fetches the data) |
 | `vo_tap_abort` | TAP | Abort a running async job |
 | `vo_registry_search` | RegTAP | Search the IVOA registry by keyword or service type |
 | `vo_registry_describe` | RegTAP | Describe a specific registry resource (columns, capabilities) |
 | `vo_cone_search` | SCS | Simple Cone Search for legacy SCS-only archives |
-| `vo_sia_search` | SIA 2.0 | Search for images by position and waveband |
-| `vo_sia_fetch` | SIA 2.0 | Download an image by access URL |
+| `vo_sia_search` | SIA 2.0 | Search for images by position and waveband (returns access URLs to fetch client-side) |
 
 The recommended LLM workflow for a positional query:
 1. `vo_target_resolve` — get RA/Dec for a named object
@@ -82,10 +81,12 @@ docker run -p 8000:8000 astro-archives-mcp:dev
 
 ## Forking for a specific deployment
 
-This repo is the multi-archive base. To target a subset of archives, fork and prune two files in parallel — no other files need touching:
+This repo is the multi-archive base. Each archive is one self-contained file — its endpoints, usage notes, and per-table schemas all live in `src/astro_archives_mcp/archives/<short_name>.py`. Shape which archives make curated claims two ways:
 
-- `src/astro_archives_mcp/known_archives.py` — remove unused `Archive` entries from `KNOWN_ARCHIVES`
-- `src/astro_archives_mcp/schema_kb.py` — remove the corresponding `Schema` entries from `SCHEMA_KB`
+- **Physical** — delete the unwanted `src/astro_archives_mcp/archives/<short_name>.py` files. Discovery picks up whatever remains; no other file needs touching.
+- **Runtime** — set `STABLE_ARCHIVES=datalab,alma` (comma-separated short_names) to narrow a shared image without deleting files. Unset/empty ⇒ every archive active.
+
+A dropped or deselected archive loses only the server's *curated claims* about it — never its reachability. It's still reachable via `vo_registry_search`.
 
 ## Refreshing recorded cassettes
 

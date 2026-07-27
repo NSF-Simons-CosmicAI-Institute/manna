@@ -1,0 +1,456 @@
+interactions:
+- request:
+    body: REQUEST=doQuery&LANG=ADQL&MAXREC=10000&QUERY=SELECT+TOP+5+target_name%2C+s_ra%2C+s_dec+FROM+ivoa.obscore
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '104'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - python-requests/2.34.2
+    method: POST
+    uri: https://almascience.nrao.edu/tap/async
+  response:
+    body:
+      string: ''
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Length:
+      - '0'
+      Date:
+      - Fri, 10 Jul 2026 16:51:58 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Location:
+      - https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+      Server:
+      - OpenCADC/cadc-rest
+    status:
+      code: 303
+      message: ''
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.34.2
+    method: GET
+    uri: https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+  response:
+    body:
+      string: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<uws:job xmlns:uws=\"http://www.ivoa.net/xml/UWS/v1.0\"
+        xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\">\r\n  <uws:jobId>owtnfi6thl8jgnuo</uws:jobId>\r\n
+        \ <uws:runId />\r\n  <uws:ownerId xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:phase>PENDING</uws:phase>\r\n  <uws:quote>2026-07-11T16:51:58.876Z</uws:quote>\r\n
+        \ <uws:startTime xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:nil=\"true\"
+        />\r\n  <uws:endTime xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:executionDuration>14400</uws:executionDuration>\r\n
+        \ <uws:destruction>2026-07-17T16:51:58.876Z</uws:destruction>\r\n  <uws:parameters>\r\n
+        \   <uws:parameter id=\"LANG\">ADQL</uws:parameter>\r\n    <uws:parameter
+        id=\"MAXREC\">10000</uws:parameter>\r\n    <uws:parameter id=\"QUERY\">SELECT
+        TOP 5 target_name, s_ra, s_dec FROM ivoa.obscore</uws:parameter>\r\n    <uws:parameter
+        id=\"REQUEST\">doQuery</uws:parameter>\r\n  </uws:parameters>\r\n  <uws:results
+        />\r\n</uws:job>\r\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - text/xml
+      Date:
+      - Fri, 10 Jul 2026 16:51:58 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - OpenCADC/cadc-rest
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: ''
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.34.2
+    method: GET
+    uri: https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+  response:
+    body:
+      string: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<uws:job xmlns:uws=\"http://www.ivoa.net/xml/UWS/v1.0\"
+        xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\">\r\n  <uws:jobId>owtnfi6thl8jgnuo</uws:jobId>\r\n
+        \ <uws:runId />\r\n  <uws:ownerId xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:phase>PENDING</uws:phase>\r\n  <uws:quote>2026-07-11T16:51:58.876Z</uws:quote>\r\n
+        \ <uws:startTime xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:nil=\"true\"
+        />\r\n  <uws:endTime xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:executionDuration>14400</uws:executionDuration>\r\n
+        \ <uws:destruction>2026-07-17T16:51:58.876Z</uws:destruction>\r\n  <uws:parameters>\r\n
+        \   <uws:parameter id=\"LANG\">ADQL</uws:parameter>\r\n    <uws:parameter
+        id=\"MAXREC\">10000</uws:parameter>\r\n    <uws:parameter id=\"QUERY\">SELECT
+        TOP 5 target_name, s_ra, s_dec FROM ivoa.obscore</uws:parameter>\r\n    <uws:parameter
+        id=\"REQUEST\">doQuery</uws:parameter>\r\n  </uws:parameters>\r\n  <uws:results
+        />\r\n</uws:job>\r\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - text/xml
+      Date:
+      - Fri, 10 Jul 2026 16:51:58 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - OpenCADC/cadc-rest
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: ''
+- request:
+    body: PHASE=RUN
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '9'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - python-requests/2.34.2
+    method: POST
+    uri: https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo/phase
+  response:
+    body:
+      string: ''
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Length:
+      - '0'
+      Date:
+      - Fri, 10 Jul 2026 16:51:59 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Location:
+      - https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+      Server:
+      - OpenCADC/cadc-rest
+    status:
+      code: 303
+      message: ''
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.34.2
+    method: GET
+    uri: https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+  response:
+    body:
+      string: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<uws:job xmlns:uws=\"http://www.ivoa.net/xml/UWS/v1.0\"
+        xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\">\r\n  <uws:jobId>owtnfi6thl8jgnuo</uws:jobId>\r\n
+        \ <uws:runId />\r\n  <uws:ownerId xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:phase>COMPLETED</uws:phase>\r\n  <uws:quote>2026-07-11T16:51:58.876Z</uws:quote>\r\n
+        \ <uws:startTime>2026-07-10T16:51:59.919Z</uws:startTime>\r\n  <uws:endTime>2026-07-10T16:51:59.936Z</uws:endTime>\r\n
+        \ <uws:executionDuration>14400</uws:executionDuration>\r\n  <uws:destruction>2026-07-17T16:51:58.876Z</uws:destruction>\r\n
+        \ <uws:parameters>\r\n    <uws:parameter id=\"LANG\">ADQL</uws:parameter>\r\n
+        \   <uws:parameter id=\"MAXREC\">10000</uws:parameter>\r\n    <uws:parameter
+        id=\"QUERY\">SELECT TOP 5 target_name, s_ra, s_dec FROM ivoa.obscore</uws:parameter>\r\n
+        \   <uws:parameter id=\"REQUEST\">doQuery</uws:parameter>\r\n  </uws:parameters>\r\n
+        \ <uws:results>\r\n    <uws:result id=\"diag\" xlink:href=\"uws:executing:2\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:lookup:0\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"read:tap_schema:9\" />\r\n    <uws:result id=\"diag\"
+        xlink:href=\"query:parse:2\" />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:connect:0\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"query:execute:1\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"query:store:5\" />\r\n    <uws:result id=\"rowcount\"
+        xlink:href=\"final:5\" />\r\n    <uws:result id=\"result\" xlink:href=\"https://almascience.nrao.edu/tap/files/result_owtnfi6thl8jgnuo.xml\"
+        />\r\n  </uws:results>\r\n</uws:job>\r\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - text/xml
+      Date:
+      - Fri, 10 Jul 2026 16:51:59 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - OpenCADC/cadc-rest
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: ''
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.34.2
+    method: GET
+    uri: https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+  response:
+    body:
+      string: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<uws:job xmlns:uws=\"http://www.ivoa.net/xml/UWS/v1.0\"
+        xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\">\r\n  <uws:jobId>owtnfi6thl8jgnuo</uws:jobId>\r\n
+        \ <uws:runId />\r\n  <uws:ownerId xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:phase>COMPLETED</uws:phase>\r\n  <uws:quote>2026-07-11T16:51:58.876Z</uws:quote>\r\n
+        \ <uws:startTime>2026-07-10T16:51:59.919Z</uws:startTime>\r\n  <uws:endTime>2026-07-10T16:51:59.936Z</uws:endTime>\r\n
+        \ <uws:executionDuration>14400</uws:executionDuration>\r\n  <uws:destruction>2026-07-17T16:51:58.876Z</uws:destruction>\r\n
+        \ <uws:parameters>\r\n    <uws:parameter id=\"LANG\">ADQL</uws:parameter>\r\n
+        \   <uws:parameter id=\"MAXREC\">10000</uws:parameter>\r\n    <uws:parameter
+        id=\"QUERY\">SELECT TOP 5 target_name, s_ra, s_dec FROM ivoa.obscore</uws:parameter>\r\n
+        \   <uws:parameter id=\"REQUEST\">doQuery</uws:parameter>\r\n  </uws:parameters>\r\n
+        \ <uws:results>\r\n    <uws:result id=\"diag\" xlink:href=\"uws:executing:2\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:lookup:0\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"read:tap_schema:9\" />\r\n    <uws:result id=\"diag\"
+        xlink:href=\"query:parse:2\" />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:connect:0\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"query:execute:1\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"query:store:5\" />\r\n    <uws:result id=\"rowcount\"
+        xlink:href=\"final:5\" />\r\n    <uws:result id=\"result\" xlink:href=\"https://almascience.nrao.edu/tap/files/result_owtnfi6thl8jgnuo.xml\"
+        />\r\n  </uws:results>\r\n</uws:job>\r\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - text/xml
+      Date:
+      - Fri, 10 Jul 2026 16:51:59 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - OpenCADC/cadc-rest
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: ''
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.34.2
+    method: GET
+    uri: https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+  response:
+    body:
+      string: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<uws:job xmlns:uws=\"http://www.ivoa.net/xml/UWS/v1.0\"
+        xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\">\r\n  <uws:jobId>owtnfi6thl8jgnuo</uws:jobId>\r\n
+        \ <uws:runId />\r\n  <uws:ownerId xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:phase>COMPLETED</uws:phase>\r\n  <uws:quote>2026-07-11T16:51:58.876Z</uws:quote>\r\n
+        \ <uws:startTime>2026-07-10T16:51:59.919Z</uws:startTime>\r\n  <uws:endTime>2026-07-10T16:51:59.936Z</uws:endTime>\r\n
+        \ <uws:executionDuration>14400</uws:executionDuration>\r\n  <uws:destruction>2026-07-17T16:51:58.876Z</uws:destruction>\r\n
+        \ <uws:parameters>\r\n    <uws:parameter id=\"LANG\">ADQL</uws:parameter>\r\n
+        \   <uws:parameter id=\"MAXREC\">10000</uws:parameter>\r\n    <uws:parameter
+        id=\"QUERY\">SELECT TOP 5 target_name, s_ra, s_dec FROM ivoa.obscore</uws:parameter>\r\n
+        \   <uws:parameter id=\"REQUEST\">doQuery</uws:parameter>\r\n  </uws:parameters>\r\n
+        \ <uws:results>\r\n    <uws:result id=\"diag\" xlink:href=\"uws:executing:2\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:lookup:0\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"read:tap_schema:9\" />\r\n    <uws:result id=\"diag\"
+        xlink:href=\"query:parse:2\" />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:connect:0\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"query:execute:1\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"query:store:5\" />\r\n    <uws:result id=\"rowcount\"
+        xlink:href=\"final:5\" />\r\n    <uws:result id=\"result\" xlink:href=\"https://almascience.nrao.edu/tap/files/result_owtnfi6thl8jgnuo.xml\"
+        />\r\n  </uws:results>\r\n</uws:job>\r\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - text/xml
+      Date:
+      - Fri, 10 Jul 2026 16:52:00 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - OpenCADC/cadc-rest
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: ''
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.34.2
+    method: GET
+    uri: https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+  response:
+    body:
+      string: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<uws:job xmlns:uws=\"http://www.ivoa.net/xml/UWS/v1.0\"
+        xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\">\r\n  <uws:jobId>owtnfi6thl8jgnuo</uws:jobId>\r\n
+        \ <uws:runId />\r\n  <uws:ownerId xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:phase>COMPLETED</uws:phase>\r\n  <uws:quote>2026-07-11T16:51:58.876Z</uws:quote>\r\n
+        \ <uws:startTime>2026-07-10T16:51:59.919Z</uws:startTime>\r\n  <uws:endTime>2026-07-10T16:51:59.936Z</uws:endTime>\r\n
+        \ <uws:executionDuration>14400</uws:executionDuration>\r\n  <uws:destruction>2026-07-17T16:51:58.876Z</uws:destruction>\r\n
+        \ <uws:parameters>\r\n    <uws:parameter id=\"LANG\">ADQL</uws:parameter>\r\n
+        \   <uws:parameter id=\"MAXREC\">10000</uws:parameter>\r\n    <uws:parameter
+        id=\"QUERY\">SELECT TOP 5 target_name, s_ra, s_dec FROM ivoa.obscore</uws:parameter>\r\n
+        \   <uws:parameter id=\"REQUEST\">doQuery</uws:parameter>\r\n  </uws:parameters>\r\n
+        \ <uws:results>\r\n    <uws:result id=\"diag\" xlink:href=\"uws:executing:2\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:lookup:0\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"read:tap_schema:9\" />\r\n    <uws:result id=\"diag\"
+        xlink:href=\"query:parse:2\" />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:connect:0\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"query:execute:1\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"query:store:5\" />\r\n    <uws:result id=\"rowcount\"
+        xlink:href=\"final:5\" />\r\n    <uws:result id=\"result\" xlink:href=\"https://almascience.nrao.edu/tap/files/result_owtnfi6thl8jgnuo.xml\"
+        />\r\n  </uws:results>\r\n</uws:job>\r\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - text/xml
+      Date:
+      - Fri, 10 Jul 2026 16:52:00 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - OpenCADC/cadc-rest
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: ''
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.34.2
+    method: GET
+    uri: https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+  response:
+    body:
+      string: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<uws:job xmlns:uws=\"http://www.ivoa.net/xml/UWS/v1.0\"
+        xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\">\r\n  <uws:jobId>owtnfi6thl8jgnuo</uws:jobId>\r\n
+        \ <uws:runId />\r\n  <uws:ownerId xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:phase>COMPLETED</uws:phase>\r\n  <uws:quote>2026-07-11T16:51:58.876Z</uws:quote>\r\n
+        \ <uws:startTime>2026-07-10T16:51:59.919Z</uws:startTime>\r\n  <uws:endTime>2026-07-10T16:51:59.936Z</uws:endTime>\r\n
+        \ <uws:executionDuration>14400</uws:executionDuration>\r\n  <uws:destruction>2026-07-17T16:51:58.876Z</uws:destruction>\r\n
+        \ <uws:parameters>\r\n    <uws:parameter id=\"LANG\">ADQL</uws:parameter>\r\n
+        \   <uws:parameter id=\"MAXREC\">10000</uws:parameter>\r\n    <uws:parameter
+        id=\"QUERY\">SELECT TOP 5 target_name, s_ra, s_dec FROM ivoa.obscore</uws:parameter>\r\n
+        \   <uws:parameter id=\"REQUEST\">doQuery</uws:parameter>\r\n  </uws:parameters>\r\n
+        \ <uws:results>\r\n    <uws:result id=\"diag\" xlink:href=\"uws:executing:2\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:lookup:0\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"read:tap_schema:9\" />\r\n    <uws:result id=\"diag\"
+        xlink:href=\"query:parse:2\" />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:connect:0\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"query:execute:1\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"query:store:5\" />\r\n    <uws:result id=\"rowcount\"
+        xlink:href=\"final:5\" />\r\n    <uws:result id=\"result\" xlink:href=\"https://almascience.nrao.edu/tap/files/result_owtnfi6thl8jgnuo.xml\"
+        />\r\n  </uws:results>\r\n</uws:job>\r\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - text/xml
+      Date:
+      - Fri, 10 Jul 2026 16:52:00 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - OpenCADC/cadc-rest
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: ''
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.34.2
+    method: GET
+    uri: https://almascience.nrao.edu/tap/async/owtnfi6thl8jgnuo
+  response:
+    body:
+      string: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<uws:job xmlns:uws=\"http://www.ivoa.net/xml/UWS/v1.0\"
+        xmlns:xlink=\"http://www.w3.org/1999/xlink\" version=\"1.1\">\r\n  <uws:jobId>owtnfi6thl8jgnuo</uws:jobId>\r\n
+        \ <uws:runId />\r\n  <uws:ownerId xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+        xsi:nil=\"true\" />\r\n  <uws:phase>COMPLETED</uws:phase>\r\n  <uws:quote>2026-07-11T16:51:58.876Z</uws:quote>\r\n
+        \ <uws:startTime>2026-07-10T16:51:59.919Z</uws:startTime>\r\n  <uws:endTime>2026-07-10T16:51:59.936Z</uws:endTime>\r\n
+        \ <uws:executionDuration>14400</uws:executionDuration>\r\n  <uws:destruction>2026-07-17T16:51:58.876Z</uws:destruction>\r\n
+        \ <uws:parameters>\r\n    <uws:parameter id=\"LANG\">ADQL</uws:parameter>\r\n
+        \   <uws:parameter id=\"MAXREC\">10000</uws:parameter>\r\n    <uws:parameter
+        id=\"QUERY\">SELECT TOP 5 target_name, s_ra, s_dec FROM ivoa.obscore</uws:parameter>\r\n
+        \   <uws:parameter id=\"REQUEST\">doQuery</uws:parameter>\r\n  </uws:parameters>\r\n
+        \ <uws:results>\r\n    <uws:result id=\"diag\" xlink:href=\"uws:executing:2\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:lookup:0\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"read:tap_schema:9\" />\r\n    <uws:result id=\"diag\"
+        xlink:href=\"query:parse:2\" />\r\n    <uws:result id=\"diag\" xlink:href=\"jndi:connect:0\"
+        />\r\n    <uws:result id=\"diag\" xlink:href=\"query:execute:1\" />\r\n    <uws:result
+        id=\"diag\" xlink:href=\"query:store:5\" />\r\n    <uws:result id=\"rowcount\"
+        xlink:href=\"final:5\" />\r\n    <uws:result id=\"result\" xlink:href=\"https://almascience.nrao.edu/tap/files/result_owtnfi6thl8jgnuo.xml\"
+        />\r\n  </uws:results>\r\n</uws:job>\r\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - text/xml
+      Date:
+      - Fri, 10 Jul 2026 16:52:02 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - OpenCADC/cadc-rest
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: ''
+version: 1

@@ -1,6 +1,6 @@
 """End-to-end test for vo_archive_list through an in-memory MCP client.
 
-Verifies that the curated KNOWN_ARCHIVES registry — particularly the
+Verifies that the curated archive registry — particularly the
 usage_notes — surfaces correctly to the LLM via the tool layer.
 """
 
@@ -20,9 +20,9 @@ async def test_vo_archive_list_returns_curated_set(mcp_server):
     assert payload["count"] >= 8  # we have 8 well-known archives today
 
     # First entry should be DataLab (the canonical-example archive),
-    # second should be NRAO (primary collaborator, prioritized).
+    # second should be ALMA (prioritized to the top of the well-known set).
     assert payload["archives"][0]["short_name"] == "datalab"
-    assert payload["archives"][1]["short_name"] == "nrao"
+    assert payload["archives"][1]["short_name"] == "alma"
 
 
 @pytest.mark.asyncio
@@ -137,3 +137,18 @@ async def test_vo_archive_list_includes_capabilities_for_each_archive(mcp_server
         assert required_keys.issubset(entry.keys()), (
             f"archive {entry.get('short_name')} missing keys: {required_keys - entry.keys()}"
         )
+
+
+@pytest.mark.asyncio
+async def test_vo_archive_list_unknown_short_name_returns_recovery_hint(mcp_server):
+    """A filter that matches nothing (e.g. a weak model guessing short_name='NSC', which is
+    served under 'datalab') must hand back a recovery hint naming the valid short_names —
+    not a bare empty list that dead-ends the model."""
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("vo_archive_list", {"short_name": "NSC"})
+        payload = result.structured_content
+
+    assert payload["count"] == 0
+    assert payload["archives"] == []
+    assert "hint" in payload
+    assert "datalab" in payload["hint"]

@@ -1,4 +1,4 @@
-"""Tool for surfacing the curated KNOWN_ARCHIVES registry to the LLM.
+"""Tool for surfacing the curated archive registry to the LLM.
 
 `vo_archive_list` is the agent-facing entry point into the project's
 knowledge base of well-known IVOA archives. Each returned entry carries
@@ -7,10 +7,13 @@ importantly — `usage_notes` that capture archive-specific gotchas
 (non-standard table locations, sync-vs-async routing, target-name
 conventions, etc.).
 
-This is the early scaffolding for what will become a richer knowledge
-layer. Today it surfaces `known_archives.KNOWN_ARCHIVES` directly;
-later it will be backed by something pluggable (RAG, structured KB,
-etc.) but the tool contract stays the same.
+The knowledge is now backed by per-archive modules (`archives/<name>.py`):
+this tool surfaces the deployment's active archives via
+`archives._endpoints.active_archives()`, so it honors the `STABLE_ARCHIVES`
+selection. An absent archive simply carries no curated claims — it stays
+reachable via `vo_registry_search`. The tool contract is unchanged: per-table
+`schemas` (served by `vo_schema_describe`) and the internal `priority` are not
+echoed here.
 """
 
 from typing import Annotated
@@ -18,8 +21,9 @@ from typing import Annotated
 from pydantic import Field
 
 from astro_archives_mcp._serialization import dataclass_to_jsonable_dict
+from astro_archives_mcp.archives._endpoints import active_archives
+from astro_archives_mcp.archives._model import note_texts
 from astro_archives_mcp.errors import wrap_tool_errors
-from astro_archives_mcp.known_archives import KNOWN_ARCHIVES
 from astro_archives_mcp.tools._constants import _ERROR_DOCSTRING
 
 
@@ -96,7 +100,7 @@ def vo_archive_list(
           "count": N
         }
     """
-    selected = KNOWN_ARCHIVES
+    selected = active_archives()
     if short_name is not None:
         sn = short_name.strip().lower()
         selected = tuple(a for a in selected if a.short_name.lower() == sn)
@@ -104,8 +108,28 @@ def vo_archive_list(
         wb = waveband.strip().lower()
         selected = tuple(a for a in selected if (a.waveband or "").lower() == wb)
 
-    archives = [dataclass_to_jsonable_dict(a) for a in selected]
-    return {"archives": archives, "count": len(archives)}
+    # `schemas` (surfaced by vo_schema_describe) and the internal ordering
+    # `priority` are not part of this tool's contract — drop them so the
+    # archive-list envelope stays the identity/usage_notes view it always was.
+    archives = []
+    for a in selected:
+        d = dataclass_to_jsonable_dict(a)
+        d.pop("schemas", None)
+        d.pop("priority", None)
+        d["usage_notes"] = note_texts(a.usage_notes)
+        archives.append(d)
+    result: dict = {"archives": archives, "count": len(archives)}
+    # A filter that matched nothing is a dead end for a weaker model (e.g. it guessed
+    # short_name='NSC', which is served under 'datalab'). Hand back a recovery hint
+    # naming the valid short_names instead of a bare empty list.
+    if not archives and (short_name is not None or waveband is not None):
+        known = ", ".join(a.short_name for a in active_archives())
+        result["hint"] = (
+            f"No known archive matched that filter. Available short_name values: {known}. "
+            "Call vo_archive_list with no arguments to see every archive and the catalogs it "
+            "serves (notable_tables) — e.g. NSC / SMASH / DES / DECaPS all live under 'datalab'."
+        )
+    return result
 
 
 vo_archive_list.__doc__ = (vo_archive_list.__doc__ or "") + _ERROR_DOCSTRING
