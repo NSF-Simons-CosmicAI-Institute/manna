@@ -1,7 +1,7 @@
-# gp13 Deployment Runbook — astro-archives-mcp via Jupyter AI
+# gp12 Deployment Runbook — astro-archives-mcp via Jupyter AI
 
 Status: **design draft** for review by ADL ops. Goal: surface the VO tools to
-notebook users on Astro Data Lab's **gp13**, a shared JupyterHub that spawns a
+notebook users on Astro Data Lab's **gp12**, a shared JupyterHub that spawns a
 per-user single-user server (VM/container) per session, through **Jupyter AI v3**
 chat. See `docs/jupyter-ai-integration.md` for the architecture.
 
@@ -11,7 +11,7 @@ chat. See `docs/jupyter-ai-integration.md` for the architecture.
 > `claude mcp add --transport http`, `claude mcp list` → Connected, and a
 > `claude -p` call that invoked `vo_target_resolve` for M51 (RA 202.47 /
 > Dec +47.20), not a guess. The container packaging of that same chain
-> (`docs/examples/gp13/`) is exercised by `smoke-test.sh` (below). gp13 itself is
+> (`docs/examples/gp12/`) is exercised by `smoke-test.sh` (below). gp12 itself is
 > pending access; this runbook is what plugs the proven image into its spawner.
 
 > **Assumptions flagged for ADL ops** (confirm before building — they change the
@@ -44,12 +44,12 @@ cluster service and only change the config URL.
 
 ## The single-user image (Topology A)
 
-The reference image lives at **`docs/examples/gp13/`** (Dockerfile + startup hook +
+The reference image lives at **`docs/examples/gp12/`** (Dockerfile + startup hook +
 config + `build.sh` + `smoke-test.sh`). Build and smoke-test it **on a box with a
 working docker** (e.g. dlai01):
 
 ```bash
-cd docs/examples/gp13
+cd docs/examples/gp12
 ./build.sh                                  # BASE_IMAGE=<adl-base> ./build.sh once known
 export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)   # optional: enables the live tool-call check
 IMAGE=astro-archives-singleuser:dev ./smoke-test.sh
@@ -106,17 +106,15 @@ secret**; the spawner injects one of these (independent of the MCP server):
 - **Local model on dlai01** — point Claude Code at an on-prem model via
   `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN`. No per-call cost, data stays on-prem;
   tool-use quality depends on the model. Orthogonal to everything above — the MCP
-  path is unchanged. See **`docs/local-model-backend.md`** for the researched PoC
-  stack (vLLM native Anthropic endpoint + Qwen3 + parser flags) and the
-  Blackwell/sm_120 serving gotchas.
+  path is unchanged. See `dlai01-vllm-runbook.md` for the local model backend details.
 
 ## Verify
 
-**Interim (no gp13 access): container smoke test on dlai01** — `smoke-test.sh`
+**Interim (no gp12 access): container smoke test on dlai01** — `smoke-test.sh`
 covers /health, persona binaries, seeded config, `claude mcp list → Connected`,
 and (with a token) a live M51 tool call inside the image.
 
-**On gp13 (once available), inside a spawned single-user server:**
+**On gp12 (once available), inside a spawned single-user server:**
 ```bash
 curl -fsS http://127.0.0.1:8000/health                       # astro-archives 0.4.0
 cat ~/.jupyter/mcp_settings.json                             # points at 127.0.0.1:8000/mcp/
