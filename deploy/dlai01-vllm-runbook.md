@@ -5,8 +5,8 @@ via vLLM, and consuming it from a Claude Code persona that calls the astro-archi
 **MCP** tool server — the full local-model chain, proven end to end. Exact working
 commands, verified results, and every gotcha we hit.
 
-Paired with `docs/local-model-backend.md` (the *why* behind model choice) and
-`docs/jupyter-ai-integration.md` (the persona/MCP architecture). Status: **local chain
+Paired with `docs/jupyter-ai-integration.md` (the persona/MCP architecture).
+Status: **local chain
 VALIDATED** and **exposed off-box via the datalab nginx proxy (2026-07-02)** — reachable
 from a laptop and from the dockerized frontend (see *Current status* at the end).
 
@@ -93,10 +93,9 @@ CLAUDE_CONFIG_DIR=$HOME/.claude-work claude mcp list       # astro-archives: ✓
 
 ## Part 2 — hosting the model on vLLM
 
-**Model: `Qwen/Qwen3.5-122B-A10B-FP8`** (122B total / ~10B active MoE). Chosen via a
-fact-checked model survey (`docs/local-model-backend.md`): near-top open-weight BFCL V4
-(~0.722), fits FP8 (~122 GB) with large KV-cache headroom, MoE decode is fast and
-concurrency-friendly. Tool-call parser: `qwen3_coder`. Runner-up to A/B later:
+**Model: `Qwen/Qwen3.5-122B-A10B-FP8`** (122B total / ~10B active MoE). Chosen for
+near-top open-weight BFCL V4 (~0.722), fits FP8 (~122 GB) with large KV-cache headroom,
+MoE decode is fast and concurrency-friendly. Tool-call parser: `qwen3_coder`. Runner-up to A/B later:
 **GLM-4.7** (τ²-Bench 87.4, but 358 GB FP8 leaves little KV room → poor concurrency).
 
 > The lighter **Qwen2.5-7B-Instruct** (parser `hermes`, `--max-model-len 32768`) is the

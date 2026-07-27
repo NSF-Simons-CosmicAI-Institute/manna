@@ -32,14 +32,14 @@ chat. See `docs/jupyter-ai-integration.md` for the architecture.
 |---|---|---|
 | Where | MCP server runs *inside* each single-user server on `127.0.0.1` | One MCP deployment all user pods reach over the cluster network |
 | Config URL | `http://127.0.0.1:8000/mcp/` | `http://astro-mcp.<ns>:8000/mcp/` |
-| Auth | none (loopback, anonymous read-only tools) | none needed (anonymous), but exposed off-loopback → see `deploy/staging-runbook.md` proxy/timeout notes |
+| Auth | none (loopback, anonymous read-only tools) | none needed (anonymous), but exposed off-loopback → see `deploy/dlai01-vllm-runbook.md` proxy/timeout notes |
 | Pros | identical to the proven recipe, zero network/auth surface, per-user isolation | one upgrade path, no per-user process/cache duplication |
 | Cons | N server processes + N astropy caches | requires user-pod → service reachability; one shared blast radius |
 
 Because the tools are anonymous and read-only, **A** is the path of least resistance
 to a first rollout and is what the rest of this runbook details. **B** becomes
 attractive once it's proven and you want a single thing to operate/upgrade — at
-that point deploy the existing container (see `deploy/staging-runbook.md`) as a
+that point deploy the existing container (see `deploy/dlai01-vllm-runbook.md`) as a
 cluster service and only change the config URL.
 
 ## The single-user image (Topology A)

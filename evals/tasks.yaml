@@ -1,5 +1,5 @@
 # Agentic eval task suite for astro-archives-mcp.
-# See docs/mcp-eval-plan.md §5 for the design. Each task is scored from the
+# See evals/README.md for the task schema. Each task is scored from the
 # recorded agent trace (ordered tool calls + args) and the final answer.
 #
 # Schema per task:

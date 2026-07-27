@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir \
 # The Jupyter AI "Claude" persona launches `claude-agent-acp`, which in turn
 # wraps the `claude` CLI (@anthropic-ai/claude-code) for auth + model calls —
 # BOTH must be on PATH. Skip this whole stage if backing the persona with a
-# local model instead (see docs/local-model-backend.md).
+# local model instead (see deploy/dlai01-vllm-runbook.md).
 USER root
 RUN mamba install -y -c conda-forge nodejs && mamba clean -afy \
     && npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
