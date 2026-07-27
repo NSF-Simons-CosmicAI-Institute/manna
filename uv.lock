@@ -64,69 +64,6 @@ wheels = [
 ]
 
 [[package]]
-name = "astro-archives-mcp"
-version = "0.5.0"
-source = { editable = "." }
-dependencies = [
-    { name = "astropy" },
-    { name = "fastmcp" },
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "pyvo" },
-    { name = "starlette" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "inline-snapshot" },
-    { name = "pre-commit" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-recording" },
-    { name = "ruff" },
-    { name = "vcrpy" },
-]
-eval = [
-    { name = "anthropic" },
-    { name = "openai" },
-    { name = "pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "astropy", specifier = ">=6.0" },
-    { name = "fastmcp", specifier = ">=3.0,<4.0" },
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "pydantic", specifier = ">=2.7" },
-    { name = "pydantic-settings", specifier = ">=2.5" },
-    { name = "pyvo", specifier = ">=1.8,<2.0" },
-    { name = "starlette", specifier = ">=0.40" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "inline-snapshot", specifier = ">=0.13" },
-    { name = "pre-commit", specifier = ">=3.7" },
-    { name = "pyright", specifier = ">=1.1.380" },
-    { name = "pytest", specifier = ">=8.3" },
-    { name = "pytest-asyncio", specifier = ">=0.24" },
-    { name = "pytest-cov", specifier = ">=5.0" },
-    { name = "pytest-recording", specifier = ">=0.13" },
-    { name = "ruff", specifier = ">=0.7" },
-    { name = "vcrpy", specifier = ">=6.0" },
-]
-eval = [
-    { name = "anthropic", specifier = ">=0.40" },
-    { name = "openai", specifier = ">=1.40" },
-    { name = "pyyaml", specifier = ">=6.0" },
-]
-
-[[package]]
 name = "astropy"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1010,6 +947,69 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/43/4b/674af6ef2f97d56f0ab5153bf0bfa28ccb6c3ed4d1babf4305449668807b/keyring-25.7.0.tar.gz", hash = "sha256:fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b", size = 63516, upload-time = "2025-11-16T16:26:09.482Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/db/e655086b7f3a705df045bf0933bdd9c2f79bb3c97bfef1384598bb79a217/keyring-25.7.0-py3-none-any.whl", hash = "sha256:be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f", size = 39160, upload-time = "2025-11-16T16:26:08.402Z" },
+]
+
+[[package]]
+name = "manna"
+version = "0.5.0"
+source = { editable = "." }
+dependencies = [
+    { name = "astropy" },
+    { name = "fastmcp" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "pyvo" },
+    { name = "starlette" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "inline-snapshot" },
+    { name = "pre-commit" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-recording" },
+    { name = "ruff" },
+    { name = "vcrpy" },
+]
+eval = [
+    { name = "anthropic" },
+    { name = "openai" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "astropy", specifier = ">=6.0" },
+    { name = "fastmcp", specifier = ">=3.0,<4.0" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pydantic", specifier = ">=2.7" },
+    { name = "pydantic-settings", specifier = ">=2.5" },
+    { name = "pyvo", specifier = ">=1.8,<2.0" },
+    { name = "starlette", specifier = ">=0.40" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "inline-snapshot", specifier = ">=0.13" },
+    { name = "pre-commit", specifier = ">=3.7" },
+    { name = "pyright", specifier = ">=1.1.380" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "pytest-cov", specifier = ">=5.0" },
+    { name = "pytest-recording", specifier = ">=0.13" },
+    { name = "ruff", specifier = ">=0.7" },
+    { name = "vcrpy", specifier = ">=6.0" },
+]
+eval = [
+    { name = "anthropic", specifier = ">=0.40" },
+    { name = "openai", specifier = ">=1.40" },
+    { name = "pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]

@@ -19,8 +19,8 @@ from typing import Any
 
 from fastmcp import Client
 
-from astro_archives_mcp.app import build_mcp
 from evals.harness import _anthropic_tools, _result_payload
+from manna.app import build_mcp
 
 # Raw arms cap rows/bytes crudely (a naive agent has no result-shaping); the agent
 # loop also caps what the model sees via MAX_TOOL_RESULT_CHARS.
@@ -66,7 +66,7 @@ class ToolProvider:
 
 
 class MCPToolProvider(ToolProvider):
-    """The full astro-archives-mcp server (arm: 'mcp')."""
+    """The full MANNA server (arm: 'mcp')."""
 
     label = "mcp"
 

@@ -14,12 +14,12 @@
 #   Provide a headless credential first, then re-run:
 #       export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)   # work account; or
 #       export ANTHROPIC_API_KEY=sk-...
-#       IMAGE=astro-archives-singleuser:dev ./smoke-test.sh
+#       IMAGE=manna-singleuser:dev ./smoke-test.sh
 #   Without either, Tier 2 is skipped (Tier 1 still runs).
 #
 set -uo pipefail
-IMAGE="${IMAGE:-astro-archives-singleuser:dev}"
-NAME="astro-archives-smoke"
+IMAGE="${IMAGE:-manna-singleuser:dev}"
+NAME="manna-smoke"
 MCP_URL="http://127.0.0.1:8000/mcp/"
 fails=0
 
@@ -47,7 +47,7 @@ for _ in $(seq 1 30); do
   if dex "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=2)\"" >/dev/null 2>&1; then ok=1; break; fi
   sleep 2
 done
-if [ "$ok" = 1 ]; then echo "  PASS"; else echo "  FAIL: MCP never came up"; dex "cat \$HOME/.astro-archives-mcp.log" 2>/dev/null || true; fails=$((fails+1)); fi
+if [ "$ok" = 1 ]; then echo "  PASS"; else echo "  FAIL: MCP never came up"; dex "cat \$HOME/.manna.log" 2>/dev/null || true; fails=$((fails+1)); fi
 
 echo "== [2/5] persona binaries on PATH =="
 if dex "node --version >/dev/null && claude --version >/dev/null && command -v claude-agent-acp >/dev/null"; then
@@ -58,13 +58,13 @@ echo "== [3/5] mcp_settings.json seeded into ~/.jupyter =="
 if dex "test -f \$HOME/.jupyter/mcp_settings.json && cat \$HOME/.jupyter/mcp_settings.json"; then echo "  PASS"; else echo "  FAIL: config not seeded"; fails=$((fails+1)); fi
 
 echo "== [4/5] claude mcp list -> Connected =="
-listout=$(dex "claude mcp add --transport http astro-archives ${MCP_URL} >/dev/null 2>&1; claude mcp list" 2>&1)
+listout=$(dex "claude mcp add --transport http manna ${MCP_URL} >/dev/null 2>&1; claude mcp list" 2>&1)
 echo "$listout"
 if echo "$listout" | grep -qi "connected"; then echo "  PASS"; else echo "  WARN: 'Connected' not seen (claude may require auth for mcp list)"; fi
 
 echo "== [5/5] live persona tool call (M51) =="
 if [ ${#CRED_ARGS[@]} -gt 0 ]; then
-  out=$(dex "claude -p 'Use the astro-archives MCP tools to resolve M51. Call the tool; do not answer from memory.' --dangerously-skip-permissions" 2>&1)
+  out=$(dex "claude -p 'Use the MANNA MCP tools to resolve M51. Call the tool; do not answer from memory.' --dangerously-skip-permissions" 2>&1)
   echo "$out"
   if echo "$out" | grep -Eq "202\.4[0-9]"; then echo "  PASS: real M51 coords via tool call"; else echo "  FAIL: no M51 coords (check creds / tool invocation)"; fails=$((fails+1)); fi
 else

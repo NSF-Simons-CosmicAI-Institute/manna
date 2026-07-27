@@ -6,8 +6,8 @@ shown), some ⇒ loud (reactive, fires on a matching ADQL).
 
 import pytest
 
-from astro_archives_mcp.archives._audit import Audit
-from astro_archives_mcp.archives._model import Note, Trap
+from manna.archives._audit import Audit
+from manna.archives._model import Note, Trap
 
 
 def test_triggerless_trap_is_silent_and_never_fires():

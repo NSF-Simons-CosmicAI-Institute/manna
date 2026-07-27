@@ -1,6 +1,6 @@
 """Content assertions for the NRAO Science Data Archive."""
 
-from astro_archives_mcp.archives.nrao import ARCHIVE
+from manna.archives.nrao import ARCHIVE
 
 SCHEMAS = {s.table: s for s in ARCHIVE.schemas}
 

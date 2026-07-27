@@ -8,12 +8,12 @@ aggregated `active_schema_kb()` view.
 
 import pytest
 
-from astro_archives_mcp.archives._endpoints import active_archives
-from astro_archives_mcp.archives._knowledge import (
+from manna.archives._endpoints import active_archives
+from manna.archives._knowledge import (
     active_schema_kb,
     lookup_schema,
 )
-from astro_archives_mcp.archives._model import Schema
+from manna.archives._model import Schema
 
 # ---------- Schema dataclass ----------
 

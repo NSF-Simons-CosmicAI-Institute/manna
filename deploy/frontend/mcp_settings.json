@@ -2,7 +2,7 @@
   "mcp_servers": [
     {
       "type": "http",
-      "name": "astro-archives",
+      "name": "manna",
       "url": "http://mcp:8000/mcp/"
     }
   ]

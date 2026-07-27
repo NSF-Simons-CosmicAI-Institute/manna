@@ -6,8 +6,8 @@ Record cassettes with:
 
 import pytest
 
-from astro_archives_mcp.backends.resolver import ResolverClient
-from astro_archives_mcp.errors import ArchiveError
+from manna.backends.resolver import ResolverClient
+from manna.errors import ArchiveError
 
 
 @pytest.mark.vcr

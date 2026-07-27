@@ -1,8 +1,8 @@
 import pytest
 from fastmcp import Client
 
-from astro_archives_mcp.errors import ValidationError
-from astro_archives_mcp.tools import registry as ivoa_tools
+from manna.errors import ValidationError
+from manna.tools import registry as ivoa_tools
 
 
 @pytest.mark.vcr

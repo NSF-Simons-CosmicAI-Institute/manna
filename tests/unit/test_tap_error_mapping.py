@@ -19,8 +19,8 @@ import pytest
 import requests
 from pyvo.dal.exceptions import DALFormatError
 
-from astro_archives_mcp.backends.tap import TapClient
-from astro_archives_mcp.errors import ArchiveError, TimeoutArchiveError
+from manna.backends.tap import TapClient
+from manna.errors import ArchiveError, TimeoutArchiveError
 
 ENDPOINT = "https://data-query.nrao.edu/tap"
 ADQL = "SELECT * FROM tap_schema.obscore"
@@ -42,7 +42,7 @@ class _FakeTAPService:
 def _patch_tapservice(monkeypatch, exc):
     """Make pyvo.dal.TAPService(...) return a fake that raises `exc`."""
     monkeypatch.setattr(
-        "astro_archives_mcp.backends.tap.pyvo.dal.TAPService",
+        "manna.backends.tap.pyvo.dal.TAPService",
         lambda *a, **k: _FakeTAPService(exc=exc),
     )
 

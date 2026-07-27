@@ -1,6 +1,6 @@
 """Content assertions for the NOIRLab Astro Data Lab archive."""
 
-from astro_archives_mcp.archives.datalab import ARCHIVE
+from manna.archives.datalab import ARCHIVE
 
 SCHEMAS = {s.table: s for s in ARCHIVE.schemas}
 

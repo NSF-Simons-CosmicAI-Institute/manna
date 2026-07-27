@@ -1,19 +1,19 @@
-"""Regression tests: STABLE_* settings are actually threaded into runtime.
+"""Regression tests: MANNA_* settings are actually threaded into runtime.
 
 These two settings were defined on `Settings` and documented in the README
 but never wired into the code paths that should consume them — a silent
 no-op. These tests lock the wiring in place so it can't regress.
 """
 
-import astro_archives_mcp.config as config
-from astro_archives_mcp import job_store
-from astro_archives_mcp.tools import tap as tap_tools
+import manna.config as config
+from manna import job_store
+from manna.tools import tap as tap_tools
 
 
 def test_get_tap_uses_configured_sync_timeout(monkeypatch):
-    """STABLE_TAP_SYNC_TIMEOUT_SECONDS must reach the TapClient that
+    """MANNA_TAP_SYNC_TIMEOUT_SECONDS must reach the TapClient that
     _get_tap() constructs, not just live on Settings."""
-    monkeypatch.setenv("STABLE_TAP_SYNC_TIMEOUT_SECONDS", "7.5")
+    monkeypatch.setenv("MANNA_TAP_SYNC_TIMEOUT_SECONDS", "7.5")
     config.get_settings.cache_clear()
     monkeypatch.setattr(tap_tools, "_tap", None)
     try:
@@ -25,9 +25,9 @@ def test_get_tap_uses_configured_sync_timeout(monkeypatch):
 
 
 def test_promote_async_threads_configured_job_ttl(monkeypatch):
-    """STABLE_JOB_TTL_SECONDS must be passed to job_store.put(), so async
+    """MANNA_JOB_TTL_SECONDS must be passed to job_store.put(), so async
     job retention is actually configurable."""
-    monkeypatch.setenv("STABLE_JOB_TTL_SECONDS", "120")
+    monkeypatch.setenv("MANNA_JOB_TTL_SECONDS", "120")
     config.get_settings.cache_clear()
 
     class _FakeTap:

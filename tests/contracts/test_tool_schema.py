@@ -18,9 +18,9 @@ from typing import Annotated, get_args, get_origin, get_type_hints
 import pytest
 from pydantic.fields import FieldInfo
 
-from astro_archives_mcp.app import build_mcp
-from astro_archives_mcp.tools import __all__ as REGISTERED_TOOL_NAMES
-from astro_archives_mcp.tools import (
+from manna.app import build_mcp
+from manna.tools import __all__ as REGISTERED_TOOL_NAMES
+from manna.tools import (
     vo_archive_list,
     vo_cone_search,
     vo_registry_describe,

@@ -11,11 +11,11 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
-    image: astro-archives-mcp:dev
+    image: manna:dev
     environment:
-      STABLE_HOST: 0.0.0.0        # bind all interfaces so other containers can reach it
-      STABLE_PORT: "8000"
-      STABLE_DEPLOYMENT: adl
+      MANNA_HOST: 0.0.0.0        # bind all interfaces so other containers can reach it
+      MANNA_PORT: "8000"
+      MANNA_DEPLOYMENT: adl
     ports:
       - "127.0.0.1:18000:8000"    # host debug access (optional); containers use http://mcp:8000
     healthcheck:

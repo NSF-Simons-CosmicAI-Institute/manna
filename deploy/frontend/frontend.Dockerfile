@@ -32,7 +32,7 @@ RUN mamba install -y -c conda-forge nodejs && mamba clean -afy \
 USER ${NB_UID}
 COPY --chown=${NB_UID}:${NB_GID} mcp_settings.json /home/${NB_USER}/.jupyter/mcp_settings.json
 
-# Pre-allow all astro-archives MCP tools so the persona runs them without a per-call
+# Pre-allow all MANNA MCP tools so the persona runs them without a per-call
 # permission prompt (Claude Code reads permissions.allow from ~/.claude/settings.json).
 COPY --chown=${NB_UID}:${NB_GID} claude_settings.json /home/${NB_USER}/.claude/settings.json
 
@@ -51,7 +51,7 @@ RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname
     STATIC_DIR="$PKG_DIR/static" && \
     cp /tmp/CosmicCoder.png "$STATIC_DIR/CosmicCoder.png" && \
     sed -i 's/name="Claude"/name="CosmicCoder"/' "$CLAUDE_PY" && \
-    sed -i 's#description="Claude Code as an ACP agent persona."#description="CosmicAI archive assistant — Claude Code with the astro-archives MCP tools."#' "$CLAUDE_PY" && \
+    sed -i 's#description="Claude Code as an ACP agent persona."#description="CosmicAI archive assistant — Claude Code with the MANNA MCP tools."#' "$CLAUDE_PY" && \
     sed -i 's/"claude.svg"/"CosmicCoder.png"/' "$CLAUDE_PY" && \
     grep -q 'name="CosmicCoder"' "$CLAUDE_PY" && \
     grep -q 'CosmicCoder.png' "$CLAUDE_PY" && \

@@ -10,9 +10,9 @@ import pytest
 from astropy.table import Table
 from fastmcp import Client
 
-import astro_archives_mcp.tools.find_observations as find_mod
-from astro_archives_mcp.archives._audit import Audit
-from astro_archives_mcp.archives._model import Archive, Note
+import manna.tools.find_observations as find_mod
+from manna.archives._audit import Audit
+from manna.archives._model import Archive, Note
 
 # ---------- fakes ----------
 

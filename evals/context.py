@@ -1,6 +1,6 @@
 """Ablation: run the server with its curated context stripped out.
 
-The whole point of astro-archives-mcp (vs. handing a model raw pyvo) is the
+The whole point of MANNA (vs. handing a model raw pyvo) is the
 curated knowledge: each archive's ``usage_notes`` and its per-table
 ``Schema`` entries. Tier 3 of
 the eval quantifies that value by running the same trap tasks twice — once with
@@ -25,8 +25,8 @@ from __future__ import annotations
 import dataclasses
 from contextlib import contextmanager
 
-from astro_archives_mcp.archives import _endpoints
-from astro_archives_mcp.tools import schema as _schema_tool
+from manna.archives import _endpoints
+from manna.tools import schema as _schema_tool
 
 
 @contextmanager

@@ -1,6 +1,6 @@
 """Content assertions for the Canadian Astronomy Data Centre."""
 
-from astro_archives_mcp.archives.cadc import ARCHIVE
+from manna.archives.cadc import ARCHIVE
 
 
 def test_identity():

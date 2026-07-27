@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from astro_archives_mcp import job_store
+from manna import job_store
 
 
 @pytest.fixture(autouse=True)

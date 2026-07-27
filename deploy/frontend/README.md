@@ -1,6 +1,6 @@
 # Frontend stack (dockerized) — MCP + Jupyter AI persona
 
-The **frontend** half of the system: the astro-archives **MCP tool server** plus a
+The **frontend** half of the system: the MANNA **MCP tool server** plus a
 **Jupyter AI persona** (Claude Code), containerized and runnable in two modes. The
 **model** lives elsewhere (dlai01 vLLM, reached over the network) — see
 `../dlai01-vllm-runbook.md`. Architecture recap:

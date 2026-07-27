@@ -11,10 +11,10 @@ wrote LOWER() in both eval conditions. These pin the two push channels:
 import pytest
 from fastmcp import Client
 
-from astro_archives_mcp.app import build_mcp
-from astro_archives_mcp.archives._traps import CHEATSHEET_TOKEN_BUDGET, estimate_tokens
-from astro_archives_mcp.errors import DalQueryError, TimeoutArchiveError, error_to_payload
-from astro_archives_mcp.tools import tap as tap_tool
+from manna.app import build_mcp
+from manna.archives._traps import CHEATSHEET_TOKEN_BUDGET, estimate_tokens
+from manna.errors import DalQueryError, TimeoutArchiveError, error_to_payload
+from manna.tools import tap as tap_tool
 
 NRAO = "https://data-query.nrao.edu/tap"
 LOWER_ADQL = "SELECT TOP 10 * FROM tap_schema.obscore WHERE LOWER(target_name) = 'm87'"

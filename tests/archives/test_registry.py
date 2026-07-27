@@ -7,9 +7,9 @@ mechanics that are archive-agnostic.
 
 import pytest
 
-from astro_archives_mcp.archives import _select, discover_archives, get_active_archives
-from astro_archives_mcp.archives._model import Archive, Schema
-from astro_archives_mcp.config import get_settings
+from manna.archives import _select, discover_archives, get_active_archives
+from manna.archives._model import Archive, Schema
+from manna.config import get_settings
 
 # The archives physically shipped in this deployment. Order here is the expected
 # (priority, short_name) order. Adding/removing an archive updates this list AND
@@ -181,14 +181,14 @@ def test_select_empty_result_is_allowed_and_warns(caplog):
     assert "no archives" in caplog.text.lower()
 
 
-# ---------- end-to-end runtime selection via STABLE_ARCHIVES ----------
+# ---------- end-to-end runtime selection via MANNA_ARCHIVES ----------
 
 
 def test_stable_archives_env_narrows_the_active_set(monkeypatch, clear_archive_caches):
-    from astro_archives_mcp.archives._endpoints import active_archives
-    from astro_archives_mcp.archives._knowledge import active_schema_kb, lookup_schema
+    from manna.archives._endpoints import active_archives
+    from manna.archives._knowledge import active_schema_kb, lookup_schema
 
-    monkeypatch.setenv("STABLE_ARCHIVES", "datalab,alma")
+    monkeypatch.setenv("MANNA_ARCHIVES", "datalab,alma")
     get_settings.cache_clear()
     get_active_archives.cache_clear()
 

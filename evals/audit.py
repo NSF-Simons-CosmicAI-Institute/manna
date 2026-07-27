@@ -43,11 +43,11 @@ import json
 import time
 from pathlib import Path
 
-from astro_archives_mcp.archives import get_active_archives
-from astro_archives_mcp.archives._audit import has_cols, has_table  # noqa: F401 (re-export)
-from astro_archives_mcp.archives._model import Archive, Note
-from astro_archives_mcp.backends.tap import TapClient
-from astro_archives_mcp.errors import DalQueryError
+from manna.archives import get_active_archives
+from manna.archives._audit import has_cols, has_table  # noqa: F401 (re-export)
+from manna.archives._model import Archive, Note
+from manna.backends.tap import TapClient
+from manna.errors import DalQueryError
 
 RESULTS_DIR = Path(__file__).with_name("results")
 

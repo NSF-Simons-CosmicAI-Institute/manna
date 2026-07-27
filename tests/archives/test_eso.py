@@ -1,6 +1,6 @@
 """Content assertions for the ESO Science Archive."""
 
-from astro_archives_mcp.archives.eso import ARCHIVE
+from manna.archives.eso import ARCHIVE
 
 
 def test_identity():

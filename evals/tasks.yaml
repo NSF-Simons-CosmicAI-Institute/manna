@@ -1,4 +1,4 @@
-# Agentic eval task suite for astro-archives-mcp.
+# Agentic eval task suite for MANNA.
 # See evals/README.md for the task schema. Each task is scored from the
 # recorded agent trace (ordered tool calls + args) and the final answer.
 #

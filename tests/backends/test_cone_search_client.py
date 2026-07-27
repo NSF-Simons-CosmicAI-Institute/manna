@@ -1,7 +1,7 @@
 import pytest
 
-from astro_archives_mcp.backends.cone import ConeSearchClient
-from astro_archives_mcp.errors import ArchiveError
+from manna.backends.cone import ConeSearchClient
+from manna.errors import ArchiveError
 
 SCS_ENDPOINT = "https://gaia.ari.uni-heidelberg.de/cone/gaiadr2?"
 

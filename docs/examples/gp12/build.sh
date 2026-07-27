@@ -9,7 +9,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-IMAGE="${IMAGE:-astro-archives-singleuser:dev}"
+IMAGE="${IMAGE:-manna-singleuser:dev}"
 BASE_IMAGE="${BASE_IMAGE:-quay.io/jupyter/minimal-notebook:latest}"
 
 echo "Building $IMAGE  (BASE_IMAGE=$BASE_IMAGE)"

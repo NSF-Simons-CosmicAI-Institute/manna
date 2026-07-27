@@ -3,8 +3,8 @@
 import pytest
 from fastmcp import Client
 
-from astro_archives_mcp.tools import schema as schema_tools
-from astro_archives_mcp.tools.schema import vo_schema_describe
+from manna.tools import schema as schema_tools
+from manna.tools.schema import vo_schema_describe
 
 
 class _FakeTap:

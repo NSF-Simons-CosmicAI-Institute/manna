@@ -5,8 +5,8 @@
 so this only guards uniqueness, addressability, and reports the manual surface.
 """
 
-from astro_archives_mcp.archives import get_active_archives
-from astro_archives_mcp.archives._audit import AUDIT_EXPECTS
+from manna.archives import get_active_archives
+from manna.archives._audit import AUDIT_EXPECTS
 
 
 def _all_notes():

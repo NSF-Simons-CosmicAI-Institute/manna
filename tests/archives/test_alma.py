@@ -1,6 +1,6 @@
 """Content assertions for the ALMA Science Archive."""
 
-from astro_archives_mcp.archives.alma import ARCHIVE
+from manna.archives.alma import ARCHIVE
 
 SCHEMAS = {s.table: s for s in ARCHIVE.schemas}
 

@@ -2,9 +2,9 @@ import pytest
 from astropy.table import Table
 from pyvo.dal.exceptions import DALAccessError, DALQueryError
 
-from astro_archives_mcp.backends import sia as sia_backend
-from astro_archives_mcp.backends.sia import SiaClient
-from astro_archives_mcp.errors import DalQueryError
+from manna.backends import sia as sia_backend
+from manna.backends.sia import SiaClient
+from manna.errors import DalQueryError
 
 SIA_ENDPOINT = "https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/sia"
 

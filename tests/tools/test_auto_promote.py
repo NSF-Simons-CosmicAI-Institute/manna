@@ -4,9 +4,9 @@ import pytest
 from astropy.table import Table
 from fastmcp import Client
 
-from astro_archives_mcp import job_store
-from astro_archives_mcp.errors import ArchiveError, TimeoutArchiveError
-from astro_archives_mcp.tools import tap as tap_tools
+from manna import job_store
+from manna.errors import ArchiveError, TimeoutArchiveError
+from manna.tools import tap as tap_tools
 
 
 class _FakeTapClient:
@@ -117,7 +117,7 @@ async def test_mode_auto_promotes_on_timeout(mcp_server, fake_tap):
 
 @pytest.mark.asyncio
 async def test_mode_auto_does_not_promote_on_syntax_error(mcp_server, fake_tap):
-    from astro_archives_mcp.errors import DalQueryError
+    from manna.errors import DalQueryError
 
     fake_tap.query_raises = DalQueryError(message="Bad ADQL syntax.")
 
@@ -184,7 +184,7 @@ async def test_mode_sync_propagates_timeout_as_archive_error(mcp_server, fake_ta
 
 def _oversize_table() -> Table:
     """A table guaranteed to exceed the inline row cap."""
-    from astro_archives_mcp.config import get_settings
+    from manna.config import get_settings
 
     n = get_settings().inline_row_limit + 1
     return Table({"ra": list(range(n)), "dec": list(range(n))})

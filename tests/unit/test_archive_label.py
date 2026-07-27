@@ -1,4 +1,4 @@
-from astro_archives_mcp._archive_label import _CACHE, archive_label
+from manna._archive_label import _CACHE, archive_label
 
 # Cache isolation is handled globally by the autouse _clear_archive_label_cache
 # fixture in tests/conftest.py.
@@ -45,7 +45,7 @@ def test_archive_label_never_touches_the_network(monkeypatch):
     """Regression: archive_label must not import or call RegistryClient.
     The cosmetic label is derived offline; a RegTAP scan here was the
     latency footgun this change removed."""
-    import astro_archives_mcp.backends.registry as registry_module
+    import manna.backends.registry as registry_module
 
     def _boom(*_a, **_k):
         raise AssertionError("archive_label hit the registry/network")

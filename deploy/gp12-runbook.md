@@ -1,4 +1,4 @@
-# gp12 Deployment Runbook — astro-archives-mcp via Jupyter AI
+# gp12 Deployment Runbook — MANNA via Jupyter AI
 
 Status: **design draft** for review by ADL ops. Goal: surface the VO tools to
 notebook users on Astro Data Lab's **gp12**, a shared JupyterHub that spawns a
@@ -52,7 +52,7 @@ working docker** (e.g. dlai01):
 cd docs/examples/gp12
 ./build.sh                                  # BASE_IMAGE=<adl-base> ./build.sh once known
 export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)   # optional: enables the live tool-call check
-IMAGE=astro-archives-singleuser:dev ./smoke-test.sh
+IMAGE=manna-singleuser:dev ./smoke-test.sh
 ```
 
 > **Build from the example dir as context, not the repo root.** The repo-root
@@ -65,7 +65,7 @@ What the image adds, and why:
    testing; pin to a release tag (e.g. `@v0.4.0`) once dev is promoted to main and tagged:
    ```dockerfile
    RUN pip install --no-cache-dir "jupyter-ai>=3" jupyterlab \
-       "astro-archives-mcp @ git+https://github.com/dangause/astro-archives-mcp.git@dev"
+       "manna @ git+https://github.com/dangause/manna.git@dev"
    ```
 
 2. **Node.js + BOTH persona binaries.** The Claude persona launches
@@ -78,11 +78,11 @@ What the image adds, and why:
    either works.) Skip this stage if backing the persona with a local model (§4).
 
 3. **Start the MCP server on loopback at spawn** — the
-   `before-notebook.d/10-astro-archives-mcp.sh` hook launches it in the background
+   `before-notebook.d/10-manna.sh` hook launches it in the background
    on `127.0.0.1:8000` with writable cache env, and is idempotent.
 
 4. **Seed the MCP config robustly.** The hook copies `mcp_settings.json` from a
-   read-only staging path (`/opt/astro-archives/`) into `~/.jupyter/` **at spawn
+   read-only staging path (`/opt/manna/`) into `~/.jupyter/` **at spawn
    time** — so it lands *after* any persistent-`$HOME` volume mounts, which would
    otherwise shadow a file baked into the image's home. This sidesteps the
    "fresh vs. persistent `$HOME`" question entirely: it works either way.
@@ -116,11 +116,11 @@ and (with a token) a live M51 tool call inside the image.
 
 **On gp12 (once available), inside a spawned single-user server:**
 ```bash
-curl -fsS http://127.0.0.1:8000/health                       # astro-archives 0.4.0
+curl -fsS http://127.0.0.1:8000/health                       # MANNA 0.4.0
 cat ~/.jupyter/mcp_settings.json                             # points at 127.0.0.1:8000/mcp/
 ps eww $(pgrep -f 'jupyter-lab') | tr ' ' '\n' | grep CLAUDE_CONFIG_DIR  # if pinning an account
 ```
-Then in JupyterLab chat: `@Claude use the astro-archives tools to resolve M51.`
+Then in JupyterLab chat: `@Claude use the MANNA tools to resolve M51.`
 Success = the server log shows a `CallToolRequest` and the reply carries real
 coordinates (RA 202.47, Dec +47.20), not a model guess.
 

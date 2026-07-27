@@ -15,10 +15,10 @@ import asyncio
 
 from fastmcp import Client
 
-from astro_archives_mcp.app import build_mcp
 from evals.context import ablated_context
 from evals.harness import TaskRun, ToolCall
 from evals.score import score_programmatic
+from manna.app import build_mcp
 
 
 def _run(task_id: str, tier: int, trace: list[ToolCall], answer: str = "") -> TaskRun:
