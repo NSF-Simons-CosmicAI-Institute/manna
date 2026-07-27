@@ -8,18 +8,6 @@
 # repo-root context can't see the hook or config. Using this subdir as the
 # context sidesteps that and picks up before-notebook.d/ + mcp_settings.json.
 # (See build.sh / smoke-test.sh in this directory.)
-#
-# VALIDATION
-#   2026-06-26 (minimal-notebook): package install, the before-notebook.d hook
-#     launching the MCP server on loopback, writable astropy cache, tools
-#     returning real data.
-#   2026-06-29 (dlai01): the persona path itself — `claude mcp add --transport
-#     http`, `claude mcp list` -> Connected, and a `claude -p` call invoking
-#     vo_target_resolve live (M51 -> RA 202.47 / Dec +47.20). That proof was
-#     rootless on the host; running it INSIDE this image is what smoke-test.sh
-#     exercises.
-#   STILL CONFIRM for gp13: the real base image (set BASE_IMAGE) and whether
-#     $HOME is a persistent volume (the hook seeds config to survive that case).
 
 ARG BASE_IMAGE=quay.io/jupyter/minimal-notebook:latest
 FROM ${BASE_IMAGE}
@@ -63,12 +51,8 @@ RUN chmod +x /usr/local/bin/before-notebook.d/10-astro-archives-mcp.sh
 # so we stage it under /opt and let the startup hook place it every spawn.
 COPY mcp_settings.json /opt/astro-archives/mcp_settings.json
 
-# --- Rebrand the Claude Code ACP persona as `@CosmicCoder` (CosmicAI) ---
-# Same override as deploy/frontend/frontend.Dockerfile: jupyter-ai 3.0.1 has no
-# persona allow/disable knob and derives the `@`-handle from the persona's display
-# name, so we patch `ClaudeAcpPersona.defaults` (name/description/avatar) in the
-# pinned installed package. Engine/model/MCP behavior is unchanged. The grep guards
-# fail the build if a version bump moves the patched lines.
+# --- Rebrand the ACP persona as `@CosmicCoder` ---
+# Same patch as deploy/frontend/frontend.Dockerfile; see the note there.
 USER ${NB_UID}
 COPY CosmicCoder.png /tmp/CosmicCoder.png
 RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname(jupyter_ai_acp_client.__file__))") && \
