@@ -17,6 +17,7 @@ MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab
 | `vo_registry_describe` | RegTAP | Describe a specific registry resource (columns, capabilities) |
 | `vo_cone_search` | SCS | Simple Cone Search for legacy SCS-only archives |
 | `vo_sia_search` | SIA 2.0 | Search for images by position and waveband (returns access URLs to fetch client-side) |
+| `vo_find_observations` | SIA 2.0 / SCS | One-call facade: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `vo_target_resolve` + `vo_archive_list` + `vo_sia_search`/`vo_cone_search` so the model doesn't have to |
 
 The recommended LLM workflow for a positional query:
 1. `vo_target_resolve` — get RA/Dec for a named object
@@ -29,7 +30,7 @@ The recommended LLM workflow for a positional query:
 
 ```bash
 uv sync
-uv run pytest --record-mode=none        # 285 tests, offline replay
+uv run pytest --record-mode=none        # 524 tests, offline replay
 uv run python -m astro_archives_mcp     # server on http://localhost:8000
 ```
 
@@ -69,6 +70,10 @@ All settings are optional — defaults work for local dev. Set via environment v
 | `STABLE_LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 | `STABLE_TAP_SYNC_TIMEOUT_SECONDS` | `20.0` | Timeout for sync TAP queries |
 | `STABLE_JOB_TTL_SECONDS` | `3600` | Async job result retention |
+| `STABLE_ARCHIVES` | *(unset)* | Comma-separated archive short_names to activate. Unset/empty ⇒ all archives physically present in `archives/` |
+| `STABLE_INLINE_ROW_LIMIT` | `200` | Max rows in an inline result before it's routed to an async job (TAP) or truncated (cone/SIA) |
+| `STABLE_INLINE_BYTE_LIMIT` | `49152` | Max bytes in an inline result before the same promotion/truncation applies (48 KiB) |
+| `STABLE_REGISTRY_DESCRIBE_BYTE_LIMIT` | `49152` | Above this, `vo_registry_describe` degrades from per-column detail to a table catalog (names + descriptions + column counts) |
 
 See `.env.example` for a template.
 
