@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke-test the gp13 single-user image IN A CONTAINER. This validates what
+# Smoke-test the gp12 single-user image IN A CONTAINER. This validates what
 # host-only testing on dlai01 could not: node + claude + the ACP adapter + the
 # colocated MCP server all working together inside the image.
 #

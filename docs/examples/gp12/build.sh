@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Build the gp13 single-user image, using THIS directory as the build context
+# Build the gp12 single-user image, using THIS directory as the build context
 # (the repo-root .dockerignore hides docs/, so a root context can't see the hook
 # or config). Run from anywhere.
 #
 #   ./build.sh
-#   BASE_IMAGE=<adl-notebook-base> ./build.sh   # gp13's real base, once known
+#   BASE_IMAGE=<adl-notebook-base> ./build.sh   # gp12's real base, once known
 #
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

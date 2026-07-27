@@ -18,9 +18,9 @@ Two hosts, split backend/frontend:
 
 - **dlai01** — the **backend / model host**: 4× RTX PRO 6000 Blackwell, runs vLLM
   serving the LLM. Where the GPUs and docker access live.
-- **gp13** — the production **frontend**: a shared JupyterHub running Jupyter AI + the
+- **gp12** — the production **frontend**: a shared JupyterHub running Jupyter AI + the
   Claude Code persona per user. (Not yet accessible; the MCP server + a JupyterHub are
-  being stood up locally first as a gp13 stand-in.)
+  being stood up locally first as a gp12 stand-in.)
 
 The chain, and the two independent connections the persona makes:
 
@@ -344,7 +344,7 @@ overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
   block instead of leaking it into the reply. Deploy on dlai01 (`docker compose up -d`); confirmed
   the preamble is gone and tool calls still fire in the frontend chat. See Gotcha 5 for the root cause.
 - **Concurrency load test** at agentic context lengths (KV cache is the limiter;
-  prefix-caching the ~24.5K static tool-schema prefix is the big lever) to size gp13.
+  prefix-caching the ~24.5K static tool-schema prefix is the big lever) to size gp12.
 
 ## Quick reproduce (all-in-one)
 

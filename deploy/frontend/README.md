@@ -7,7 +7,7 @@ The **frontend** half of the system: the astro-archives **MCP tool server** plus
 
 ```
 [ this stack: MCP + persona + Jupyter ]  ──(model, ANTHROPIC_BASE_URL)──►  dlai01 vLLM
-        run locally now, lifts to gp13                                     (443, once open)
+        run locally now, lifts to gp12                                     (443, once open)
 ```
 
 ## Modes
@@ -15,7 +15,7 @@ The **frontend** half of the system: the astro-archives **MCP tool server** plus
 | Mode | What runs | URL | Use when |
 |------|-----------|-----|----------|
 | **chat** | `mcp` + one JupyterLab (Jupyter AI chat panel) | http://localhost:8888 | You just want to chat with model+persona+tools. No Hub. |
-| **hub**  | `mcp` + JupyterHub (DockerSpawner → one frontend container per user) | http://localhost:8081 | Multi-user; the gp13 mirror. |
+| **hub**  | `mcp` + JupyterHub (DockerSpawner → one frontend container per user) | http://localhost:8081 | Multi-user; the gp12 mirror. |
 
 The `mcp` service runs in both modes; pick exactly one of `chat`/`hub`.
 
@@ -53,18 +53,18 @@ docker compose --profile hub up --build
 
 - **MCP** is a shared service at `http://mcp:8000/mcp/` (see `mcp_settings.json`, baked
   into the frontend image at `~/.jupyter/`). Simple for local dev (Topology B).
-  gp13 may instead **colocate** MCP inside each user image (Topology A,
-  `../../docs/examples/gp13/`) — the persona config is otherwise identical.
+  gp12 may instead **colocate** MCP inside each user image (Topology A,
+  `../../docs/examples/gp12/`) — the persona config is otherwise identical.
 - **Persona** = `claude-agent-acp` wrapping the `claude` CLI; reads the model endpoint
   from the injected `ANTHROPIC_*` env. The image **rebrands it as `@CosmicCoder`**
   (CosmicAI) by patching the pinned persona's display name/avatar in place — behavior is
   unchanged. See "Renaming the persona" in `../../docs/jupyter-ai-integration.md` for why
   it's a patch and not config, and why `jupyter-ai`/`jupyter-ai-acp-client` are pinned.
 
-## Lifting to gp13
+## Lifting to gp12
 
-Same images. On gp13, ADL ops point their JupyterHub's single-user image at this
-frontend image (or the colocated `docs/examples/gp13/` variant) and inject the same
+Same images. On gp12, ADL ops point their JupyterHub's single-user image at this
+frontend image (or the colocated `docs/examples/gp12/` variant) and inject the same
 `ANTHROPIC_*` env for the model + the MCP `mcp_settings.json`. The `chat` mode is a
 faithful stand-in for a single spawned user session.
 

@@ -1,9 +1,9 @@
-# Reference single-user image for gp13: a Jupyter AI notebook server with the
+# Reference single-user image for gp12: a Jupyter AI notebook server with the
 # astro-archives MCP server colocated on loopback (Topology A in
-# ../../deploy/gp13-runbook.md).
+# ../../deploy/gp12-runbook.md).
 #
 # BUILD FROM THIS DIRECTORY as the context — NOT the repo root:
-#     docker build -t astro-archives-singleuser docs/examples/gp13/
+#     docker build -t astro-archives-singleuser docs/examples/gp12/
 # The repo-root .dockerignore excludes docs/ (and deploy/, tests/), so a
 # repo-root context can't see the hook or config. Using this subdir as the
 # context sidesteps that and picks up before-notebook.d/ + mcp_settings.json.
@@ -32,11 +32,11 @@ RUN mamba install -y -c conda-forge nodejs && mamba clean -afy \
     && npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
 
 # --- Persona credentials (injected at spawn time — NEVER baked into the image) ---
-# The persona needs Anthropic auth. The gp13 spawner must inject ONE of:
+# The persona needs Anthropic auth. The gp12 spawner must inject ONE of:
 #   ANTHROPIC_API_KEY=...            # shared org key (simplest multi-user v1)
 #   CLAUDE_CODE_OAUTH_TOKEN=...      # per-user long-lived token (`claude setup-token`)
 # Optionally pin a config dir (e.g. a work account): CLAUDE_CONFIG_DIR=$HOME/.claude-work
-# See "Persona credentials" in ../../deploy/gp13-runbook.md. The image ships no
+# See "Persona credentials" in ../../deploy/gp12-runbook.md. The image ships no
 # secret; this stage exists only to document the contract.
 
 # --- Colocated MCP server: startup hook (loopback, writable cache) ---
@@ -47,7 +47,7 @@ COPY before-notebook.d/10-astro-archives-mcp.sh \
 RUN chmod +x /usr/local/bin/before-notebook.d/10-astro-archives-mcp.sh
 
 # --- MCP config: staged outside $HOME; the hook copies it into ~/.jupyter ---
-# Baking into /home/$NB_USER would be hidden by a mounted $HOME volume on gp13,
+# Baking into /home/$NB_USER would be hidden by a mounted $HOME volume on gp12,
 # so we stage it under /opt and let the startup hook place it every spawn.
 COPY mcp_settings.json /opt/astro-archives/mcp_settings.json
 

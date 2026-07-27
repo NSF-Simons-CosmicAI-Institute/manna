@@ -1,7 +1,7 @@
 # Integrating astro-archives-mcp with Jupyter AI
 
 Status: working notes / local-test recipe. Target deployment: Astro Data Lab notebook
-server **gp13**, surfacing the VO tools to notebook users via Jupyter AI chat.
+server **gp12**, surfacing the VO tools to notebook users via Jupyter AI chat.
 
 ## How the pieces fit
 
@@ -120,7 +120,7 @@ discovery/metadata tools, but cannot materialize a large result — it can only 
 
 ## Renaming the persona (`@claude` → `@CosmicCoder`)
 
-The deploy images (`deploy/frontend/frontend.Dockerfile`, `docs/examples/gp13/Dockerfile`)
+The deploy images (`deploy/frontend/frontend.Dockerfile`, `docs/examples/gp12/Dockerfile`)
 present the agent as **`@CosmicCoder`** rather than the stock `@Claude`. This is a
 CosmicAI rebrand only — the underlying engine (`claude-agent-acp` wrapping the `claude`
 CLI), model backend, and MCP tools are unchanged.
@@ -146,9 +146,9 @@ pinned precisely so this in-place patch stays deterministic; the build includes 
 guards that fail if a version bump moves the patched lines. To bump jupyter-ai, update the
 pins and re-verify the patch still matches.
 
-## gp13 deployment notes (after local works)
+## gp12 deployment notes (after local works)
 
-gp13 is a **shared JupyterHub**: it spawns a per-user single-user notebook server
+gp12 is a **shared JupyterHub**: it spawns a per-user single-user notebook server
 (effectively a VM/container per user when they open a notebook). That changes where the
 MCP server should run, because "localhost" means *inside the user's spawned VM*, not a
 shared host. Two topologies:
@@ -159,13 +159,13 @@ shared host. Two topologies:
 | **B. Shared service** | One MCP server on a host reachable from all user VMs (e.g. `http://astro-mcp.internal:8000/mcp/`). | Single deployment to operate/upgrade. | Needs network reachability from spawned VMs + likely auth once off-loopback (see `deploy/dlai01-vllm-runbook.md` for the nginx/auth setup). |
 
 Because the tools are **anonymous and read-only**, topology A is the path of least
-resistance for a first gp13 rollout — no auth surface, no shared-host networking, and the
+resistance for a first gp12 rollout — no auth surface, no shared-host networking, and the
 config is byte-for-byte the local recipe.
 
 - **Config delivery.** Whichever topology, `mcp_settings.json` must land where each user's
   JupyterLab reads Jupyter config. Bake it into the single-user image (system Jupyter
   config dir) so every spawned VM has it without per-user setup. Confirm the exact path
-  against the gp13 image's `jupyter --paths`.
+  against the gp12 image's `jupyter --paths`.
 - **Agent (Claude Code) at scale.** The persona is Claude Code via its ACP adapter; every
   user's persona needs its own model auth. Options: a shared org Anthropic key provisioned
   into the image/env, or each user logging in. This is the main provisioning decision and
