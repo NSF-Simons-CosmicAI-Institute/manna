@@ -74,7 +74,8 @@ faithful stand-in for a single spawned user session.
   `mcp` service healthy; the lab container reaches `http://mcp:8000` cross-container AND
   the `datalab.noirlab.edu` proxy (HTTP 200 with Basic auth); and an **in-container
   persona call resolved M51 via the MCP tool through vLLM** (persona → datalab proxy →
-  gpt-oss-120b vLLM → `mcp:8000` → `vo_target_resolve` → RA 202.4696°, Dec +47.195°).
+  the then-production local model (Qwen3.5-era; current model: gpt-oss-120b, re-validated
+  2026-07-28) vLLM → `mcp:8000` → `vo_target_resolve` → RA 202.4696°, Dec +47.195°).
   Previously (2026-07-01) validated against hosted Claude.
 - **Gotcha — Basic auth vs. `ANTHROPIC_AUTH_TOKEN`.** The proxy uses HTTP Basic auth
   carried in `ANTHROPIC_CUSTOM_HEADERS`. Setting `ANTHROPIC_AUTH_TOKEN` too makes Claude
@@ -92,7 +93,8 @@ faithful stand-in for a single spawned user session.
 - **`<think>` leak — FIXED (2026-07-23).** The served model's replies used to begin with a
   reasoning preamble ending in `</think>`. Root cause: Claude Code sends `output_config.effort=high`,
   which makes vLLM reason; without a reasoning parser that reasoning leaked into the reply.
-  Fixed at the model server with **`--reasoning-parser=openai_gptoss`** so the reasoning goes to a
+  Fixed at the model server with a model-matched `--reasoning-parser` serve flag; currently
+  `openai_gptoss` for gpt-oss-120b — so the reasoning goes to a
   separate block, not the visible text — tool calls still fire and workflow quality is unchanged
   (runbook Gotcha 5 / `dlai01-vllm/docker-compose.yml`). Requires the dlai01 vLLM to be
   redeployed with that flag.

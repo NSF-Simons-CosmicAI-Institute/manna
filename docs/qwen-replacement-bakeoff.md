@@ -37,7 +37,7 @@ reboot and GPU containers break again. Diagnosis independently verified (adversa
 review, 2026-07-28): direct cause CONFIRMED; exact removal event unproven.
 Would have killed the production service on its next restart regardless — surfaced
 during the planned takedown with GPUs idle. Weight pre-pulls (GPU-free) proceeding
-meanwhile. See runbook Gotcha 7.
+meanwhile. See runbook Gotcha 6.
 
 **RESOLVED (2026-07-28):** IT patched + rebooted (kernel, docker-ce 29.6.2,
 containerd.io 1.x→2.2.6) with the CDI regeneration. The containerd major upgrade then
@@ -92,7 +92,7 @@ vLLM image re-pulled by pinned digest. Weight caches on /mlhome unaffected throu
 | 3 tool call | PASS | Persona resolved M51 = RA 202.469575 / Dec +47.19525833 via vo_target_resolve on the local MCP (manna v0.5.0); clean reply text |
 | 4 reasoning | PASS | effort=high -> ['thinking','text'], text block clean (17*23=391), no leak |
 | 5 evals | 0.643 | Tiers 1+2 on-box loopback, self-judge. tier1 0.857 (6/7; t1-schema failed on vo_schema_describe arg flailing), tier2 0.429 (3/7; 1 async upstream latency, 2 hit 20-step cap). 2.0 tool-calls/task, 32.1 s/task, 10323 output tokens. results/run-20260728T112653.json |
-| 6 concurrency | | |
+| 6 concurrency | PASS | 8x200 at ~7.6 s each, CLEAN (3 GPUs, PP=3) |
 
 Eval-run note (applies to all candidates): proxy 502 since the dlai01 reboot
 (nginx-side, Chadd/Randy) forced evals onto dlai01 loopback — better anyway
@@ -135,7 +135,7 @@ the full dated form (`claude-haiku-4-5-20251001`).
 ## Decision
 
 Selection rule: scorecard first; decode latency + concurrency headroom second
-(gp13 multi-user rollout); license permissiveness as tiebreaker.
+(gp12 multi-user rollout); license permissiveness as tiebreaker.
 
 - **Winner:** `openai/gpt-oss-120b` (spec label `gpt-oss-120b`)
 - **Rationale:** wins all three selection criteria against both candidates AND the
