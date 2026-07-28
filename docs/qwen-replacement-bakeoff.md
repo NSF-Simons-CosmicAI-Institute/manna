@@ -102,12 +102,12 @@ Eval-run note (applies to all candidates): proxy 502 since the dlai01 reboot
 
 | Gate | Result | Notes |
 |---|---|---|
-| 1 boot | | |
-| 2 messages | | |
-| 3 tool call | | |
-| 4 reasoning | | |
+| 1 boot | PASS | TP=1 single GPU, 66 GiB weights (Marlin MXFP4), 31 s warmup. KV 16.7 GiB = 431K tokens = 3.29x full-window concurrency (TP=2 is the lever if it wins). vLLM force-enables tool use for gpt-oss; benign reasoning-token-ID warning from openai_gptoss parser, containment verified at gate 4 |
+| 2 messages | PASS | Clean Anthropic envelope on loopback :8002 |
+| 3 tool call | PASS | Persona resolved M51 = RA 202.469575 / Dec +47.19525833; CallToolRequest count = 1 |
+| 4 reasoning | PASS | effort=high -> ['thinking','text'], clean text (391), no leak |
 | 5 evals | | scorecard: |
-| 6 concurrency | | |
+| 6 concurrency | PASS | 8x200 at ~5.71 s each, CLEAN, on ONE GPU concurrent with the eval run (vs nemotron 7.6 s on 3 GPUs) |
 
 ### Candidate: gemma4-31b
 
