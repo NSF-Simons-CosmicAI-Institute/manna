@@ -68,7 +68,7 @@ cp evals/.env.example evals/.env    # then edit evals/.env
 | `EVAL_MAX_STEPS` / `EVAL_ASYNC_POLL_SLEEP` | optional run knobs |
 
 The judge config is **independent** of the model-under-test (it does *not* inherit the
-proxy `ANTHROPIC_*`/`EVAL_MODEL_*` vars), so a **hosted Claude Haiku** judge (`EVAL_JUDGE_NAME=claude-haiku-4-5`
+proxy `ANTHROPIC_*`/`EVAL_MODEL_*` vars), so a **hosted Claude Haiku** judge (`EVAL_JUDGE_NAME=claude-haiku-4-5-20251001`
 + a real `EVAL_JUDGE_API_KEY`) stays cleanly separated from a local-proxy model. The
 **free self-hosted judge** (the served model judges itself — fine for smoke runs, never
 for real numbers) (~75–85% JSON-parseable) is the zero-cost fallback. Never let the model
