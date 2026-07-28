@@ -1,3 +1,5 @@
+**2026-07-28: Qwen decommissioned by policy; current model: `openai/gpt-oss-120b` — see docs/qwen-replacement-bakeoff.md.** Qwen-era sections below are kept as historical validation record.
+
 # dlai01 Model-Hosting — Validation Record & Runbook
 
 **What this documents:** hosting an open-weight LLM (Qwen3.5) on the dlai01 GPU box

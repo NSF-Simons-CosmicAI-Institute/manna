@@ -18,5 +18,5 @@ baseline persona with the tool-correctness guardrail fully held. The role framin
 is transcript-motivated (the baseline persona answered as a generic coder, e.g.
 "Vercel/CI-CD") and should get a confirming before/after run.
 The `<think>`-leak ("talks strangely") is NOT fixed here — it is only killed server-side
-via the vLLM `--reasoning-parser=qwen3` serve flag; see deploy/dlai01-vllm-runbook.md Gotcha 5.
+via the vLLM `--reasoning-parser=openai_gptoss` serve flag; see deploy/dlai01-vllm-runbook.md Gotcha 5.
 -->

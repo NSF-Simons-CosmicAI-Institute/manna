@@ -4,7 +4,7 @@
 #
 #   cd deploy/dlai01-vllm
 #   docker compose --env-file candidates/<name>.env up -d   # start, or restart after a reboot / config change
-#   docker compose logs -f        # watch startup; ~130s to "Application startup complete" (qwen3.5-era figure; varies per candidate)
+#   docker compose logs -f        # watch startup; ~130s to "Application startup complete" (qwen3.5-era figure; varies per model)
 
 services:
   vllm:
@@ -37,7 +37,7 @@ services:
       - --reasoning-parser=${VLLM_REASONING_PARSER:?candidate env file must set this}
       - --max-model-len=${VLLM_MAX_MODEL_LEN:?candidate env file must set this}
       # Only Nemotron 3 needs custom modeling code from its HF repo; every other
-      # candidate (and the qwen rollback file) explicitly disables remote code so
+      # candidate (and any rollback file) explicitly disables remote code so
       # their rendered config matches a vanilla serve. vLLM's boolean flags accept
       # the --no- form; this is re-verified against the live image during dlai01
       # prep (serve --help grep) before any candidate boots.

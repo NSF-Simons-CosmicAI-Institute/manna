@@ -1,6 +1,6 @@
 # evals/ — agentic evaluation harness
 
-Measures how well a real LLM (the dlai01 vLLM **Qwen3.5** by default) uses this
+Measures how well a real LLM (the dlai01 vLLM **gpt-oss-120b** by default) uses this
 server's MCP tools to answer astronomer tasks — and whether the server's curated
 context actually earns its keep.
 
@@ -62,15 +62,16 @@ cp evals/.env.example evals/.env    # then edit evals/.env
 
 | Var | Purpose |
 |-----|---------|
-| `EVAL_MODEL_NAME` / `_BASE_URL` / `_API_KEY` / `_CUSTOM_HEADERS` | the **model under test** (dlai01 Qwen3.5 via the datalab proxy) |
+| `EVAL_MODEL_NAME` / `_BASE_URL` / `_API_KEY` / `_CUSTOM_HEADERS` | the **model under test** (dlai01 gpt-oss-120b via the datalab proxy) |
 | `EVAL_MODEL_BACKEND` (+ `EVAL_JUDGE_BACKEND`) | wire shape: `anthropic` (default) or `openai` |
 | `EVAL_JUDGE_NAME` / `_API_KEY` (+ `_BASE_URL` / `_CUSTOM_HEADERS`) | the rubric **judge** |
 | `EVAL_MAX_STEPS` / `EVAL_ASYNC_POLL_SLEEP` | optional run knobs |
 
 The judge config is **independent** of the model-under-test (it does *not* inherit the
 proxy `ANTHROPIC_*`/`EVAL_MODEL_*` vars), so a **hosted Claude Haiku** judge (`EVAL_JUDGE_NAME=claude-haiku-4-5`
-+ a real `EVAL_JUDGE_API_KEY`) stays cleanly separated from a local-proxy model. The free
-**Qwen judge** (~75–85% JSON-parseable) is the zero-cost fallback. Never let the model
++ a real `EVAL_JUDGE_API_KEY`) stays cleanly separated from a local-proxy model. The
+**free self-hosted judge** (the served model judges itself — fine for smoke runs, never
+for real numbers) (~75–85% JSON-parseable) is the zero-cost fallback. Never let the model
 grade itself for real numbers; if no judge is set, rubric tasks report as *unscored*
 (never silently passed). (`EVAL_MODEL_*` also still falls back to the persona's bare
 `ANTHROPIC_*` vars if you prefer to reuse `deploy/frontend/.env`.)
@@ -88,6 +89,27 @@ uv run python -m evals.run                    # full suite
 Tier-3 tasks (and `--condition both`) run twice — full vs. ablated — and the report
 prints the **trap-avoidance delta**, the headline "is this server worth it" number.
 Keep `--concurrency` low (default 3) against a single-GPU-hosted model.
+
+## Clean-state run recipe (dlai01)
+
+Stale persona env exports (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`,
+`ANTHROPIC_DEFAULT_*_MODEL`) left over from a Claude Code persona session hijack the judge
+SDK client — the judge silently starts talking to the local proxy instead of the real
+Anthropic API. Before a real run, start from a fresh shell or explicitly unset them:
+
+```bash
+unset ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY ANTHROPIC_DEFAULT_OPUS_MODEL \
+      ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL
+```
+
+Then set up `evals/.env` with `EVAL_MODEL_*` pointed at the local vLLM and a real judge
+(judge ids need the full dated form, e.g. `EVAL_JUDGE_NAME=claude-haiku-4-5-20251001`).
+Run in the background and tail progress:
+
+```bash
+nohup uv run --group eval python -m evals.run --tier 1 --tier 2 > eval.log 2>&1 &
+grep -cE '\[(PASS|FAIL)\]' eval.log   # poll progress
+```
 
 ## Adding a task
 
@@ -125,7 +147,7 @@ today; a registry, so add a driver in one entry) end-to-end and scores its trans
 
 ```bash
 uv run python -m evals.persona_run --limit 3               # Claude Code persona, 3 tasks
-uv run python -m evals.persona_run --same-model --limit 3  # persona at the same Qwen (free)
+uv run python -m evals.persona_run --same-model --limit 3  # persona at the same dlai01 model (free)
 uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/persona-*.json
 ```
 

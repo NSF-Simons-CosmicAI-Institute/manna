@@ -4,7 +4,7 @@ Examples:
     # validate the task suite without calling any model
     uv run python -m evals.run --dry-run
 
-    # run tiers 1-2 against the dlai01 Qwen3.5 (reads ANTHROPIC_* / EVAL_MODEL_* env)
+    # run tiers 1-2 against the dlai01 gpt-oss-120b (reads ANTHROPIC_* / EVAL_MODEL_* env)
     uv run python -m evals.run --tier 1 --tier 2
 
     # run the tier-3 ablation (each trap task runs with AND without curated context)

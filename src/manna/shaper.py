@@ -178,7 +178,7 @@ def shape_result_url(
 
     next_steps is written for the weakest reader: imperative, names the
     model's own code-execution tool, and forbids re-running the query.
-    Small models (observed: Qwen behind the Jupyter AI persona) treat
+    Small models (observed: small local models behind the Jupyter AI persona) treat
     descriptive phrasing like "fetch client-side" as someone else's job
     and abandon the completed result.
     """

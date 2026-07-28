@@ -30,7 +30,7 @@ _MCP_PREFIX = f"mcp__{_MCP_SERVER_NAME}__"
 class PersonaConfig:
     label: str = "claude-code"
     model: str | None = None  # --model override (else the persona's default)
-    env: dict[str, str] = field(default_factory=dict)  # extra env (e.g. point at Qwen)
+    env: dict[str, str] = field(default_factory=dict)  # extra env (e.g. point at the dlai01 model)
     cwd: str | None = None  # neutral working dir so it doesn't inherit a repo's CLAUDE.md
 
 

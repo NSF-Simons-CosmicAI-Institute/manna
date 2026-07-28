@@ -1,7 +1,7 @@
 """Agent loop: drive a real LLM through the MCP tools and record the trace.
 
 Model calls go to the configured Anthropic-Messages endpoint (the dlai01 vLLM
-Qwen3.5 by default — the same endpoint the Jupyter AI persona uses). Tool calls
+gpt-oss-120b by default — the same endpoint the Jupyter AI persona uses). Tool calls
 execute against an in-memory ``Client(build_mcp())`` with **live network** to the
 real archives (the eval measures real correctness, so no cassettes here).
 
