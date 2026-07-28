@@ -137,6 +137,14 @@ the full dated form (`claude-haiku-4-5-20251001`).
 Selection rule: scorecard first; decode latency + concurrency headroom second
 (gp13 multi-user rollout); license permissiveness as tiebreaker.
 
-- **Winner:** <fill>
-- **Rationale:** <fill>
-- Dan sign-off date: <fill>
+- **Winner:** `openai/gpt-oss-120b` (spec label `gpt-oss-120b`)
+- **Rationale:** wins all three selection criteria against both candidates AND the
+  outgoing Qwen3.5: best scorecard (tiers 1+2: 0.714 vs 0.643/0.571; Haiku-judged
+  rubric subset: 0.750 vs 0.500/0.500/0.500-qwen), best decode latency under load
+  (5.7 s 8-way vs 7.6/16.4), Apache 2.0. Runs on ONE GPU (frees two Blackwells;
+  TP=2 available for more KV headroom on gp12). The swap is an upgrade over Qwen,
+  not a compliance tax.
+- Dan sign-off date: 2026-07-28
+- Raw artifacts: docs/bakeoff-results/ (candidate run JSONs from dlai01, the Qwen
+  2026-07-20 baseline JSON, and the Haiku re-judge verdict capture — rejudge.py
+  prints only, so verdicts are transcribed)
