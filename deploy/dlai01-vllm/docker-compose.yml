@@ -8,7 +8,10 @@
 
 services:
   vllm:
-    image: vllm/vllm-openai:latest
+    # Pinned to the digest validated in the 2026-07 bake-off (vLLM 0.26.0) — a floating
+    # :latest bit us before (parser/CLI churn). Update deliberately: pull, re-run the
+    # bake-off gates in docs/qwen-replacement-bakeoff.md, then re-pin.
+    image: vllm/vllm-openai@sha256:ffb2d59b1c059a5bd8d781320c9f5189de8293693b7d95da54befddaa54abf52
     container_name: vllm
     restart: unless-stopped
     ipc: host
@@ -18,6 +21,9 @@ services:
       - /mlhome/dgause/hf:/root/.cache/huggingface
     # All model-specific serving parameters come from an env file:
     #   docker compose --env-file candidates/<name>.env up -d
+    # PRODUCTION DEFAULT: copy the winner's file to .env (compose auto-reads it), so a
+    # bare `docker compose up -d` — including restart-after-reboot — boots the winner:
+    #   cp candidates/gpt-oss-120b.env .env    # 2026-07 bake-off winner
     # The :?err vars make a bare `docker compose up` fail loudly instead of
     # silently booting the wrong model.
     command:
