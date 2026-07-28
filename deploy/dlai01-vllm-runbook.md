@@ -104,7 +104,7 @@ MoE decode is fast and concurrency-friendly. Tool-call parser: `qwen3_coder`. Ru
 
 Launch (weights cache to `/mlhome`; ~122 GB pull first time, then loads from cache).
 **For day-to-day operation prefer the durable compose service** (`dlai01-vllm/docker-compose.yml`,
-`restart: unless-stopped` — survives reboots): `cd deploy/dlai01-vllm && docker compose up -d`.
+`restart: unless-stopped` — survives reboots): `cd deploy/dlai01-vllm && docker compose --env-file candidates/qwen3.5.env up -d`.
 The raw `docker run` below is the equivalent one-shot for reference / first bring-up:
 
 ```bash
@@ -275,7 +275,7 @@ project, so compose won't adopt it — you must remove it first):**
 # snapshot the old args for rollback, then swap
 docker inspect vllm --format '{{json .Args}}'      # record the TP=4 command
 docker rm -f vllm                                  # brief downtime starts here
-cd deploy/dlai01-vllm && docker compose up -d && docker compose logs -f
+cd deploy/dlai01-vllm && docker compose --env-file candidates/qwen3.5.env up -d && docker compose logs -f
 # ✅ look for "Application startup complete" + Worker_PP0/PP1/PP2 (world_size=3)
 # confirm: nvidia-smi shows the pinned-out GPU at 0 MiB / 0%
 ```
@@ -333,8 +333,12 @@ pyvo `fetch_recipe` (the client fetches the bytes itself), at much lower inline 
 **Done (2026-07-07) — persistence.** vLLM is now a durable compose service
 (`dlai01-vllm/docker-compose.yml`, `restart: unless-stopped`) instead of a bare
 `docker run`, so it comes back after dlai01's periodic reboots:
-`cd deploy/dlai01-vllm && docker compose up -d`. Model / context-length / api-key are
-overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
+`cd deploy/dlai01-vllm && docker compose --env-file candidates/qwen3.5.env up -d`.
+**Changed 2026-07** as part of the Qwen-replacement bake-off scaffolding (see
+`docs/qwen-replacement-bakeoff.md`): all model-specific serving parameters (model,
+tool/reasoning parsers, parallelism, context window) now come from a required
+`candidates/<name>.env` file — a bare `docker compose up` fails loudly by design
+instead of silently booting the wrong model.
 
 **Next (not yet started):**
 - **Harden the exposed endpoint.** vLLM binds `0.0.0.0:8002` **keyless** — anything
@@ -345,7 +349,7 @@ overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
 - **`hub` mode against vLLM** — re-validate JupyterHub + DockerSpawner with the same `.env`.
 - ~~**Thinking-off** cleanup (Gotcha 5) for clean chat UX.~~ **DONE (2026-07-23):**
   `--reasoning-parser=qwen3` in the compose routes the effort-triggered reasoning into a separate
-  block instead of leaking it into the reply. Deploy on dlai01 (`docker compose up -d`); confirmed
+  block instead of leaking it into the reply. Deploy on dlai01 (`docker compose --env-file candidates/qwen3.5.env up -d`); confirmed
   the preamble is gone and tool calls still fire in the frontend chat. See Gotcha 5 for the root cause.
 - **Concurrency load test** at agentic context lengths (KV cache is the limiter;
   prefix-caching the ~24.5K static tool-schema prefix is the big lever) to size gp12.
