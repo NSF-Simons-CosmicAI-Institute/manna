@@ -151,7 +151,12 @@ Selection rule: scorecard first; decode latency + concurrency headroom second
   smoke green. Proxy 502 turned out TRANSIENT (nginx upstream
   marked down during the serve gaps; re-verified 200 end-to-end once gpt-oss was the
   standing service — no nginx-side fix needed). Frontend `.env` re-point + e2e chat
-  test now unblocked. Qwen weights stay cached until that
+  test now unblocked.
+- **E2E VALIDATED (2026-07-28):** frontend hub recreated with gpt-oss env (compose
+  `--profile hub`; stale spawned user container removed — spawner env bakes at spawn),
+  chat clean, persona self-reports gpt-oss, and M51 resolved via a real
+  `mcp__manna__vo_target_resolve` call through the full chain (jhub → datalab proxy →
+  vLLM → MCP). Long-session auto-compaction plumbing unchanged (window still 131072). Qwen weights stay cached until that
   end-to-end check passes; purge follows.
 - Raw artifacts: docs/bakeoff-results/ (candidate run JSONs from dlai01, the Qwen
   2026-07-20 baseline JSON, and the Haiku re-judge verdict capture — rejudge.py
