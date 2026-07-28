@@ -158,6 +158,11 @@ Selection rule: scorecard first; decode latency + concurrency headroom second
   `mcp__manna__vo_target_resolve` call through the full chain (jhub → datalab proxy →
   vLLM → MCP). Long-session auto-compaction plumbing unchanged (window still 131072). Qwen weights stay cached until that
   end-to-end check passes; purge follows.
+- **PURGE COMPLETE (2026-07-28):** Qwen3.5-122B + Qwen2.5-7B caches deleted from
+  /mlhome (via a root container — blobs were container-written, hence root-owned;
+  `rm` needed `docker run -v .../hf:/hf alpine rm -rf`). QWEN-GONE verified, /mlhome
+  at 505G used. Repo swept in the same series: rollback env file removed, all live
+  references now gpt-oss-120b, runbook history preserved under a dated banner.
 - Raw artifacts: docs/bakeoff-results/ (candidate run JSONs from dlai01, the Qwen
   2026-07-20 baseline JSON, and the Haiku re-judge verdict capture — rejudge.py
   prints only, so verdicts are transcribed)
