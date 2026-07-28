@@ -249,7 +249,20 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
    `reasoning_parser='qwen3'`), then chat via the frontend — reply is clean and a tool query
    (e.g. "resolve M51") still returns coords. If an older cached image rejects a flag,
    `docker compose pull` first.
-6. **FP8 KV cache left OFF for now.** `--kv-cache-dtype fp8` roughly halves KV memory
+6. **Stale CDI spec breaks ALL new GPU containers after driver-library changes
+   (bit us 2026-07-28).** Symptom: any `docker run --gpus all` (even `alpine true`)
+   dies at create with `failed to fulfil mount request: open /usr/lib64/libnvidia-…:
+   no such file or directory`, while host `nvidia-smi` is fine and long-RUNNING
+   containers keep working (mounts bind at creation). Cause: `/var/run/cdi/nvidia.yaml`
+   is a static snapshot of driver library paths (ours was generated once, at the
+   Jun 29 toolkit install — NOT per boot) and a later patch removed a listed library
+   (egl-wayland → egl-wayland2). Diagnose: `grep <missing-lib> /var/run/cdi/nvidia.yaml`
+   + `ldconfig -p | grep <lib>`. Fix is root-only: `nvidia-ctk cdi generate
+   --output=/var/run/cdi/nvidia.yaml` (IT). After ANY driver maintenance on this box,
+   test container creation (`docker run --rm --gpus all alpine true`) before trusting
+   `restart: unless-stopped` to survive the next reboot.
+
+7. **FP8 KV cache left OFF for now.** `--kv-cache-dtype fp8` roughly halves KV memory
    (a big concurrency lever) but is unvalidated on sm_120 here, and reportedly produced
    garbled output for another model on this GPU — validate before enabling.
 
