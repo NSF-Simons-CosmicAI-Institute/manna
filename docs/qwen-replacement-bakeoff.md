@@ -87,12 +87,16 @@ vLLM image re-pulled by pinned digest. Weight caches on /mlhome unaffected throu
 
 | Gate | Result | Notes |
 |---|---|---|
-| 1 boot | | parallelism ladder attempts: |
-| 2 messages | | |
-| 3 tool call | | |
-| 4 reasoning | | |
-| 5 evals | | scorecard: |
+| 1 boot | PASS | Ladder: TP=3 refused (32 heads % 3 != 0, same as Qwen) -> PP=3/TP=1 booted clean; vLLM 0.26 auto-split the 88 hybrid layers unevenly. ~45 GiB KV/GPU (fp8 KV auto-enabled by model config), warmup 118 s |
+| 2 messages | PASS | Proper Anthropic envelope on loopback :8002; reasoning already routed to a `thinking` block |
+| 3 tool call | PASS | Persona resolved M51 = RA 202.469575 / Dec +47.19525833 via vo_target_resolve on the local MCP (manna v0.5.0); clean reply text |
+| 4 reasoning | PASS | effort=high -> ['thinking','text'], text block clean (17*23=391), no leak |
+| 5 evals | 0.643 | Tiers 1+2 on-box loopback, self-judge. tier1 0.857 (6/7; t1-schema failed on vo_schema_describe arg flailing), tier2 0.429 (3/7; 1 async upstream latency, 2 hit 20-step cap). 2.0 tool-calls/task, 32.1 s/task, 10323 output tokens. results/run-20260728T112653.json |
 | 6 concurrency | | |
+
+Eval-run note (applies to all candidates): proxy 502 since the dlai01 reboot
+(nginx-side, Chadd/Randy) forced evals onto dlai01 loopback — better anyway
+(no proxy noise); all candidates measured identically this way.
 
 ### Candidate: gpt-oss-120b
 
