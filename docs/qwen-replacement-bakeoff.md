@@ -148,8 +148,10 @@ Selection rule: scorecard first; decode latency + concurrency headroom second
 - **Cutover (2026-07-28):** gpt-oss-120b is the standing service on dlai01 — booted
   via the production path (`cp candidates/gpt-oss-120b.env .env` + bare
   `docker compose up -d`, image pinned to the validated digest), `/v1/messages`
-  smoke green. Frontend `.env` re-point + end-to-end proxy chat test PENDING the
-  datalab-proxy 502 fix (Chadd/Randy). Qwen weights stay cached until that
+  smoke green. Proxy 502 turned out TRANSIENT (nginx upstream
+  marked down during the serve gaps; re-verified 200 end-to-end once gpt-oss was the
+  standing service — no nginx-side fix needed). Frontend `.env` re-point + e2e chat
+  test now unblocked. Qwen weights stay cached until that
   end-to-end check passes; purge follows.
 - Raw artifacts: docs/bakeoff-results/ (candidate run JSONs from dlai01, the Qwen
   2026-07-20 baseline JSON, and the Haiku re-judge verdict capture — rejudge.py
