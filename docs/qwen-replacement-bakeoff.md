@@ -39,6 +39,17 @@ Would have killed the production service on its next restart regardless — surf
 during the planned takedown with GPUs idle. Weight pre-pulls (GPU-free) proceeding
 meanwhile. See runbook Gotcha 7.
 
+**RESOLVED (2026-07-28):** IT patched + rebooted (kernel, docker-ce 29.6.2,
+containerd.io 1.x→2.2.6) with the CDI regeneration. The containerd major upgrade then
+orphaned the old image store (known containerd#11719 class): every create failed with
+`rename .../snapshots/NN: file exists`, image DB knew nothing of ~40G on the volume.
+No root needed for recovery: each failed attempt deletes exactly the one colliding
+leftover dir (verified mechanism, adversarial review), so retry loops chewed through
+~30 leftovers until `docker run --rm --gpus all alpine:3.21 true` printed GPU-OK —
+which also confirmed the CDI fix. Residue: ~40G orphaned blobs on the containerd
+volume, invisible to prune; flagged for cleanup in a future maintenance window.
+vLLM image re-pulled by pinned digest. Weight caches on /mlhome unaffected throughout.
+
 ## Gates (ordered; each blocks the next)
 
 1. **Boot clean** — startup config line shows both parsers; healthcheck green.
