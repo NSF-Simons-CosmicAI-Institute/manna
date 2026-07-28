@@ -41,8 +41,11 @@ vLLM image: <fill: `docker inspect vllm --format '{{.Image}}'` + tag/digest>
 
 ### Qwen takedown
 
-- Date/time: <fill>
-- Final `docker compose down` output: <fill>
+- Date/time: 2026-07-28 (via Keeper session; after PR #75 merge)
+- Final `docker compose down` output: `docker compose --env-file candidates/qwen3.5.env down`
+  → `Container vllm Removed` + `Network dlai01-vllm_default Removed`; `docker ps` empty;
+  `nvidia-smi` 0 MiB on all four GPUs. (Bare `compose down` correctly refused on the
+  `:?` guard — the rollback env file is the documented path.)
 
 ### Candidate: nemotron3-super
 
