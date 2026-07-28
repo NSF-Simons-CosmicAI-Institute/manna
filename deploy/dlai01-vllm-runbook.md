@@ -255,10 +255,16 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
    no such file or directory`, while host `nvidia-smi` is fine and long-RUNNING
    containers keep working (mounts bind at creation). Cause: `/var/run/cdi/nvidia.yaml`
    is a static snapshot of driver library paths (ours was generated once, at the
-   Jun 29 toolkit install — NOT per boot) and a later patch removed a listed library
-   (egl-wayland → egl-wayland2). Diagnose: `grep <missing-lib> /var/run/cdi/nvidia.yaml`
-   + `ldconfig -p | grep <lib>`. Fix is root-only: `nvidia-ctk cdi generate
-   --output=/var/run/cdi/nvidia.yaml` (IT). After ANY driver maintenance on this box,
+   Jun 29 toolkit install) and a listed library was later removed root-side
+   (egl-wayland → egl-wayland2). /var/run is tmpfs: the toolkit's
+   `nvidia-cdi-refresh.service`/`.path` units are supposed to regenerate the spec at
+   boot and on driver changes — on this box they evidently didn't fire, so have IT
+   verify they're ENABLED (`systemctl status nvidia-cdi-refresh.path
+   nvidia-cdi-refresh.service`); if they're disabled, the spec disappears entirely at
+   the next reboot ("unresolvable CDI device"). Diagnose: `grep <missing-lib> /var/run/cdi/nvidia.yaml`
+   + `ldconfig -p | grep <lib>`. Fix is root-only (IT): `systemctl restart nvidia-cdi-refresh.service` (preferred —
+   exercises the packaged unit) or `nvidia-ctk cdi generate
+   --output=/var/run/cdi/nvidia.yaml`, plus enabling the refresh units. After ANY driver maintenance on this box,
    test container creation (`docker run --rm --gpus all alpine true`) before trusting
    `restart: unless-stopped` to survive the next reboot.
 

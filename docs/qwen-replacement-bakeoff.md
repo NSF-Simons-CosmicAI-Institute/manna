@@ -25,10 +25,16 @@ candidate's gate 1 boot.
 **BLOCKER (2026-07-28, IT ticket filed):** all new GPU containers on dlai01 fail —
 stale CDI spec `/var/run/cdi/nvidia.yaml` (generated Jun 29 09:11:21 during the
 nvidia-container-toolkit 1.19.1 install; box last booted Jun 22) references
-`libnvidia-egl-wayland.so.1.1.21`, removed in the Jul 23 patch window (successor
-`libnvidia-egl-wayland2.so.1.0.1`; ldcache clean). Reproduced image-independently
+`libnvidia-egl-wayland.so.1.1.21`, removed root-side sometime between Jul 21 (last
+successful container create) and Jul 28, with no RPM trace — what removed it is
+unresolved, IT to determine (successor `libnvidia-egl-wayland2.so.1.0.1` present;
+ldcache clean). Reproduced image-independently
 (`--gpus all alpine true` fails identically); host `nvidia-smi` healthy (610.43.02).
-Fix is root-only: `nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.yaml`.
+Fix is root-only: restart/enable the `nvidia-cdi-refresh` units (or `nvidia-ctk cdi
+generate --output=/var/run/cdi/nvidia.yaml`); MUST also ensure the refresh units are
+enabled — /var/run is tmpfs, so a disabled refresh means the spec vanishes at next
+reboot and GPU containers break again. Diagnosis independently verified (adversarial
+review, 2026-07-28): direct cause CONFIRMED; exact removal event unproven.
 Would have killed the production service on its next restart regardless — surfaced
 during the planned takedown with GPUs idle. Weight pre-pulls (GPU-free) proceeding
 meanwhile. See runbook Gotcha 7.
