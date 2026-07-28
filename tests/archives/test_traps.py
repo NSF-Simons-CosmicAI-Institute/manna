@@ -7,15 +7,15 @@ whose own comment said a real version would derive it from tagged notes.
 
 import pytest
 
-from astro_archives_mcp.archives import get_active_archives
-from astro_archives_mcp.archives._traps import (
+from manna.archives import get_active_archives
+from manna.archives._traps import (
     CHEATSHEET_TOKEN_BUDGET,
     estimate_tokens,
     loud_trap_guidance,
     silent_trap_cheatsheet,
     trap_notes,
 )
-from astro_archives_mcp.config import get_settings
+from manna.config import get_settings
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def test_cheatsheet_excludes_the_loud_trap():
 
 
 def test_cheatsheet_honours_stable_archives_selection(monkeypatch, clear_archive_caches):
-    monkeypatch.setenv("STABLE_ARCHIVES", "alma")
+    monkeypatch.setenv("MANNA_ARCHIVES", "alma")
     get_settings.cache_clear()
     get_active_archives.cache_clear()
     cs = silent_trap_cheatsheet()
@@ -75,7 +75,7 @@ def test_cheatsheet_honours_stable_archives_selection(monkeypatch, clear_archive
 def test_cheatsheet_empty_when_no_active_archive_tags_a_trap(monkeypatch, clear_archive_caches):
     """An empty blob must leave the description untouched rather than append a
     bare header — a selection with no tagged traps is legitimate."""
-    monkeypatch.setenv("STABLE_ARCHIVES", "sdss")
+    monkeypatch.setenv("MANNA_ARCHIVES", "sdss")
     get_settings.cache_clear()
     get_active_archives.cache_clear()
     assert silent_trap_cheatsheet() == ""

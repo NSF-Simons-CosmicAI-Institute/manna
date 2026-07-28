@@ -1,6 +1,6 @@
 import pytest
 
-from astro_archives_mcp.archives._audit import AUDIT_EXPECTS, Audit, has_cols, has_table
+from manna.archives._audit import AUDIT_EXPECTS, Audit, has_cols, has_table
 
 
 def test_has_table_sql():

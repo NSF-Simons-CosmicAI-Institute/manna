@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from astro_archives_mcp.shaper import shape_promotion
+from manna.shaper import shape_promotion
 
 _JOB_URL = "https://datalab.noirlab.edu/tap/async/42"
 

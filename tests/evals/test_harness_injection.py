@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from astro_archives_mcp.archives._traps import loud_trap_guidance, silent_trap_cheatsheet
 from evals.context import ablated_context
 from evals.harness import _anthropic_tools
+from manna.archives._traps import loud_trap_guidance, silent_trap_cheatsheet
 
 
 @dataclass

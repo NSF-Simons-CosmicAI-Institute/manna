@@ -1,7 +1,7 @@
 """Content assertions for the ESA Gaia + Gaia ARI Heidelberg archives."""
 
-from astro_archives_mcp.archives.gaia import ARCHIVE as GAIA
-from astro_archives_mcp.archives.gaia_ari import ARCHIVE as GAIA_ARI
+from manna.archives.gaia import ARCHIVE as GAIA
+from manna.archives.gaia_ari import ARCHIVE as GAIA_ARI
 
 
 def test_gaia_identity():

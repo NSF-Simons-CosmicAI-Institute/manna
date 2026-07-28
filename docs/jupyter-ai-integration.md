@@ -1,7 +1,7 @@
-# Integrating astro-archives-mcp with Jupyter AI
+# Integrating MANNA with Jupyter AI
 
 Status: working notes / local-test recipe. Target deployment: Astro Data Lab notebook
-server **gp13**, surfacing the VO tools to notebook users via Jupyter AI chat.
+server **gp12**, surfacing the VO tools to notebook users via Jupyter AI chat.
 
 ## How the pieces fit
 
@@ -45,7 +45,7 @@ kernel:  table = job.fetch_result().to_table()   # real astropy.Table, in the us
 ```
 
 This is why the persona is wired to **two** MCP servers (see `deploy/frontend/`): our
-`astro-archives` tools *and* a notebook-control server (`Jupyter_MCP_Server`) that lets it
+`manna` tools *and* a notebook-control server (`Jupyter_MCP_Server`) that lets it
 write and run cells. A chat-only persona with no code-execution surface can still use the
 discovery/metadata tools, but cannot materialize a large result — it can only hand the
 `fetch_recipe`/`result_url` to the user to run themselves.
@@ -65,13 +65,13 @@ discovery/metadata tools, but cannot materialize a large result — it can only 
 | Node.js          | conda/system package                                           | Required by the Claude Code ACP adapter. |
 | An ACP agent     | `npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp` | Provides the `claude-agent-acp` binary the Claude persona launches; it wraps the `claude` CLI for auth/model calls, so install both (verified against `jupyter_ai_acp_client` 0.1.5). npm warns the adapter was renamed to `@agentclientprotocol/claude-agent-acp` — either works today. |
 | Agent auth       | reuse your existing Claude Code login                          | The Claude persona wraps the `claude` CLI's own auth, so if you already use Claude Code you're set. If a token is expired the persona replies telling you to run `claude /login`. No separate API key step. |
-| This MCP server  | `uv run python -m astro_archives_mcp`                          | Serves `http://localhost:8000/mcp/`. |
+| This MCP server  | `uv run python -m manna`                          | Serves `http://localhost:8000/mcp/`. |
 
 ## Local test recipe
 
 1. **Run this MCP server** (terminal A, in the repo's `uv` env):
    ```bash
-   uv run python -m astro_archives_mcp
+   uv run python -m manna
    # health check:
    curl -s http://localhost:8000/health
    ```
@@ -92,14 +92,14 @@ discovery/metadata tools, but cannot materialize a large result — it can only 
    *not* `JUPYTER_CONFIG_DIR`. Put it at the root of your workspace:
    ```bash
    mkdir -p <jupyterlab-root>/.jupyter
-   cp /path/to/astro-archives-mcp/docs/examples/mcp_settings.json \
+   cp /path/to/manna/docs/examples/mcp_settings.json \
       <jupyterlab-root>/.jupyter/mcp_settings.json
    ```
    The config:
    ```json
    {
      "mcp_servers": [
-       { "type": "http", "name": "astro-archives", "url": "http://localhost:8000/mcp/" }
+       { "type": "http", "name": "manna", "url": "http://localhost:8000/mcp/" }
      ]
    }
    ```
@@ -114,13 +114,13 @@ discovery/metadata tools, but cannot materialize a large result — it can only 
    Open a chat, `@`-mention the agent (e.g. `@CosmicCoder` in the deploy images, or the
    stock `@Claude` in a plain install), authenticate if prompted, then ask
    something that exercises a tool, e.g.:
-   > "Use the astro-archives tools to list available archives, then resolve the
+   > "Use the MANNA tools to list available archives, then resolve the
    > coordinates of M51."
    The persona should call `vo_archive_list` / `vo_target_resolve`.
 
 ## Renaming the persona (`@claude` → `@CosmicCoder`)
 
-The deploy images (`deploy/frontend/frontend.Dockerfile`, `docs/examples/gp13/Dockerfile`)
+The deploy images (`deploy/frontend/frontend.Dockerfile`, `docs/examples/gp12/Dockerfile`)
 present the agent as **`@CosmicCoder`** rather than the stock `@Claude`. This is a
 CosmicAI rebrand only — the underlying engine (`claude-agent-acp` wrapping the `claude`
 CLI), model backend, and MCP tools are unchanged.
@@ -146,9 +146,9 @@ pinned precisely so this in-place patch stays deterministic; the build includes 
 guards that fail if a version bump moves the patched lines. To bump jupyter-ai, update the
 pins and re-verify the patch still matches.
 
-## gp13 deployment notes (after local works)
+## gp12 deployment notes (after local works)
 
-gp13 is a **shared JupyterHub**: it spawns a per-user single-user notebook server
+gp12 is a **shared JupyterHub**: it spawns a per-user single-user notebook server
 (effectively a VM/container per user when they open a notebook). That changes where the
 MCP server should run, because "localhost" means *inside the user's spawned VM*, not a
 shared host. Two topologies:
@@ -156,16 +156,16 @@ shared host. Two topologies:
 | Topology | How it runs | Pros | Cons |
 |----------|-------------|------|------|
 | **A. Colocated per-VM** (recommended to start) | Bake the MCP server into the single-user image; it starts with the VM and listens on `127.0.0.1:8000`. Each user's `mcp_settings.json` points at `http://localhost:8000/mcp/`. | Isolated, no auth needed, identical to the local recipe, no cross-VM networking. | N copies of the server; bumps the image. The server is lightweight and read-only, so this is cheap. |
-| **B. Shared service** | One MCP server on a host reachable from all user VMs (e.g. `http://astro-mcp.internal:8000/mcp/`). | Single deployment to operate/upgrade. | Needs network reachability from spawned VMs + likely auth once off-loopback (see `docs/adl-split.md` bearer path, `deploy/staging-runbook.md` nginx/timeout tuning). |
+| **B. Shared service** | One MCP server on a host reachable from all user VMs (e.g. `http://manna.internal:8000/mcp/`). | Single deployment to operate/upgrade. | Needs network reachability from spawned VMs + likely auth once off-loopback (see `deploy/dlai01-vllm-runbook.md` for the nginx/auth setup). |
 
 Because the tools are **anonymous and read-only**, topology A is the path of least
-resistance for a first gp13 rollout — no auth surface, no shared-host networking, and the
+resistance for a first gp12 rollout — no auth surface, no shared-host networking, and the
 config is byte-for-byte the local recipe.
 
 - **Config delivery.** Whichever topology, `mcp_settings.json` must land where each user's
   JupyterLab reads Jupyter config. Bake it into the single-user image (system Jupyter
   config dir) so every spawned VM has it without per-user setup. Confirm the exact path
-  against the gp13 image's `jupyter --paths`.
+  against the gp12 image's `jupyter --paths`.
 - **Agent (Claude Code) at scale.** The persona is Claude Code via its ACP adapter; every
   user's persona needs its own model auth. Options: a shared org Anthropic key provisioned
   into the image/env, or each user logging in. This is the main provisioning decision and

@@ -12,8 +12,8 @@ import pytest
 from astropy.table import Table
 from fastmcp import Client
 
-from astro_archives_mcp.tools import cone as cone_tools
-from astro_archives_mcp.tools import resolver as resolver_tools
+from manna.tools import cone as cone_tools
+from manna.tools import resolver as resolver_tools
 
 SCS_ENDPOINT = "https://gaia.ari.uni-heidelberg.de/cone/gaiadr2?"
 

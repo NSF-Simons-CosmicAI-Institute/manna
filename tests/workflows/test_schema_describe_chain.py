@@ -13,8 +13,8 @@ through correctly. TapClient is faked; no network.
 import pytest
 from fastmcp import Client
 
-from astro_archives_mcp import job_store
-from astro_archives_mcp.tools import tap as tap_tools
+from manna import job_store
+from manna.tools import tap as tap_tools
 
 
 class _FakeTapClient:

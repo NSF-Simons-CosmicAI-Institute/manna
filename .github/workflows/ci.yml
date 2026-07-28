@@ -31,7 +31,7 @@ jobs:
       - name: Tests (replay-only) with coverage
         run: |
           uv run pytest --record-mode=none \
-            --cov=astro_archives_mcp \
+            --cov=manna \
             --cov-report=term-missing:skip-covered \
             --cov-report=xml
       - name: Upload coverage XML
@@ -48,10 +48,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build image
-        run: docker build -t astro-archives-mcp:ci .
+        run: docker build -t manna:ci .
       - name: Run container
         run: |
-          docker run -d --rm -p 8000:8000 --name aamcp astro-archives-mcp:ci
+          docker run -d --rm -p 8000:8000 --name manna-ci manna:ci
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:8000/health > /dev/null; then break; fi
             sleep 1
@@ -65,4 +65,4 @@ jobs:
           grep -q '"name": "vo_tap_query"' inspector.json
       - name: Stop container
         if: always()
-        run: docker stop aamcp || true
+        run: docker stop manna-ci || true

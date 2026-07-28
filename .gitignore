@@ -29,5 +29,7 @@ build/
 
 # Claude Code workflow artifacts (live in ~/.claude/projects/<this>/superpowers/, not in repo)
 docs/superpowers/
+.claude/
+.superpowers/
 
 notebooks/

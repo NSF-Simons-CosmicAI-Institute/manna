@@ -1,10 +1,10 @@
-from astro_archives_mcp.errors import (
+from manna.errors import (
     _INTERNAL_GENERIC_MESSAGE,
     DalQueryError,
     ValidationError,
     wrap_tool_errors,
 )
-from astro_archives_mcp.observability import current_request_id
+from manna.observability import current_request_id
 
 
 def test_decorator_passthrough_on_success():
@@ -57,9 +57,9 @@ def test_decorator_logger_name_includes_function_name(caplog):
     def vo_thing():
         raise DalQueryError(message="x")
 
-    with caplog.at_level("WARNING", logger="astro_archives_mcp.tools.vo_thing"):
+    with caplog.at_level("WARNING", logger="manna.tools.vo_thing"):
         vo_thing()
     # At least one record should be on the per-function logger
-    matching = [r for r in caplog.records if r.name == "astro_archives_mcp.tools.vo_thing"]
-    assert matching, "expected a WARNING log on logger 'astro_archives_mcp.tools.vo_thing'"
+    matching = [r for r in caplog.records if r.name == "manna.tools.vo_thing"]
+    assert matching, "expected a WARNING log on logger 'manna.tools.vo_thing'"
     assert matching[0].levelname == "WARNING"

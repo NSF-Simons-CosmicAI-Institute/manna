@@ -18,8 +18,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from astro_archives_mcp.archives._traps import CHEATSHEET_HEADER
 from evals.context import ablated_context, full_context
+from manna.archives._traps import CHEATSHEET_HEADER
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
 # Async TAP lifecycles poll vo_tap_status repeatedly, so this must be generous.

@@ -21,8 +21,8 @@ from typing import get_args
 
 import pytest
 
-from astro_archives_mcp import errors as errors_module
-from astro_archives_mcp.errors import (
+from manna import errors as errors_module
+from manna.errors import (
     ArchiveError,
     DalQueryError,
     InternalError,

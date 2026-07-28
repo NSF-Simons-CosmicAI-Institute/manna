@@ -7,8 +7,8 @@ talks to it with ``fastmcp.Client``. Network traffic is recorded with vcrpy.
 import pytest
 from fastmcp import Client
 
-from astro_archives_mcp.errors import DalQueryError, ValidationError
-from astro_archives_mcp.tools import tap as ivoa_tools
+from manna.errors import DalQueryError, ValidationError
+from manna.tools import tap as ivoa_tools
 
 
 @pytest.mark.vcr
@@ -107,7 +107,7 @@ def _adql_field_examples() -> list[str]:
     """The `examples` the model actually sees on vo_tap_query's adql parameter."""
     import inspect
 
-    from astro_archives_mcp.tools.tap import vo_tap_query
+    from manna.tools.tap import vo_tap_query
 
     param = inspect.signature(vo_tap_query).parameters["adql"]
     field = param.annotation.__metadata__[0]

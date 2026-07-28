@@ -14,7 +14,7 @@ from types import MappingProxyType
 
 import pytest
 
-from astro_archives_mcp._serialization import dataclass_to_jsonable_dict
+from manna._serialization import dataclass_to_jsonable_dict
 
 
 @dataclass(frozen=True)

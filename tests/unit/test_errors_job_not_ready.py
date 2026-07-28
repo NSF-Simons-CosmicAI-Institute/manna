@@ -1,4 +1,4 @@
-from astro_archives_mcp.errors import JobNotReadyError, error_to_payload
+from manna.errors import JobNotReadyError, error_to_payload
 
 
 def test_job_not_ready_payload_has_canonical_shape():

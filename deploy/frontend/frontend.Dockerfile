@@ -1,12 +1,8 @@
-# Frontend single-user image: JupyterLab + Jupyter AI v3 + the Claude Code persona.
-# Used two ways (see docker-compose.yml):
-#   - `chat` mode: run directly as a single JupyterLab (AI chat panel, no Hub)
-#   - `hub`  mode: spawned per-user by JupyterHub's DockerSpawner
-#
-# The MCP tool server is a SEPARATE compose service (`mcp`) reachable at
-# http://mcp:8000/mcp/ on the compose network — this image does NOT colocate it.
-# (For gp13 you may instead colocate it per the docs/examples/gp13/ image;
-# here a shared service is simpler for local dev.)
+# Frontend single-user image: JupyterLab + Jupyter AI v3 + the CosmicCoder persona.
+# Two modes (see docker-compose.yml): `chat` runs it standalone; `hub` has
+# JupyterHub's DockerSpawner launch one per user. The MCP server is a separate
+# compose service at http://mcp:8000/mcp/ — this image does not colocate it.
+# (docs/examples/gp12/ has the colocated variant.)
 
 ARG BASE_IMAGE=quay.io/jupyter/minimal-notebook:latest
 FROM ${BASE_IMAGE}
@@ -36,22 +32,18 @@ RUN mamba install -y -c conda-forge nodejs && mamba clean -afy \
 USER ${NB_UID}
 COPY --chown=${NB_UID}:${NB_GID} mcp_settings.json /home/${NB_USER}/.jupyter/mcp_settings.json
 
-# Pre-allow all astro-archives MCP tools so the persona runs them without a per-call
+# Pre-allow all MANNA MCP tools so the persona runs them without a per-call
 # permission prompt (Claude Code reads permissions.allow from ~/.claude/settings.json).
 COPY --chown=${NB_UID}:${NB_GID} claude_settings.json /home/${NB_USER}/.claude/settings.json
 
-# Concise-output + astronomy role framing for the persona (verbosity experiment 2026-07-22:
-# the `strong` concision arm cut output tokens ~67% with the tool-correctness guardrail held).
-# Claude Code loads ~/.claude/CLAUDE.md as user-scope context. Does NOT fix the <think> leak —
-# that needs a vLLM-layer enable_thinking:false default (deploy/dlai01-vllm-runbook.md Gotcha 5).
+# Concise-output + astronomy role framing. Claude Code loads ~/.claude/CLAUDE.md
+# as user-scope context.
 COPY --chown=${NB_UID}:${NB_GID} CLAUDE.md /home/${NB_USER}/.claude/CLAUDE.md
 
-# Rebrand the Claude Code ACP persona as `@CosmicCoder` (CosmicAI). jupyter-ai 3.0.1
-# discovers personas via the `jupyter_ai.personas` entry points with no allow/disable
-# knob, and derives the chat `@`-handle from the persona's display name — so we override
-# `ClaudeAcpPersona.defaults` (name/description/avatar) in the pinned installed package.
-# Behavior (engine, model backend, MCP tools) is unchanged; only the identity changes.
-# The grep guards fail the build if a version bump moves the patched lines.
+# Rebrand the ACP persona as `@CosmicCoder`. jupyter-ai 3.0.1 has no persona
+# disable knob and derives the `@`-handle from the display name, so we patch
+# `ClaudeAcpPersona.defaults` in the installed package. The grep guards fail the
+# build if a version bump moves the patched lines.
 # See docs/jupyter-ai-integration.md "Renaming the persona".
 COPY --chown=${NB_UID}:${NB_GID} CosmicCoder.png /tmp/CosmicCoder.png
 RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname(jupyter_ai_acp_client.__file__))") && \
@@ -59,7 +51,7 @@ RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname
     STATIC_DIR="$PKG_DIR/static" && \
     cp /tmp/CosmicCoder.png "$STATIC_DIR/CosmicCoder.png" && \
     sed -i 's/name="Claude"/name="CosmicCoder"/' "$CLAUDE_PY" && \
-    sed -i 's#description="Claude Code as an ACP agent persona."#description="CosmicAI archive assistant — Claude Code with the astro-archives MCP tools."#' "$CLAUDE_PY" && \
+    sed -i 's#description="Claude Code as an ACP agent persona."#description="CosmicAI archive assistant — Claude Code with the MANNA MCP tools."#' "$CLAUDE_PY" && \
     sed -i 's/"claude.svg"/"CosmicCoder.png"/' "$CLAUDE_PY" && \
     grep -q 'name="CosmicCoder"' "$CLAUDE_PY" && \
     grep -q 'CosmicCoder.png' "$CLAUDE_PY" && \
@@ -67,6 +59,5 @@ RUN PKG_DIR=$(python -c "import jupyter_ai_acp_client, os; print(os.path.dirname
     rm /tmp/CosmicCoder.png && \
     echo "persona rebranded: @CosmicCoder"
 
-# Persona credentials/model endpoint are injected at runtime (compose env_file),
-# never baked: ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / ANTHROPIC_DEFAULT_*_MODEL
-# / CLAUDE_CODE_MAX_OUTPUT_TOKENS.
+# Persona credentials/model endpoint are injected at runtime (compose env_file), never
+# baked — see .env.example and README.md in this directory.

@@ -19,7 +19,7 @@ _TASK = {"id": "mq-coords-m87", "tier": 1}
 
 
 def test_tool_name_strips_mcp_prefix_only():
-    assert _tool_name("mcp__astro-archives__vo_target_resolve") == "vo_target_resolve"
+    assert _tool_name("mcp__manna__vo_target_resolve") == "vo_target_resolve"
     assert _tool_name("Bash") == "Bash"  # harness built-ins pass through
     assert _tool_name("ToolSearch") == "ToolSearch"
 
@@ -37,7 +37,7 @@ def test_parse_stream_json_full_transcript():
                     {
                         "type": "tool_use",
                         "id": "a",
-                        "name": "mcp__astro-archives__vo_target_resolve",
+                        "name": "mcp__manna__vo_target_resolve",
                         "input": {"name": "M87"},
                     }
                 ]

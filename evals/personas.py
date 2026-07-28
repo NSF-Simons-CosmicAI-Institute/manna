@@ -22,7 +22,7 @@ from typing import Any, Protocol
 
 from evals.harness import TaskRun, ToolCall
 
-_MCP_SERVER_NAME = "astro-archives"
+_MCP_SERVER_NAME = "manna"
 _MCP_PREFIX = f"mcp__{_MCP_SERVER_NAME}__"
 
 

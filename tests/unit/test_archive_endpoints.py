@@ -10,7 +10,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from astro_archives_mcp.archives._endpoints import (
+from manna.archives._endpoints import (
     active_archives,
     by_short_name,
     host_substring_to_short_name,
@@ -21,7 +21,7 @@ from astro_archives_mcp.archives._endpoints import (
     tap_endpoint_description,
     tap_endpoint_urls,
 )
-from astro_archives_mcp.archives._model import Archive
+from manna.archives._model import Archive
 
 
 def test_archive_dataclass_is_frozen():
@@ -70,7 +70,7 @@ def test_nrao_label_resolves_to_nrao_not_alma_for_data_nrao_host():
     """almascience.nrao.edu must stay labeled 'alma'; data.nrao.edu and
     data-query.nrao.edu must label as 'nrao'. The substring map must not
     confuse the two."""
-    from astro_archives_mcp._archive_label import archive_label
+    from manna._archive_label import archive_label
 
     assert archive_label("https://data.nrao.edu/foo") == "nrao"
     assert archive_label("https://data-query.nrao.edu/foo") == "nrao"

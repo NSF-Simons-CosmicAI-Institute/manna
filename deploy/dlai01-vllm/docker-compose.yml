@@ -1,31 +1,17 @@
-# dlai01 vLLM — durable model host (survives reboots via `restart: unless-stopped`).
-#
-# Compose equivalent of the `docker run` in ../dlai01-vllm-runbook.md (Part 2). Use
-# this instead of the raw `docker run` for day-to-day operation on dlai01.
+# dlai01 vLLM — durable model host. See ../dlai01-vllm-runbook.md (Part 2) for
+# prerequisites, exposure/auth, and the env overrides (VLLM_MODEL, VLLM_MAX_MODEL_LEN,
+# VLLM_API_KEY).
 #
 #   cd deploy/dlai01-vllm
 #   docker compose up -d          # start, or restart after a reboot / config change
 #   docker compose logs -f        # watch startup; ~130s to "Application startup complete"
-#   docker compose down           # stop
-#
-# Host requirements (all satisfied on dlai01 — see runbook "Prerequisites"):
-#   - nvidia-container-toolkit (GPU passthrough into the container)
-#   - /mlhome/dgause/hf writable (HF weights cache; ~122 GB on first pull, then cached)
-#
-# Exposure: binds 0.0.0.0:8002 so the OFF-BOX datalab nginx proxy can reach it. vLLM
-# itself runs KEYLESS — nginx terminates TLS + HTTP Basic auth in front of it. See the
-# runbook's "Harden the exposed endpoint" note: confirm the firewall restricts 8002 to
-# the proxy host; if it's broader, set VLLM_API_KEY below and have Chadd inject it upstream.
-#
-# Overridable via the shell env (or a .env file next to this compose):
-#   VLLM_MODEL, VLLM_MAX_MODEL_LEN, VLLM_API_KEY
 
 services:
   vllm:
     image: vllm/vllm-openai:latest
     container_name: vllm
     restart: unless-stopped
-    ipc: host                       # was `--ipc=host`
+    ipc: host
     ports:
       - "8002:8000"                 # 0.0.0.0:8002 → reachable by the datalab nginx proxy
     volumes:
@@ -41,18 +27,8 @@ services:
       - --tensor-parallel-size=1
       - --enable-auto-tool-choice
       - --tool-call-parser=qwen3_coder
-      # Fix the leaked <think> preamble ("talks strangely") — runbook Gotcha 5. Root-caused
-      # 2026-07-23: Claude Code sends output_config.effort=high on every request, which vLLM
-      # honours as "reason"; without a reasoning parser that reasoning leaked into the reply
-      # `content`. This parser routes it into a SEPARATE `thinking` block instead, so the visible
-      # text is clean. Validated on vLLM 0.23.0: the qwen3 tool-drop bug (a <tool_call> lost
-      # inside <think>) does NOT occur here — effort=high + a tool still emits tool_use (verified
-      # vo_target_resolve fired). The model still reasons, so tool/ADQL quality is UNCHANGED;
-      # only the output is cleaned.
-      #   NB: we deliberately do NOT add a `--default-chat-template-kwargs enable_thinking:false`
-      #   default. effort overrides it for the persona (so it wouldn't help), and its only real
-      #   effect would be turning thinking OFF for non-effort clients like the evals/ harness —
-      #   skewing eval baselines. The reasoning parser alone is the fix.
+      # Routes the model's reasoning into a separate `thinking` block instead of
+      # leaking it into the reply text. See runbook Gotcha 5 for the full story.
       - --reasoning-parser=qwen3
       # 131072 assumes the checkpoint's max_position_embeddings allows it (runbook Gotcha 4c);
       # drop to 65536 if vLLM errors at startup on the context length.

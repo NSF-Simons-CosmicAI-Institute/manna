@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import pytest
 
-from astro_archives_mcp.archives._audit import Audit
-from astro_archives_mcp.archives._model import Note
 from evals import audit
 from evals.audit import _verdict, check_note
+from manna.archives._audit import Audit
+from manna.archives._model import Note
 
 
 # --------------------------------------------------------------------------- #
@@ -92,7 +92,7 @@ def test_control_state_down_on_timeout(monkeypatch):
 
 
 def test_check_note_reports_endpoint_dead(monkeypatch):
-    from astro_archives_mcp.archives._model import Archive
+    from manna.archives._model import Archive
 
     arch = Archive(
         short_name="x",

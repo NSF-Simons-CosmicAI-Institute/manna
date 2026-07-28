@@ -2,7 +2,7 @@
 
 from fastmcp import Client
 
-from astro_archives_mcp.app import build_mcp
+from manna.app import build_mcp
 
 # Tools that only read the in-process KB (closed world); everything else
 # hits live archive services (open world). vo_schema_describe left this set

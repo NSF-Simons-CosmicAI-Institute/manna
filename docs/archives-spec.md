@@ -28,7 +28,7 @@ can be added or removed like a plugin, per deployment.
 - Add an archive → drop a file in `archives/`. Remove one → delete the file. No
   central registry edit, no touching unrelated archives.
 - Deployment selection two ways: **physical** (which files ship) and **runtime**
-  (`STABLE_ARCHIVES` allowlist from a shared image).
+  (`MANNA_ARCHIVES` allowlist from a shared image).
 - **Absence ≠ inaccessible.** Dropping an archive removes the server's *claims*
   about it (usage_notes, schema quirks, endpoint examples, cosmetic label),
   never its reachability — it's still reachable via `vo_registry_search` →
@@ -109,7 +109,7 @@ gaia_ari 70, sdss 80.
 ### 3.3 Layout
 
 ```
-src/astro_archives_mcp/
+src/manna/
 ├── archives/
 │   ├── __init__.py     # registry: discover_archives() + get_active_archives()
 │   ├── _model.py       # Archive, Schema
@@ -130,7 +130,7 @@ Pure core + imperative shell, so filtering is testable without env or reload:
 
 ```python
 # _select.py  (PURE — unit-tested with explicit args)
-def parse_allow(raw) -> frozenset[str] | None: ...     # STABLE_ARCHIVES → allow-set (None => all)
+def parse_allow(raw) -> frozenset[str] | None: ...     # MANNA_ARCHIVES → allow-set (None => all)
 def sort_archives(archives): ...                        # by (priority, short_name)
 def select_archives(archives, *, allow): ...            # filter; unknown names logged+ignored; empty allowed
 def validate_archives(archives): ...                    # unique short_names; unique (archive, table)
@@ -138,7 +138,7 @@ def validate_archives(archives): ...                    # unique short_names; un
 # __init__.py  (SHELL)
 def discover_archives() -> tuple[Archive, ...]: ...     # import each module's ARCHIVE, validate, sort
 @lru_cache(maxsize=1)
-def get_active_archives() -> tuple[Archive, ...]: ...   # discover, then narrow by STABLE_ARCHIVES
+def get_active_archives() -> tuple[Archive, ...]: ...   # discover, then narrow by MANNA_ARCHIVES
 ```
 
 `validate_archives` is cross-archive only (unique short_names, unique
@@ -174,16 +174,16 @@ honor a mid-process re-selection. Consumers of the derived helpers:
 
 1. **Physical** — the active set is bounded by which `archives/*.py` files ship.
    Forking = delete files. Replaces the old "hand-edit two tuples".
-2. **Runtime** — `STABLE_ARCHIVES` (comma-separated short_names) narrows the
+2. **Runtime** — `MANNA_ARCHIVES` (comma-separated short_names) narrows the
    discovered set from a shared image:
 
    ```
-   STABLE_ARCHIVES=datalab,alma      # only these two active
-   STABLE_ARCHIVES=                  # unset/empty => all discovered
+   MANNA_ARCHIVES=datalab,alma      # only these two active
+   MANNA_ARCHIVES=                  # unset/empty => all discovered
    ```
 
-Optional sugar (future, **not built**): map `STABLE_DEPLOYMENT`
-(`local|adl|tacc`) to preset allow-sets when `STABLE_ARCHIVES` is unset —
+Optional sugar (future, **not built**): map `MANNA_DEPLOYMENT`
+(`local|adl|tacc`) to preset allow-sets when `MANNA_ARCHIVES` is unset —
 deliberately deferred until a deployment needs it (a small dict + one branch in
 `archives/__init__.py`).
 
@@ -212,7 +212,7 @@ dropped once its last caller was gone.
 
 ```
 tests/archives/
-├── test_registry.py     # discovery, ordering, integrity, select/validate, STABLE_ARCHIVES narrowing
+├── test_registry.py     # discovery, ordering, integrity, select/validate, MANNA_ARCHIVES narrowing
 └── test_<archive>.py     # per-archive content (imports `ARCHIVE` directly; dies with its archive)
 ```
 
@@ -226,7 +226,7 @@ tests/archives/
 
 ## 7. Adding / evolving an archive
 
-1. Create `src/astro_archives_mcp/archives/<short_name>.py` exporting
+1. Create `src/manna/archives/<short_name>.py` exporting
    `ARCHIVE = Archive(short_name="…", …, schemas=(Schema(archive="…", …),),
    priority=N)`.
 2. Add `tests/archives/test_<short_name>.py` importing `ARCHIVE` and pinning its
@@ -279,5 +279,5 @@ diff to a single file.
 | Package | `archives/` | one module per archive |
 | Per-file export | module-level `ARCHIVE` | uniform discovery target |
 | Ordering field | `priority` (ascending) | explicit replacement for load-bearing order |
-| Runtime knob | `STABLE_ARCHIVES` | matches the `STABLE_*` Settings convention |
+| Runtime knob | `MANNA_ARCHIVES` | matches the `MANNA_*` Settings convention |
 | Active-set API | `get_active_archives()` | mirrors `get_settings()` (cached, cache_clear-able) |

@@ -15,9 +15,9 @@ tests under tests/tools/, which exercise the same astropy votable code path.
 import pytest
 from vcr.stubs import VCRHTTPResponse
 
-from astro_archives_mcp import _archive_label
-from astro_archives_mcp.app import build_mcp
-from astro_archives_mcp.tools import schema as _schema_tool
+from manna import _archive_label
+from manna.app import build_mcp
+from manna.tools import schema as _schema_tool
 
 
 @pytest.fixture

@@ -1,12 +1,12 @@
 # dlai01 Model-Hosting — Validation Record & Runbook
 
 **What this documents:** hosting an open-weight LLM (Qwen3.5) on the dlai01 GPU box
-via vLLM, and consuming it from a Claude Code persona that calls the astro-archives
+via vLLM, and consuming it from a Claude Code persona that calls the MANNA
 **MCP** tool server — the full local-model chain, proven end to end. Exact working
 commands, verified results, and every gotcha we hit.
 
-Paired with `docs/local-model-backend.md` (the *why* behind model choice) and
-`docs/jupyter-ai-integration.md` (the persona/MCP architecture). Status: **local chain
+Paired with `docs/jupyter-ai-integration.md` (the persona/MCP architecture).
+Status: **local chain
 VALIDATED** and **exposed off-box via the datalab nginx proxy (2026-07-02)** — reachable
 from a laptop and from the dockerized frontend (see *Current status* at the end).
 
@@ -18,9 +18,9 @@ Two hosts, split backend/frontend:
 
 - **dlai01** — the **backend / model host**: 4× RTX PRO 6000 Blackwell, runs vLLM
   serving the LLM. Where the GPUs and docker access live.
-- **gp13** — the production **frontend**: a shared JupyterHub running Jupyter AI + the
+- **gp12** — the production **frontend**: a shared JupyterHub running Jupyter AI + the
   Claude Code persona per user. (Not yet accessible; the MCP server + a JupyterHub are
-  being stood up locally first as a gp13 stand-in.)
+  being stood up locally first as a gp12 stand-in.)
 
 The chain, and the two independent connections the persona makes:
 
@@ -30,7 +30,7 @@ JupyterLab (Jupyter AI v3)
       ▼
  ACP persona = Claude Code ──(model)──► vLLM  [ANTHROPIC_BASE_URL]      ← dlai01
       │
-      └─────────────────────(tools)──► astro-archives MCP  [/mcp/]      ← colocated
+      └─────────────────────(tools)──► MANNA MCP  [/mcp/]               ← colocated
 ```
 
 - **Model** and **tools** are orthogonal: the `vo_*` tools work identically no matter
@@ -77,26 +77,25 @@ All in-container; no host installs needed from us.
 Runs rootless via `uv` on loopback (read-only VO tools; no auth needed on loopback).
 
 ```bash
-cd ~/sbx/astro-archives-mcp
+cd ~/sbx/astro-archives-mcp   # (rename this checkout to ~/sbx/manna when the repo is renamed)
 export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"   # writable astropy/tmp cache
-nohup env STABLE_PORT=8000 uv run python -m astro_archives_mcp > ~/sbx/mcp.log 2>&1 &
-curl -fsS http://127.0.0.1:8000/health        # {"status":"ok","version":"0.3.0",...}
+nohup env MANNA_PORT=8000 uv run python -m manna > ~/sbx/mcp.log 2>&1 &
+curl -fsS http://127.0.0.1:8000/health        # {"status":"ok","version":"0.5.0",...}
 ```
 
 Register it with Claude Code — **user scope is required** (see Gotcha 3):
 
 ```bash
 CLAUDE_CONFIG_DIR=$HOME/.claude-work \
-  claude mcp add --scope user --transport http astro-archives http://127.0.0.1:8000/mcp/
-CLAUDE_CONFIG_DIR=$HOME/.claude-work claude mcp list       # astro-archives: ✓ Connected
+  claude mcp add --scope user --transport http manna http://127.0.0.1:8000/mcp/
+CLAUDE_CONFIG_DIR=$HOME/.claude-work claude mcp list       # manna: ✓ Connected
 ```
 
 ## Part 2 — hosting the model on vLLM
 
-**Model: `Qwen/Qwen3.5-122B-A10B-FP8`** (122B total / ~10B active MoE). Chosen via a
-fact-checked model survey (`docs/local-model-backend.md`): near-top open-weight BFCL V4
-(~0.722), fits FP8 (~122 GB) with large KV-cache headroom, MoE decode is fast and
-concurrency-friendly. Tool-call parser: `qwen3_coder`. Runner-up to A/B later:
+**Model: `Qwen/Qwen3.5-122B-A10B-FP8`** (122B total / ~10B active MoE). Chosen for
+near-top open-weight BFCL V4 (~0.722), fits FP8 (~122 GB) with large KV-cache headroom,
+MoE decode is fast and concurrency-friendly. Tool-call parser: `qwen3_coder`. Runner-up to A/B later:
 **GLM-4.7** (τ²-Bench 87.4, but 358 GB FP8 leaves little KV room → poor concurrency).
 
 > The lighter **Qwen2.5-7B-Instruct** (parser `hermes`, `--max-model-len 32768`) is the
@@ -143,7 +142,8 @@ Notes / verified behavior:
 - **Benign multi-GPU warnings on sm_120** (not errors): `SymmMemCommunicator: Device
   capability 12.0 not supported` and `Custom allreduce is disabled … PCIe-only GPUs` →
   both fall back to NCCL.
-- **`--reasoning-parser` is deliberately omitted** — see Gotcha 5.
+- **`--reasoning-parser=qwen3` IS set** — it is the fix for the `<think>` leak into reply
+  `content`; see Gotcha 5. (It was historically omitted; that lore is retired.)
 
 ## Part 3 — consuming it (the Claude Code persona)
 
@@ -160,8 +160,8 @@ export CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192          # REQUIRED — Gotcha 4
 
 : > ~/sbx/mcp.log                                  # clear so the tool-fire check is unambiguous
 CLAUDE_CONFIG_DIR=$HOME/.claude-work \
-  claude -p "Use the astro-archives MCP tools to resolve M51. Call the tool; do not guess." \
-  --allowedTools "mcp__astro-archives__vo_target_resolve"
+  claude -p "Use the MANNA MCP tools to resolve M51. Call the tool; do not guess." \
+  --allowedTools "mcp__manna__vo_target_resolve"
 grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
 ```
 
@@ -183,7 +183,7 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
    everything else (no filesystem/bash), with no interactive prompts in `-p` mode.
 3. **`claude mcp add --scope user`.** The default `local`/project scope only loads when
    `claude` runs from that project dir; `-p` from `~` saw *no* servers and the model
-   reported "no astro-archives tools". User scope loads everywhere.
+   reported "no MANNA tools". User scope loads everywhere.
 4. **Token budget — THREE failure modes, all surface as a bogus "You're not
    authenticated with Claude" in chat** (Claude Code mis-maps the vLLM **HTTP 500** to an
    auth error — the `ANTHROPIC_API_KEY=dummy` trick only hides the *intermittent* login
@@ -200,7 +200,7 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
      - **Bigger window** — raise `--max-model-len` (see Part 2; 131072 if the checkpoint's
        `max_position_embeddings` allows). The Blackwell box has ample KV headroom.
      - **Smaller tool results** — the MCP server never inlines large tabular results.
-       Past `STABLE_INLINE_ROW_LIMIT` (default **200 rows**) / `STABLE_INLINE_BYTE_LIMIT`
+       Past `MANNA_INLINE_ROW_LIMIT` (default **200 rows**) / `MANNA_INLINE_BYTE_LIMIT`
        (default **48 KB**), a TAP result is routed to an async job and `vo_tap_results`
        hands back a `job_url` + pyvo `fetch_recipe` (the client fetches the data itself);
        cone/SIA results truncate inline with a `truncated` flag. These defaults are sized
@@ -313,8 +313,10 @@ laptop / frontend container ──HTTPS+Basic──► https://datalab.noirlab.e
   credential Claude Code natively recognizes, it intermittently declares *"You're not
   authenticated / run claude /login"* mid-session even though the CUSTOM_HEADERS Basic auth
   is working. The dummy key keeps Claude Code's login-state check satisfied.
-- ⚠️ **Note the path name:** the proxy path is `/astro-archives-mcp` but it fronts the
-  **LLM**, not the MCP server (a naming coincidence). Worth asking Chadd to rename.
+- ⚠️ **Note the path name:** the proxy path is `/astro-archives-mcp` — NOIRLab's nginx
+  block, named after this project's former name. It fronts the **LLM**, not the MCP
+  server. It does not change when this repo is renamed; ask Chadd if it should be
+  re-pointed to `/manna`.
 
 **Done (2026-07-02) — dockerized frontend validated against this backend.** The
 `deploy/frontend/` stack (MCP + Jupyter AI persona), **chat mode**, reaches the proxy and
@@ -324,8 +326,9 @@ proxy is public TLS, the exact same `.env` works from a Data Lab server unchange
 **Done (2026-07-02) — context-overflow fix.** A `vo_tap_query`-heavy agent loop overflowed
 the 65536 window (`57345 + 8192 = 65537`), surfacing as a spurious "You're not authenticated
 with Claude" (Gotcha 4c). Fixed on both sides: `--max-model-len` raised to 131072, and the
-MCP server now spills large tabular results to the Parquet Resource tier at much lower inline
-caps (`STABLE_INLINE_ROW_LIMIT=200`, `STABLE_INLINE_BYTE_LIMIT=48 KB`).
+MCP server now routes large TAP results to an async job and hands back a `result_url` +
+pyvo `fetch_recipe` (the client fetches the bytes itself), at much lower inline caps
+(`MANNA_INLINE_ROW_LIMIT=200`, `MANNA_INLINE_BYTE_LIMIT=48 KB`).
 
 **Done (2026-07-07) — persistence.** vLLM is now a durable compose service
 (`dlai01-vllm/docker-compose.yml`, `restart: unless-stopped`) instead of a bare
@@ -345,15 +348,15 @@ overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
   block instead of leaking it into the reply. Deploy on dlai01 (`docker compose up -d`); confirmed
   the preamble is gone and tool calls still fire in the frontend chat. See Gotcha 5 for the root cause.
 - **Concurrency load test** at agentic context lengths (KV cache is the limiter;
-  prefix-caching the ~24.5K static tool-schema prefix is the big lever) to size gp13.
+  prefix-caching the ~24.5K static tool-schema prefix is the big lever) to size gp12.
 
 ## Quick reproduce (all-in-one)
 
 ```bash
 # 1. MCP server (rootless, loopback)
 cd ~/sbx/astro-archives-mcp && export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"
-nohup env STABLE_PORT=8000 uv run python -m astro_archives_mcp > ~/sbx/mcp.log 2>&1 &
-CLAUDE_CONFIG_DIR=$HOME/.claude-work claude mcp add --scope user --transport http astro-archives http://127.0.0.1:8000/mcp/
+nohup env MANNA_PORT=8000 uv run python -m manna > ~/sbx/mcp.log 2>&1 &
+CLAUDE_CONFIG_DIR=$HOME/.claude-work claude mcp add --scope user --transport http manna http://127.0.0.1:8000/mcp/
 
 # 2. Model on vLLM (TP=4)
 docker rm -f vllm 2>/dev/null
@@ -368,6 +371,6 @@ export ANTHROPIC_DEFAULT_OPUS_MODEL=Qwen/Qwen3.5-122B-A10B-FP8 \
        ANTHROPIC_DEFAULT_SONNET_MODEL=Qwen/Qwen3.5-122B-A10B-FP8 \
        ANTHROPIC_DEFAULT_HAIKU_MODEL=Qwen/Qwen3.5-122B-A10B-FP8
 CLAUDE_CONFIG_DIR=$HOME/.claude-work claude -p \
-  "Use the astro-archives MCP tools to resolve M51. Call the tool; do not guess." \
-  --allowedTools "mcp__astro-archives__vo_target_resolve"
+  "Use the MANNA MCP tools to resolve M51. Call the tool; do not guess." \
+  --allowedTools "mcp__manna__vo_target_resolve"
 ```

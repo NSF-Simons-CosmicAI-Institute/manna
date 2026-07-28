@@ -3,8 +3,8 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from astro_archives_mcp import job_store
-from astro_archives_mcp.app import build_app
+from manna import job_store
+from manna.app import build_app
 
 
 @pytest.fixture(autouse=True)

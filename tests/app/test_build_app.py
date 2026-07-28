@@ -17,8 +17,8 @@ import contextlib
 
 import httpx
 
-from astro_archives_mcp import __version__
-from astro_archives_mcp.app import build_app
+from manna import __version__
+from manna.app import build_app
 
 
 @contextlib.asynccontextmanager

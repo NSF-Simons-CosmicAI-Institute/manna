@@ -1,7 +1,7 @@
 from astropy.table import Table
 
-from astro_archives_mcp.config import get_settings
-from astro_archives_mcp.shaper import (
+from manna.config import get_settings
+from manna.shaper import (
     TRUNCATION_REASON_INLINE_CAP,
     TRUNCATION_REASON_MAXREC,
     is_oversize,
@@ -11,7 +11,7 @@ from astro_archives_mcp.shaper import (
 )
 
 # Effective inline row cap shape_table enforces (schema default unless
-# STABLE_INLINE_ROW_LIMIT is set). Boundary tests key off this.
+# MANNA_INLINE_ROW_LIMIT is set). Boundary tests key off this.
 INLINE_ROW_LIMIT = get_settings().inline_row_limit
 
 
