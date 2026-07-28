@@ -9,7 +9,7 @@ superpowers/specs/2026-07-27-qwen-replacement-bakeoff-design.md).
 
 dlai01, GPUs 0-2, vLLM compose (`deploy/dlai01-vllm/`), 131072-token window:
 
-    cd ~/sbx/astro-archives-mcp/deploy/dlai01-vllm
+    cd ~/sbx/manna/deploy/dlai01-vllm
     docker compose --env-file candidates/<name>.env up -d
 
 vLLM image: <fill: `docker inspect vllm --format '{{.Image}}'` + tag/digest>

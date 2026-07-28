@@ -77,7 +77,7 @@ All in-container; no host installs needed from us.
 Runs rootless via `uv` on loopback (read-only VO tools; no auth needed on loopback).
 
 ```bash
-cd ~/sbx/astro-archives-mcp   # (rename this checkout to ~/sbx/manna when the repo is renamed)
+cd ~/sbx/manna
 export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"   # writable astropy/tmp cache
 nohup env MANNA_PORT=8000 uv run python -m manna > ~/sbx/mcp.log 2>&1 &
 curl -fsS http://127.0.0.1:8000/health        # {"status":"ok","version":"0.5.0",...}
@@ -358,7 +358,7 @@ instead of silently booting the wrong model.
 
 ```bash
 # 1. MCP server (rootless, loopback)
-cd ~/sbx/astro-archives-mcp && export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"
+cd ~/sbx/manna && export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"
 nohup env MANNA_PORT=8000 uv run python -m manna > ~/sbx/mcp.log 2>&1 &
 CLAUDE_CONFIG_DIR=$HOME/.claude-work claude mcp add --scope user --transport http manna http://127.0.0.1:8000/mcp/
 
