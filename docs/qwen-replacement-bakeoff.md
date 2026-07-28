@@ -106,7 +106,7 @@ Eval-run note (applies to all candidates): proxy 502 since the dlai01 reboot
 | 2 messages | PASS | Clean Anthropic envelope on loopback :8002 |
 | 3 tool call | PASS | Persona resolved M51 = RA 202.469575 / Dec +47.19525833; CallToolRequest count = 1 |
 | 4 reasoning | PASS | effort=high -> ['thinking','text'], clean text (391), no leak |
-| 5 evals | | scorecard: |
+| 5 evals | 0.714 | Tiers 1+2 loopback, self-judge. tier1 0.857 (6/7, t1-schema), tier2 0.571 (4/7: t2-resolve-cone, t2-sia-fetch, plus 1 async-upstream, 1 20-step cap). 3.3 tool-calls/task, 24.6 s/task, 15250 output tokens. results/run-20260728T114137.json |
 | 6 concurrency | PASS | 8x200 at ~5.71 s each, CLEAN, on ONE GPU concurrent with the eval run (vs nemotron 7.6 s on 3 GPUs) |
 
 ### Candidate: gemma4-31b
