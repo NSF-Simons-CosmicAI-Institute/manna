@@ -109,6 +109,18 @@ Eval-run note (applies to all candidates): proxy 502 since the dlai01 reboot
 | 5 evals | 0.714 | Tiers 1+2 loopback, self-judge. tier1 0.857 (6/7, t1-schema), tier2 0.571 (4/7: t2-resolve-cone, t2-sia-fetch, plus 1 async-upstream, 1 20-step cap). 3.3 tool-calls/task, 24.6 s/task, 15250 output tokens. results/run-20260728T114137.json |
 | 6 concurrency | PASS | 8x200 at ~5.71 s each, CLEAN, on ONE GPU concurrent with the eval run (vs nemotron 7.6 s on 3 GPUs) |
 
+### Haiku re-judge (2026-07-28, judge=claude-haiku-4-5-20251001)
+
+Self-judged rubric scores re-scored from saved traces with one fixed hosted judge
+(`evals/rejudge.py`; no model-under-test inference — Qwen's saved 2026-07-20 run
+included WITHOUT re-running Qwen). Same-4-task tier-2 rubric subset:
+gpt-oss-120b **0.750** | nemotron3-super 0.500 | gemma4-31b 0.500 | qwen3.5 0.500
+(Qwen full-run rubric across tiers 1-4: 0.400 on 10 judged.)
+Ranking matches the self-judged scorecards; gpt-oss confirmed on top.
+Gotcha encoded in evals/README cleanup: stale persona `ANTHROPIC_BASE_URL` exports
+hijack the judge SDK client (judge 404s against local vLLM); judge model ids need
+the full dated form (`claude-haiku-4-5-20251001`).
+
 ### Candidate: gemma4-31b
 
 | Gate | Result | Notes |
@@ -117,7 +129,7 @@ Eval-run note (applies to all candidates): proxy 502 since the dlai01 reboot
 | 2 messages | PASS | Clean envelope; reasoning in `thinking` block |
 | 3 tool call | PASS | Persona resolved M51 = RA 202.469575 / Dec +47.19525833, clean reply |
 | 4 reasoning | PASS | effort=high -> ['thinking','text'], clean text, no leak |
-| 5 evals | | scorecard: |
+| 5 evals | 0.571 | Tiers 1+2 loopback, self-judge. tier1 0.714 (5/7: t1-cone, t1-schema), tier2 0.429 (3/7; 3 async-upstream-latency). 1.8 tool-calls/task, 14.1 s/task but only 3377 output tokens (terse, not fast). results/run-20260728T115659.json |
 | 6 concurrency | PASS | #39392 outcome: NO <pad> leak at 8-way, CLEAN. But 16.36 s/request vs 5.7 (gpt-oss) / 7.6 (nemotron) — dense-decode penalty is ~3x |
 
 ## Decision
