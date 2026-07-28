@@ -113,12 +113,12 @@ Eval-run note (applies to all candidates): proxy 502 since the dlai01 reboot
 
 | Gate | Result | Notes |
 |---|---|---|
-| 1 boot | | |
-| 2 messages | | |
-| 3 tool call | | |
-| 4 reasoning | | |
+| 1 boot | PASS | TP=2, 30.4 GiB/GPU weights (BF16), 49 s engine init + 47 s multimodal warmup. KV 55.7 GiB = 626K tokens = 4.78x full-window concurrency. Repo turned out UNGATED (no HF token needed) |
+| 2 messages | PASS | Clean envelope; reasoning in `thinking` block |
+| 3 tool call | PASS | Persona resolved M51 = RA 202.469575 / Dec +47.19525833, clean reply |
+| 4 reasoning | PASS | effort=high -> ['thinking','text'], clean text, no leak |
 | 5 evals | | scorecard: |
-| 6 concurrency | | #39392 outcome: |
+| 6 concurrency | PASS | #39392 outcome: NO <pad> leak at 8-way, CLEAN. But 16.36 s/request vs 5.7 (gpt-oss) / 7.6 (nemotron) — dense-decode penalty is ~3x |
 
 ## Decision
 
