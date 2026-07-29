@@ -133,7 +133,7 @@ def test_shape_result_url_tolerates_missing_result_url():
 
 def test_shape_result_url_next_steps_command_recipe_execution():
     # Small models treat descriptive next_steps as someone else's job and
-    # abandon completed results (observed with Qwen in the jhub persona).
+    # abandon completed results (observed with small local models in the jhub persona).
     # The steps must be imperative, name the model's own code-execution
     # tool, and forbid re-running the query.
     out = shape_result_url(
