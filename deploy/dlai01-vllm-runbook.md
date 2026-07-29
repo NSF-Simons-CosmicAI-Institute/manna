@@ -1,3 +1,5 @@
+**2026-07-28: Qwen decommissioned by policy; current model: `openai/gpt-oss-120b` — see docs/qwen-replacement-bakeoff.md.** Qwen-era sections below are kept as historical validation record. Current boot path: `cp candidates/gpt-oss-120b.env .env` once, then bare `docker compose up -d` (also the reboot-recovery path).
+
 # dlai01 Model-Hosting — Validation Record & Runbook
 
 **What this documents:** hosting an open-weight LLM (Qwen3.5) on the dlai01 GPU box
@@ -77,7 +79,7 @@ All in-container; no host installs needed from us.
 Runs rootless via `uv` on loopback (read-only VO tools; no auth needed on loopback).
 
 ```bash
-cd ~/sbx/astro-archives-mcp   # (rename this checkout to ~/sbx/manna when the repo is renamed)
+cd ~/sbx/manna
 export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"   # writable astropy/tmp cache
 nohup env MANNA_PORT=8000 uv run python -m manna > ~/sbx/mcp.log 2>&1 &
 curl -fsS http://127.0.0.1:8000/health        # {"status":"ok","version":"0.5.0",...}
@@ -104,7 +106,7 @@ MoE decode is fast and concurrency-friendly. Tool-call parser: `qwen3_coder`. Ru
 
 Launch (weights cache to `/mlhome`; ~122 GB pull first time, then loads from cache).
 **For day-to-day operation prefer the durable compose service** (`dlai01-vllm/docker-compose.yml`,
-`restart: unless-stopped` — survives reboots): `cd deploy/dlai01-vllm && docker compose up -d`.
+`restart: unless-stopped` — survives reboots): `cd deploy/dlai01-vllm && docker compose --env-file candidates/qwen3.5.env up -d` (file removed in the 2026-07-28 purge — historical command).
 The raw `docker run` below is the equivalent one-shot for reference / first bring-up:
 
 ```bash
@@ -249,7 +251,26 @@ grep -c "CallToolRequest" ~/sbx/mcp.log            # ≥1 = tool actually fired
    `reasoning_parser='qwen3'`), then chat via the frontend — reply is clean and a tool query
    (e.g. "resolve M51") still returns coords. If an older cached image rejects a flag,
    `docker compose pull` first.
-6. **FP8 KV cache left OFF for now.** `--kv-cache-dtype fp8` roughly halves KV memory
+6. **Stale CDI spec breaks ALL new GPU containers after driver-library changes
+   (bit us 2026-07-28).** Symptom: any `docker run --gpus all` (even `alpine true`)
+   dies at create with `failed to fulfil mount request: open /usr/lib64/libnvidia-…:
+   no such file or directory`, while host `nvidia-smi` is fine and long-RUNNING
+   containers keep working (mounts bind at creation). Cause: `/var/run/cdi/nvidia.yaml`
+   is a static snapshot of driver library paths (ours was generated once, at the
+   Jun 29 toolkit install) and a listed library was later removed root-side
+   (egl-wayland → egl-wayland2). /var/run is tmpfs: the toolkit's
+   `nvidia-cdi-refresh.service`/`.path` units are supposed to regenerate the spec at
+   boot and on driver changes — on this box they evidently didn't fire, so have IT
+   verify they're ENABLED (`systemctl status nvidia-cdi-refresh.path
+   nvidia-cdi-refresh.service`); if they're disabled, the spec disappears entirely at
+   the next reboot ("unresolvable CDI device"). Diagnose: `grep <missing-lib> /var/run/cdi/nvidia.yaml`
+   + `ldconfig -p | grep <lib>`. Fix is root-only (IT): `systemctl restart nvidia-cdi-refresh.service` (preferred —
+   exercises the packaged unit) or `nvidia-ctk cdi generate
+   --output=/var/run/cdi/nvidia.yaml`, plus enabling the refresh units. After ANY driver maintenance on this box,
+   test container creation (`docker run --rm --gpus all alpine true`) before trusting
+   `restart: unless-stopped` to survive the next reboot.
+
+7. **FP8 KV cache left OFF for now.** `--kv-cache-dtype fp8` roughly halves KV memory
    (a big concurrency lever) but is unvalidated on sm_120 here, and reportedly produced
    garbled output for another model on this GPU — validate before enabling.
 
@@ -275,7 +296,7 @@ project, so compose won't adopt it — you must remove it first):**
 # snapshot the old args for rollback, then swap
 docker inspect vllm --format '{{json .Args}}'      # record the TP=4 command
 docker rm -f vllm                                  # brief downtime starts here
-cd deploy/dlai01-vllm && docker compose up -d && docker compose logs -f
+cd deploy/dlai01-vllm && docker compose --env-file candidates/qwen3.5.env up -d && docker compose logs -f  # (file removed in the 2026-07-28 purge — historical command)
 # ✅ look for "Application startup complete" + Worker_PP0/PP1/PP2 (world_size=3)
 # confirm: nvidia-smi shows the pinned-out GPU at 0 MiB / 0%
 ```
@@ -333,8 +354,12 @@ pyvo `fetch_recipe` (the client fetches the bytes itself), at much lower inline 
 **Done (2026-07-07) — persistence.** vLLM is now a durable compose service
 (`dlai01-vllm/docker-compose.yml`, `restart: unless-stopped`) instead of a bare
 `docker run`, so it comes back after dlai01's periodic reboots:
-`cd deploy/dlai01-vllm && docker compose up -d`. Model / context-length / api-key are
-overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
+`cd deploy/dlai01-vllm && docker compose --env-file candidates/qwen3.5.env up -d` (file removed in the 2026-07-28 purge — historical command).
+**Changed 2026-07** as part of the Qwen-replacement bake-off scaffolding (see
+`docs/qwen-replacement-bakeoff.md`): all model-specific serving parameters (model,
+tool/reasoning parsers, parallelism, context window) now come from a required
+`candidates/<name>.env` file — a bare `docker compose up` fails loudly by design
+instead of silently booting the wrong model.
 
 **Next (not yet started):**
 - **Harden the exposed endpoint.** vLLM binds `0.0.0.0:8002` **keyless** — anything
@@ -345,7 +370,7 @@ overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
 - **`hub` mode against vLLM** — re-validate JupyterHub + DockerSpawner with the same `.env`.
 - ~~**Thinking-off** cleanup (Gotcha 5) for clean chat UX.~~ **DONE (2026-07-23):**
   `--reasoning-parser=qwen3` in the compose routes the effort-triggered reasoning into a separate
-  block instead of leaking it into the reply. Deploy on dlai01 (`docker compose up -d`); confirmed
+  block instead of leaking it into the reply. Deploy on dlai01 (`docker compose --env-file candidates/qwen3.5.env up -d`; file removed in the 2026-07-28 purge — historical command); confirmed
   the preamble is gone and tool calls still fire in the frontend chat. See Gotcha 5 for the root cause.
 - **Concurrency load test** at agentic context lengths (KV cache is the limiter;
   prefix-caching the ~24.5K static tool-schema prefix is the big lever) to size gp12.
@@ -354,7 +379,7 @@ overridable via env (`VLLM_MODEL`, `VLLM_MAX_MODEL_LEN`, `VLLM_API_KEY`).
 
 ```bash
 # 1. MCP server (rootless, loopback)
-cd ~/sbx/astro-archives-mcp && export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"
+cd ~/sbx/manna && export PATH="$HOME/.local/bin:$PATH" XDG_CACHE_HOME="$HOME/.cache"
 nohup env MANNA_PORT=8000 uv run python -m manna > ~/sbx/mcp.log 2>&1 &
 CLAUDE_CONFIG_DIR=$HOME/.claude-work claude mcp add --scope user --transport http manna http://127.0.0.1:8000/mcp/
 
