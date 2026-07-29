@@ -51,32 +51,12 @@ The trailing slash on `/mcp/` matters: `POST /mcp` 307-redirects (Starlette `Mou
 
 | Default | Why it breaks on gp12 | Change |
 |---|---|---|
-| Spawned containers get **no volume**, and `DockerSpawner.remove = True` | `$HOME` is ephemeral — a respawn silently wipes the user's notebooks | mount a per-user volume — but see the shadowing trap below |
 | The `mcp` image builds from the **working checkout** (`context: ../..`) | whatever branch the deploy host happens to be on becomes production | build from a tagged commit, and record which tag is deployed |
 | `DOCKER_NETWORK=frontend_default` | spawned containers can't resolve `mcp` or the hub → the persona has no tools | set to the actual network name (`<project>_default`) |
 | `mcp` publishes to **`127.0.0.1:18000`** | host-local; fine for debugging, but not how user containers should connect | user containers reach `mcp:8000` over the shared network — keep it that way, or bind an address ADL controls if the hub runs elsewhere |
 
-The volume is the only silent failure of the four; the rest break loudly on first use.
-
-### The `$HOME` volume shadows the persona config
-
-`mcp_settings.json` is baked into the image at `~/.jupyter/mcp_settings.json`, and the
-Jupyter AI persona layer reads it by walking up from the chat directory. **Mounting a
-volume at `$HOME` covers it**, and the persona silently loses every tool — it keeps
-answering, just from the model's own knowledge, which is exactly the failure mode
-hardest to notice.
-
-The two defaults collide: fixing the ephemeral-`$HOME` problem creates this one. Pick one:
-
-- **Seed at spawn time** — stage the file read-only in the image (e.g. `/opt/manna/`)
-  and copy it into `~/.jupyter/` from a startup hook, so it lands *after* the volume
-  mounts. Works whether `$HOME` is fresh or persistent.
-- **Mount below `$HOME`** — give the volume a subdirectory (`~/work`) and leave
-  `~/.jupyter/` as image content.
-
-A Docker *named* volume hides the collision: it seeds itself from the image on first
-spawn, so the tools work — then freeze at that version, and later image updates to
-`mcp_settings.json` never reach existing users. A bind mount or NFS home fails outright.
+All three break loudly on first use. Persistent user storage is **not** in this list —
+see Deferred.
 
 ## Persona credentials
 
@@ -157,13 +137,45 @@ the log is a failure, not a pass.
 
 ## Deferred
 
-**Auth — intentionally not addressed.** Hub mode ships `DummyAuthenticator`: one
-shared password from `JUPYTERHUB_DUMMY_PASSWORD`, any username accepted, no per-user
-identity. Accepted for internal NRAO/ADL use during the pilot.
+Both items below are known gaps, deliberately out of scope for the pilot. They are
+coupled: per-user storage is only meaningful once users have real identities.
+
+### Persistent user storage — future work
+
+Spawned containers mount **no volume**, and `DockerSpawner.remove = True`. `$HOME` lives
+in the container's writable layer, so **any respawn destroys the user's notebooks and
+chat history** — Stop/Start My Server in the Hub UI, an image rebuild, or a `docker rm`.
+It fails silently; nothing warns the user.
+
+For a pilot this is survivable, but only if users know. **Tell them notebooks are
+scratch space, and `docker cp` anything worth keeping out before a respawn.**
+
+Not done now because a volume alone doesn't finish the job — it introduces a second
+problem that has to be solved with it:
+
+> `mcp_settings.json` is baked into the image at `~/.jupyter/mcp_settings.json`, and the
+> Jupyter AI persona layer reads it by walking up from the chat directory. **A volume
+> mounted at `$HOME` covers it**, and the persona silently loses every tool — it keeps
+> answering, just from the model's own knowledge. That is the hardest failure mode to
+> notice, and a Docker *named* volume hides it further: it seeds itself from the image
+> on first spawn, so the tools work, then freezes — later image updates to
+> `mcp_settings.json` never reach existing users. A bind mount or NFS home fails
+> outright.
+
+So the work is a volume **plus** one of: seeding `~/.jupyter/` at spawn time from a
+read-only staging path (e.g. `/opt/manna/`) so it lands after the mount, or mounting the
+volume below `$HOME` (`~/work`) and leaving `~/.jupyter/` as image content. Add a
+backup/retention story and it stops being a one-line config change — hence deferred.
+
+### Auth — future work
+
+Hub mode ships `DummyAuthenticator`: one shared password from
+`JUPYTERHUB_DUMMY_PASSWORD`, any username accepted, no per-user identity. Accepted for
+internal NRAO/ADL use during the pilot.
 
 Replace it with a real authenticator before gp12 is reachable by anyone outside the
-team, or before per-user state means anything — with dummy auth, any user can log in
-under any other username and get that user's home volume.
+team, and **before** persistent storage lands — with dummy auth, any user can log in
+under any other username and would get that user's files.
 
 ## Open questions for ADL ops
 
@@ -171,6 +183,10 @@ under any other username and get that user's home volume.
   hub from `frontend/`? If it's ADL's, we supply the single-user image plus the shared
   MCP service and they point their spawner at it.
 - **Spawner and base image** — DockerSpawner? KubeSpawner? A bespoke VM image?
+- **Does ADL's spawner already mount home directories?** If it does, deferring persistent
+  storage is not actually available to us: the mount lands on `$HOME` on day one and
+  shadows `~/.jupyter/mcp_settings.json`, so the spawn-time seeding described under
+  Deferred becomes required before first use, not future work.
 - **Where does the MCP service live**, and how do user containers route to it — the
   same docker network, a cluster service, or a hostname ADL provides?
 - **Can gp12 actually route to `dlai01:8002`**, and is leaving vLLM keyless on that
