@@ -66,7 +66,7 @@ network** — gp12 and dlai01 are both on it, so there is no proxy in the path:
 ```bash
 ANTHROPIC_BASE_URL=http://dlai01.csdc.noirlab.edu:8002    # vLLM, 0.0.0.0 bind, keyless
 ANTHROPIC_API_KEY=dummy                                   # see below — still required
-ANTHROPIC_DEFAULT_OPUS_MODEL=Qwen/Qwen3.5-122B-A10B-FP8    # and SONNET / HAIKU
+ANTHROPIC_DEFAULT_OPUS_MODEL=openai/gpt-oss-120b          # and SONNET / HAIKU
 ```
 
 **This drops the `.env.example` Basic-auth setup entirely.** The
@@ -96,8 +96,8 @@ unaffected — they describe the model, not the transport. Keep them.
 Everything above is per-user env injected by the spawner; `jupyterhub_config.py`
 forwards the `ANTHROPIC_*` variables to spawned containers. Hosted Claude remains a
 fallback if dlai01 is down: unset `ANTHROPIC_BASE_URL`, **comment out the
-`ANTHROPIC_DEFAULT_*_MODEL` lines** (or Claude Code requests a `Qwen/…` model Anthropic
-doesn't have), and supply a real credential.
+`ANTHROPIC_DEFAULT_*_MODEL` lines** (or Claude Code requests an `openai/…` model
+Anthropic doesn't have), and supply a real credential.
 
 ## Verify
 
