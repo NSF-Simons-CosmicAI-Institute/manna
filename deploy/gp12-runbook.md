@@ -6,8 +6,9 @@ that every spawned user container reaches over the network.
 
 Status: **design draft** for ADL ops. The stack itself is validated — a hub-spawned
 single-user container's persona resolved M51 via a real `vo_target_resolve` call
-through the dlai01 vLLM (2026-07-02, macOS/arm64). What's unproven is gp12 itself:
-its spawner, its network, and an amd64 rebuild.
+through the dlai01 vLLM (2026-07-02, macOS/arm64), and Verify steps 1–3 below were
+re-run against a live hub-spawned container on 2026-07-29. What's unproven is gp12
+itself: its spawner, its network, and an amd64 rebuild.
 
 This runbook covers only what is **gp12-specific**. How the stack works, its
 configuration, and its gotchas live in **`frontend/README.md`** — read that first.
@@ -50,12 +51,32 @@ The trailing slash on `/mcp/` matters: `POST /mcp` 307-redirects (Starlette `Mou
 
 | Default | Why it breaks on gp12 | Change |
 |---|---|---|
-| Spawned containers get **no volume**, and `DockerSpawner.remove = True` | `$HOME` is ephemeral — a respawn silently wipes the user's notebooks | mount a per-user volume at `$HOME` |
+| Spawned containers get **no volume**, and `DockerSpawner.remove = True` | `$HOME` is ephemeral — a respawn silently wipes the user's notebooks | mount a per-user volume — but see the shadowing trap below |
 | The `mcp` image builds from the **working checkout** (`context: ../..`) | whatever branch the deploy host happens to be on becomes production | build from a tagged commit, and record which tag is deployed |
 | `DOCKER_NETWORK=frontend_default` | spawned containers can't resolve `mcp` or the hub → the persona has no tools | set to the actual network name (`<project>_default`) |
 | `mcp` publishes to **`127.0.0.1:18000`** | host-local; fine for debugging, but not how user containers should connect | user containers reach `mcp:8000` over the shared network — keep it that way, or bind an address ADL controls if the hub runs elsewhere |
 
 The volume is the only silent failure of the four; the rest break loudly on first use.
+
+### The `$HOME` volume shadows the persona config
+
+`mcp_settings.json` is baked into the image at `~/.jupyter/mcp_settings.json`, and the
+Jupyter AI persona layer reads it by walking up from the chat directory. **Mounting a
+volume at `$HOME` covers it**, and the persona silently loses every tool — it keeps
+answering, just from the model's own knowledge, which is exactly the failure mode
+hardest to notice.
+
+The two defaults collide: fixing the ephemeral-`$HOME` problem creates this one. Pick one:
+
+- **Seed at spawn time** — stage the file read-only in the image (e.g. `/opt/manna/`)
+  and copy it into `~/.jupyter/` from a startup hook, so it lands *after* the volume
+  mounts. Works whether `$HOME` is fresh or persistent.
+- **Mount below `$HOME`** — give the volume a subdirectory (`~/work`) and leave
+  `~/.jupyter/` as image content.
+
+A Docker *named* volume hides the collision: it seeds itself from the image on first
+spawn, so the tools work — then freeze at that version, and later image updates to
+`mcp_settings.json` never reach existing users. A bind mount or NFS home fails outright.
 
 ## Persona credentials
 
@@ -74,25 +95,39 @@ particular — are in `frontend/.env.example`.
 
 ## Verify
 
-On the gp12 host, once the stack is up:
+Steps 1–3 need no model credentials — they check the tool path only. Step 4 is the
+end-to-end and needs the model backend up.
+
+**1. The service is up** (on the gp12 host):
 
 ```bash
-curl -fsS http://localhost:18000/health        # MANNA 0.5.0
+curl -fsS http://localhost:18000/health        # {"status":"ok","version":"0.5.0",...}
 ```
 
-Inside a spawned single-user container:
+**2. It speaks MCP and exposes the tools** (from anywhere that can reach it):
 
 ```bash
-curl -fsS http://mcp:8000/health               # the shared service is reachable
-cat ~/.jupyter/mcp_settings.json               # points at http://mcp:8000/mcp/
-claude mcp list                                # → Connected
+npx -y @modelcontextprotocol/inspector --cli http://localhost:18000/mcp --method tools/list
+# → 12 tools: vo_archive_list, vo_tap_query, vo_target_resolve, …
 ```
 
-Then in JupyterLab chat: `@CosmicCoder use the MANNA tools to resolve M51.`
+**3. A spawned user container can reach it, and has the persona config** (`docker exec`
+into a running single-user container):
 
-Success = the `mcp` service log shows a `CallToolRequest` **and** the reply carries
-real coordinates (RA 202.4696, Dec +47.195). A plausible-looking answer with no tool
-call in the log is a failure, not a pass.
+```bash
+curl -fsS http://mcp:8000/health               # the cross-container hop works
+cat ~/.jupyter/mcp_settings.json               # → url: http://mcp:8000/mcp/
+```
+
+Note it is **`~/.jupyter/mcp_settings.json`**, read by the Jupyter AI persona layer —
+*not* `claude mcp list`. The `claude` CLI keeps its own separate MCP config and will
+report "No MCP servers configured" even when the persona's tools work perfectly.
+
+**4. End-to-end**, in JupyterLab chat: `@CosmicCoder use the MANNA tools to resolve M51.`
+
+Success = the `mcp` service log shows a `CallToolRequest` **and** the reply carries real
+coordinates (RA 202.4696, Dec +47.195). A plausible-looking answer with no tool call in
+the log is a failure, not a pass.
 
 ## Deferred
 
