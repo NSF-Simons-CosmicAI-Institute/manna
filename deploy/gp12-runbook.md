@@ -1,133 +1,115 @@
 # gp12 Deployment Runbook — MANNA via Jupyter AI
 
-Status: **design draft** for review by ADL ops. Goal: surface the VO tools to
-notebook users on Astro Data Lab's **gp12**, a shared JupyterHub that spawns a
-per-user single-user server (VM/container) per session, through **Jupyter AI v3**
-chat. See `docs/jupyter-ai-integration.md` for the architecture.
+Surface MANNA's VO tools to notebook users on Astro Data Lab's **gp12** through a
+**Jupyter AI v3** persona (`@CosmicCoder`). MANNA runs as **one shared MCP service**
+that every spawned user container reaches over the network.
 
-> **What's proven, and where.** The full persona chain — Jupyter AI's Claude
-> persona → `claude-agent-acp` → `claude` CLI → this MCP server over HTTP →
-> a live VO tool call — was validated **headless on dlai01 (2026-06-29)**:
-> `claude mcp add --transport http`, `claude mcp list` → Connected, and a
-> `claude -p` call that invoked `vo_target_resolve` for M51 (RA 202.47 /
-> Dec +47.20), not a guess. The container packaging of that same chain
-> (`docs/examples/gp12/`) is exercised by `smoke-test.sh` (below). gp12 itself is
-> pending access; this runbook is what plugs the proven image into its spawner.
+Status: **design draft** for ADL ops. The stack itself is validated — a hub-spawned
+single-user container's persona resolved M51 via a real `vo_target_resolve` call
+through the dlai01 vLLM (2026-07-02, macOS/arm64). What's unproven is gp12 itself:
+its spawner, its network, and an amd64 rebuild.
 
-> **Assumptions flagged for ADL ops** (confirm before building — they change the
-> mechanics below):
-> 1. The single-user image derives from **jupyter/docker-stacks** (so
->    `before-notebook.d/` start hooks exist). If it's a bespoke image or VM, the
->    hook becomes a systemd unit / entrypoint line instead.
-> 2. Each user's **`$HOME` is a writable, non-tiny volume**. astropy & pyvo write
->    caches under `~/.astropy` and `$TMPDIR`; a read-only or full volume makes
->    every `vo_target_resolve` / `vo_registry_search` fail with `archive_error`
->    (we hit exactly this with a disk-full container in testing).
-> 3. The chosen **persona LLM backend** (hosted Claude vs. local model on dlai01)
->    and how its credentials are provisioned — see §4.
+This runbook covers only what is **gp12-specific**. How the stack works, its
+configuration, and its gotchas live in **`frontend/README.md`** — read that first.
 
-## Topology: colocated vs. shared
+## Architecture
 
-| | **A. Colocated (recommended to prove first)** | **B. Shared service** |
-|---|---|---|
-| Where | MCP server runs *inside* each single-user server on `127.0.0.1` | One MCP deployment all user pods reach over the cluster network |
-| Config URL | `http://127.0.0.1:8000/mcp/` | `http://manna.<ns>:8000/mcp/` |
-| Auth | none (loopback, anonymous read-only tools) | none needed (anonymous), but exposed off-loopback → see `deploy/dlai01-vllm-runbook.md` proxy/timeout notes |
-| Pros | identical to the proven recipe, zero network/auth surface, per-user isolation | one upgrade path, no per-user process/cache duplication |
-| Cons | N server processes + N astropy caches | requires user-pod → service reachability; one shared blast radius |
-
-Because the tools are anonymous and read-only, **A** is the path of least resistance
-to a first rollout and is what the rest of this runbook details. **B** becomes
-attractive once it's proven and you want a single thing to operate/upgrade — at
-that point deploy the existing container (see `deploy/dlai01-vllm-runbook.md`) as a
-cluster service and only change the config URL.
-
-## The single-user image (Topology A)
-
-The reference image lives at **`docs/examples/gp12/`** (Dockerfile + startup hook +
-config + `build.sh` + `smoke-test.sh`). Build and smoke-test it **on a box with a
-working docker** (e.g. dlai01):
-
-```bash
-cd docs/examples/gp12
-./build.sh                                  # BASE_IMAGE=<adl-base> ./build.sh once known
-export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)   # optional: enables the live tool-call check
-IMAGE=manna-singleuser:dev ./smoke-test.sh
+```
+gp12 JupyterHub ──spawns──► user container (Jupyter AI + @CosmicCoder persona)
+                                    │                      │
+                          MCP tools │                      │ model
+                                    ▼                      ▼
+                        MANNA (shared service)    datalab nginx proxy ──► dlai01 vLLM
+                          http://mcp:8000/mcp/    ANTHROPIC_BASE_URL
 ```
 
-> **Build from the example dir as context, not the repo root.** The repo-root
-> `.dockerignore` excludes `docs/`, `deploy/`, `tests/`, so a repo-root context
-> can't `COPY` the hook or config. `build.sh` already uses the right context.
+Model and tools are **independent connections** — the persona reaches the model over
+`ANTHROPIC_BASE_URL` and the tools over the MCP URL; neither knows about the other.
 
-What the image adds, and why:
+**One MCP deployment serves everyone.** The tools are anonymous, read-only, and the
+server never persists result bytes, so there is no per-user state to isolate — a single
+instance is correct, not just convenient, and users share one astropy/pyvo cache.
 
-1. **Python deps** — Jupyter AI v3 + this server. Tracks the `dev` branch (0.5.0) for
-   testing; pin to a release tag (e.g. `@v0.5.0`) once dev is promoted to main and tagged:
-   ```dockerfile
-   RUN pip install --no-cache-dir "jupyter-ai>=3" jupyterlab \
-       "manna @ git+https://github.com/dangause/manna.git@dev"
-   ```
+## What to deploy
 
-2. **Node.js + BOTH persona binaries.** The Claude persona launches
-   `claude-agent-acp`, which wraps the `claude` CLI for auth and model calls, so
-   both must be present:
-   ```dockerfile
-   RUN npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
-   ```
-   (npm warns the adapter was renamed to `@agentclientprotocol/claude-agent-acp`;
-   either works.) Skip this stage if backing the persona with a local model (§4).
+Everything comes from **`frontend/`**, hub profile — `mcp` (the shared tool server)
+plus `hub` (JupyterHub + DockerSpawner), which spawns the `lab` image per user:
 
-3. **Start the MCP server on loopback at spawn** — the
-   `before-notebook.d/10-manna.sh` hook launches it in the background
-   on `127.0.0.1:8000` with writable cache env, and is idempotent.
+```bash
+cd deploy/frontend
+cp .env.example .env          # model endpoint + persona credentials
+docker compose build lab      # the single-user image DockerSpawner launches
+docker compose --profile hub up --build
+```
 
-4. **Seed the MCP config robustly.** The hook copies `mcp_settings.json` from a
-   read-only staging path (`/opt/manna/`) into `~/.jupyter/` **at spawn
-   time** — so it lands *after* any persistent-`$HOME` volume mounts, which would
-   otherwise shadow a file baked into the image's home. This sidesteps the
-   "fresh vs. persistent `$HOME`" question entirely: it works either way.
+The trailing slash on `/mcp/` matters: `POST /mcp` 307-redirects (Starlette `Mount`).
 
-> Optional hardening: pre-warm the pyvo/astropy vocabulary cache at build time
-> (`RUN python -c "from pyvo.utils import vocabularies as v; v.get_vocabulary('messenger')"`)
-> so the first user query doesn't pay a network+disk hit.
+## What must change from the dev defaults
 
-## 4. Persona credentials at scale (the main ADL decision)
+`frontend/` is wired for local development. Four things are wrong for gp12:
 
-The persona authenticates exactly like the `claude` CLI — it reads credentials
-from `$CLAUDE_CONFIG_DIR` (default `~/.claude`) or from env. The image ships **no
-secret**; the spawner injects one of these (independent of the MCP server):
+| Default | Why it breaks on gp12 | Change |
+|---|---|---|
+| Spawned containers get **no volume**, and `DockerSpawner.remove = True` | `$HOME` is ephemeral — a respawn silently wipes the user's notebooks | mount a per-user volume at `$HOME` |
+| The `mcp` image builds from the **working checkout** (`context: ../..`) | whatever branch the deploy host happens to be on becomes production | build from a tagged commit, and record which tag is deployed |
+| `DOCKER_NETWORK=frontend_default` | spawned containers can't resolve `mcp` or the hub → the persona has no tools | set to the actual network name (`<project>_default`) |
+| `mcp` publishes to **`127.0.0.1:18000`** | host-local; fine for debugging, but not how user containers should connect | user containers reach `mcp:8000` over the shared network — keep it that way, or bind an address ADL controls if the hub runs elsewhere |
 
-- **Shared org credentials** (simplest multi-user v1) — inject an NRAO/CosmicAI
-  `ANTHROPIC_API_KEY` (or a long-lived `CLAUDE_CODE_OAUTH_TOKEN` from
-  `claude setup-token`) into the single-user env via the spawner. Shared billing &
-  governance. Optionally pin an account with `CLAUDE_CONFIG_DIR`.
-- **Per-user login** — each user runs `claude /login` once; creds persist in their
-  home volume. No shared secret; users need their own Anthropic access.
-- **Local model on dlai01** — point Claude Code at an on-prem model via
-  `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN`. No per-call cost, data stays on-prem;
-  tool-use quality depends on the model. Orthogonal to everything above — the MCP
-  path is unchanged. See `dlai01-vllm-runbook.md` for the local model backend details.
+The volume is the only silent failure of the four; the rest break loudly on first use.
+
+## Persona credentials
+
+Every user's persona needs model auth. The image ships no secret — the spawner injects
+it, and `jupyterhub_config.py` forwards the `ANTHROPIC_*` env to spawned containers.
+
+- **Local model on dlai01** — `ANTHROPIC_BASE_URL` at the datalab nginx proxy. No
+  per-call cost, data stays on-prem, and it's the validated path (`dlai01-vllm-runbook.md`).
+- **Shared org credential** — one NRAO/CosmicAI credential in the hub's env, forwarded
+  to every user. Shared billing and governance.
+- **Per-user login** — `claude /login` once per user, credentials persist in their home
+  volume. No shared secret, but each user needs their own Anthropic access.
+
+Variables and their collisions — the Basic-auth vs. `ANTHROPIC_AUTH_TOKEN` trap in
+particular — are in `frontend/.env.example`.
 
 ## Verify
 
-**Interim (no gp12 access): container smoke test on dlai01** — `smoke-test.sh`
-covers /health, persona binaries, seeded config, `claude mcp list → Connected`,
-and (with a token) a live M51 tool call inside the image.
+On the gp12 host, once the stack is up:
 
-**On gp12 (once available), inside a spawned single-user server:**
 ```bash
-curl -fsS http://127.0.0.1:8000/health                       # MANNA 0.5.0
-cat ~/.jupyter/mcp_settings.json                             # points at 127.0.0.1:8000/mcp/
-ps eww $(pgrep -f 'jupyter-lab') | tr ' ' '\n' | grep CLAUDE_CONFIG_DIR  # if pinning an account
+curl -fsS http://localhost:18000/health        # MANNA 0.5.0
 ```
-Then in JupyterLab chat: `@Claude use the MANNA tools to resolve M51.`
-Success = the server log shows a `CallToolRequest` and the reply carries real
-coordinates (RA 202.47, Dec +47.20), not a model guess.
+
+Inside a spawned single-user container:
+
+```bash
+curl -fsS http://mcp:8000/health               # the shared service is reachable
+cat ~/.jupyter/mcp_settings.json               # points at http://mcp:8000/mcp/
+claude mcp list                                # → Connected
+```
+
+Then in JupyterLab chat: `@CosmicCoder use the MANNA tools to resolve M51.`
+
+Success = the `mcp` service log shows a `CallToolRequest` **and** the reply carries
+real coordinates (RA 202.4696, Dec +47.195). A plausible-looking answer with no tool
+call in the log is a failure, not a pass.
+
+## Deferred
+
+**Auth — intentionally not addressed.** Hub mode ships `DummyAuthenticator`: one
+shared password from `JUPYTERHUB_DUMMY_PASSWORD`, any username accepted, no per-user
+identity. Accepted for internal NRAO/ADL use during the pilot.
+
+Replace it with a real authenticator before gp12 is reachable by anyone outside the
+team, or before per-user state means anything — with dummy auth, any user can log in
+under any other username and get that user's home volume.
 
 ## Open questions for ADL ops
 
-- Spawner & base image (docker-stacks? KubeSpawner/DockerSpawner? bespoke VM)?
-- Is `$HOME` per-spawn-fresh or a persistent volume? (the hook handles both, but
-  confirm so we can drop the belt-and-suspenders if it's always fresh)
-- Persona backend + credential model (§4)?
-- Topology A vs. B for the operated rollout?
+- **Does ADL already run a JupyterHub on gp12 that we plug into**, or do we deploy the
+  hub from `frontend/`? If it's ADL's, we supply the single-user image plus the shared
+  MCP service and they point their spawner at it.
+- **Spawner and base image** — DockerSpawner? KubeSpawner? A bespoke VM image?
+- **Where does the MCP service live**, and how do user containers route to it — the
+  same docker network, a cluster service, or a hostname ADL provides?
+- **Persona credential model** — which of the three above?

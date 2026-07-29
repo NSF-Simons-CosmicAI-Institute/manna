@@ -52,9 +52,8 @@ docker compose --profile hub up --build
 ## How it maps to the tools
 
 - **MCP** is a shared service at `http://mcp:8000/mcp/` (see `mcp_settings.json`, baked
-  into the frontend image at `~/.jupyter/`). Simple for local dev (Topology B).
-  gp12 may instead **colocate** MCP inside each user image (Topology A,
-  `../../docs/examples/gp12/`) — the persona config is otherwise identical.
+  into the frontend image at `~/.jupyter/`). One deployment serves every user
+  container — the same topology gp12 uses (`../gp12-runbook.md`).
 - **Persona** = `claude-agent-acp` wrapping the `claude` CLI; reads the model endpoint
   from the injected `ANTHROPIC_*` env. The image **rebrands it as `@CosmicCoder`**
   (CosmicAI) by patching the pinned persona's display name/avatar in place — behavior is
@@ -63,10 +62,11 @@ docker compose --profile hub up --build
 
 ## Lifting to gp12
 
-Same images. On gp12, ADL ops point their JupyterHub's single-user image at this
-frontend image (or the colocated `docs/examples/gp12/` variant) and inject the same
-`ANTHROPIC_*` env for the model + the MCP `mcp_settings.json`. The `chat` mode is a
-faithful stand-in for a single spawned user session.
+Same images, same shared-MCP topology. ADL ops point their JupyterHub's single-user
+image at this frontend image and inject the same `ANTHROPIC_*` env for the model plus
+the MCP `mcp_settings.json`. The `chat` mode is a faithful stand-in for a single
+spawned user session. What differs on gp12 — the dev defaults that must change, and
+the open questions for ADL ops — is in `../gp12-runbook.md`.
 
 ## Status / caveats
 

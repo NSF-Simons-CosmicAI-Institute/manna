@@ -120,8 +120,8 @@ discovery/metadata tools, but cannot materialize a large result — it can only 
 
 ## Renaming the persona (`@claude` → `@CosmicCoder`)
 
-The deploy images (`deploy/frontend/frontend.Dockerfile`, `docs/examples/gp12/Dockerfile`)
-present the agent as **`@CosmicCoder`** rather than the stock `@Claude`. This is a
+The deploy image (`deploy/frontend/frontend.Dockerfile`) presents the agent as
+**`@CosmicCoder`** rather than the stock `@Claude`. This is a
 CosmicAI rebrand only — the underlying engine (`claude-agent-acp` wrapping the `claude`
 CLI), model backend, and MCP tools are unchanged.
 
@@ -146,33 +146,18 @@ pinned precisely so this in-place patch stays deterministic; the build includes 
 guards that fail if a version bump moves the patched lines. To bump jupyter-ai, update the
 pins and re-verify the patch still matches.
 
-## gp12 deployment notes (after local works)
+## gp12 deployment
 
-gp12 is a **shared JupyterHub**: it spawns a per-user single-user notebook server
-(effectively a VM/container per user when they open a notebook). That changes where the
-MCP server should run, because "localhost" means *inside the user's spawned VM*, not a
-shared host. Two topologies:
+gp12 is a **shared JupyterHub**: it spawns a per-user single-user notebook server when a
+user opens a notebook. That changes where the MCP server runs, because "localhost" means
+*inside the user's spawned container*, not a shared host. MANNA is deployed there as
+**one shared MCP service** that every spawned container reaches over the network — the
+tools are anonymous, read-only, and hold no per-user state, so a single instance serves
+everyone.
 
-| Topology | How it runs | Pros | Cons |
-|----------|-------------|------|------|
-| **A. Colocated per-VM** (recommended to start) | Bake the MCP server into the single-user image; it starts with the VM and listens on `127.0.0.1:8000`. Each user's `mcp_settings.json` points at `http://localhost:8000/mcp/`. | Isolated, no auth needed, identical to the local recipe, no cross-VM networking. | N copies of the server; bumps the image. The server is lightweight and read-only, so this is cheap. |
-| **B. Shared service** | One MCP server on a host reachable from all user VMs (e.g. `http://manna.internal:8000/mcp/`). | Single deployment to operate/upgrade. | Needs network reachability from spawned VMs + likely auth once off-loopback (see `deploy/dlai01-vllm-runbook.md` for the nginx/auth setup). |
+Two things still have to be true per user, whatever the hub does: `mcp_settings.json`
+must land where that user's JupyterLab reads Jupyter config (baked into the single-user
+image at `~/.jupyter/`), and the persona needs model credentials injected by the spawner.
 
-Because the tools are **anonymous and read-only**, topology A is the path of least
-resistance for a first gp12 rollout — no auth surface, no shared-host networking, and the
-config is byte-for-byte the local recipe.
-
-- **Config delivery.** Whichever topology, `mcp_settings.json` must land where each user's
-  JupyterLab reads Jupyter config. Bake it into the single-user image (system Jupyter
-  config dir) so every spawned VM has it without per-user setup. Confirm the exact path
-  against the gp12 image's `jupyter --paths`.
-- **Agent (Claude Code) at scale.** The persona is Claude Code via its ACP adapter; every
-  user's persona needs its own model auth. Options: a shared org Anthropic key provisioned
-  into the image/env, or each user logging in. This is the main provisioning decision and
-  is independent of this MCP server.
-- **Local-model harness (exploratory).** Pointing Claude Code at a local model
-  (llama.cpp, etc.) means giving Claude Code an Anthropic-compatible endpoint
-  (`ANTHROPIC_BASE_URL`). llama.cpp's server speaks an OpenAI-compatible API, so it needs a
-  translation shim to look Anthropic-shaped. This is orthogonal to the MCP integration —
-  the MCP server works the same regardless of which model backs the persona — so prove the
-  jupyter-ai → MCP path with a hosted model first, then swap the backend.
+See **`deploy/gp12-runbook.md`** for the deployment procedure, and
+**`deploy/frontend/README.md`** for the stack it deploys.
