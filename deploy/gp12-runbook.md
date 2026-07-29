@@ -20,8 +20,8 @@ gp12 JupyterHub ──spawns──► user container (Jupyter AI + @CosmicCoder 
                                     │                      │
                           MCP tools │                      │ model
                                     ▼                      ▼
-                        MANNA (shared service)    datalab nginx proxy ──► dlai01 vLLM
-                          http://mcp:8000/mcp/    ANTHROPIC_BASE_URL
+                        MANNA (shared service)      dlai01 vLLM  (direct, ADL network)
+                          http://mcp:8000/mcp/      http://dlai01…:8002
 ```
 
 Model and tools are **independent connections** — the persona reaches the model over
@@ -80,18 +80,44 @@ spawn, so the tools work — then freeze at that version, and later image update
 
 ## Persona credentials
 
-Every user's persona needs model auth. The image ships no secret — the spawner injects
-it, and `jupyterhub_config.py` forwards the `ANTHROPIC_*` env to spawned containers.
+The model backend is **dlai01's vLLM, reached directly over the Astro Data Lab
+network** — gp12 and dlai01 are both on it, so there is no proxy in the path:
 
-- **Local model on dlai01** — `ANTHROPIC_BASE_URL` at the datalab nginx proxy. No
-  per-call cost, data stays on-prem, and it's the validated path (`dlai01-vllm-runbook.md`).
-- **Shared org credential** — one NRAO/CosmicAI credential in the hub's env, forwarded
-  to every user. Shared billing and governance.
-- **Per-user login** — `claude /login` once per user, credentials persist in their home
-  volume. No shared secret, but each user needs their own Anthropic access.
+```bash
+ANTHROPIC_BASE_URL=http://dlai01.csdc.noirlab.edu:8002    # vLLM, 0.0.0.0 bind, keyless
+ANTHROPIC_API_KEY=dummy                                   # see below — still required
+ANTHROPIC_DEFAULT_OPUS_MODEL=Qwen/Qwen3.5-122B-A10B-FP8    # and SONNET / HAIKU
+```
 
-Variables and their collisions — the Basic-auth vs. `ANTHROPIC_AUTH_TOKEN` trap in
-particular — are in `frontend/.env.example`.
+**This drops the `.env.example` Basic-auth setup entirely.** The
+`https://datalab.noirlab.edu/astro-archives-mcp` nginx proxy exists to give *off-network*
+clients (a laptop, a container elsewhere) TLS and HTTP Basic auth. On the ADL network
+none of that applies, and neither does its main trap — with no Basic header there is
+nothing for `ANTHROPIC_AUTH_TOKEN` to collide with. Leave `ANTHROPIC_CUSTOM_HEADERS`
+unset.
+
+**`ANTHROPIC_API_KEY=dummy` is still needed.** It has nothing to do with the proxy:
+Claude Code's own login-state check needs *some* credential it recognizes, or it
+intermittently declares "You're not authenticated / run `claude /login`" mid-session.
+The keyless vLLM ignores it. This is expected to carry over unchanged from the proxied
+setup but has not been re-validated against a direct connection — check it first.
+
+Two consequences of dropping the proxy, worth raising with ADL ops:
+
+- **vLLM is keyless**, so anything that can route to `dlai01:8002` can use the GPUs.
+  Acceptable inside a trusted network; if not, `dlai01-vllm/docker-compose.yml` has a
+  commented `--api-key` line, and that key then rides `ANTHROPIC_AUTH_TOKEN` (no
+  collision, since there's no Basic header any more).
+- **Traffic is plain HTTP** on the internal network — no TLS between gp12 and dlai01.
+
+The context-window settings (`CLAUDE_CODE_MAX_CONTEXT_TOKENS` and friends) are
+unaffected — they describe the model, not the transport. Keep them.
+
+Everything above is per-user env injected by the spawner; `jupyterhub_config.py`
+forwards the `ANTHROPIC_*` variables to spawned containers. Hosted Claude remains a
+fallback if dlai01 is down: unset `ANTHROPIC_BASE_URL`, **comment out the
+`ANTHROPIC_DEFAULT_*_MODEL` lines** (or Claude Code requests a `Qwen/…` model Anthropic
+doesn't have), and supply a real credential.
 
 ## Verify
 
@@ -147,4 +173,5 @@ under any other username and get that user's home volume.
 - **Spawner and base image** — DockerSpawner? KubeSpawner? A bespoke VM image?
 - **Where does the MCP service live**, and how do user containers route to it — the
   same docker network, a cluster service, or a hostname ADL provides?
-- **Persona credential model** — which of the three above?
+- **Can gp12 actually route to `dlai01:8002`**, and is leaving vLLM keyless on that
+  network acceptable? Both assumed above, neither confirmed.

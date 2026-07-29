@@ -36,12 +36,17 @@ docker compose --profile hub up --build
 
 ## Configuration (`.env`)
 
-- **Model backend:** point `ANTHROPIC_BASE_URL` at the **datalab nginx proxy**
-  (`https://datalab.noirlab.edu/astro-archives-mcp`) and put the Basic-auth
-  credential in `ANTHROPIC_CUSTOM_HEADERS` (`Authorization: Basic <base64>`).
-  **Do NOT set `ANTHROPIC_AUTH_TOKEN`** — it injects a `Bearer` header that
-  collides with the Basic header and nginx 401s (see `.env.example` for the full
-  note). Leave `ANTHROPIC_BASE_URL` blank to fall back to **hosted Claude**.
+- **Model backend:** depends on where you are relative to the Astro Data Lab network.
+  - *Off-network* (laptop, CI): `ANTHROPIC_BASE_URL` at the **datalab nginx proxy**
+    (`https://datalab.noirlab.edu/astro-archives-mcp`), Basic-auth credential in
+    `ANTHROPIC_CUSTOM_HEADERS` (`Authorization: Basic <base64>`). **Do NOT set
+    `ANTHROPIC_AUTH_TOKEN`** — it injects a `Bearer` header that collides with the
+    Basic header and nginx 401s (see `.env.example`).
+  - *On the ADL network* (gp12): point straight at vLLM,
+    `http://dlai01.csdc.noirlab.edu:8002` — no proxy, no Basic auth, and so no header
+    collision. See `../gp12-runbook.md`.
+  - Either way `ANTHROPIC_API_KEY=dummy` is required (Claude Code's own login-state
+    check). Leave `ANTHROPIC_BASE_URL` blank to fall back to **hosted Claude**.
 - `ANTHROPIC_DEFAULT_*_MODEL` must match vLLM's served model name (local backend
   only; comment out for hosted Claude).
 - `CLAUDE_CODE_MAX_OUTPUT_TOKENS` caps output to fit the served window (runbook Gotcha 4).
