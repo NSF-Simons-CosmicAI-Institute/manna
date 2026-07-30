@@ -1,193 +1,215 @@
 # gp12 Deployment Runbook — MANNA via Jupyter AI
 
-Surface MANNA's VO tools to notebook users on Astro Data Lab's **gp12** through a
-**Jupyter AI v3** persona (`@CosmicCoder`). MANNA runs as **one shared MCP service**
-that every spawned user container reaches over the network.
+Surface MANNA's VO tools to notebook users on Astro Data Lab's **gp12** through the
+Jupyter AI persona. MANNA runs as **one shared MCP service** on the host's loopback;
+every user's notebook server reaches it at `http://127.0.0.1:8000/mcp/`.
 
-Status: **design draft** for ADL ops. The stack itself is validated — a hub-spawned
-single-user container's persona resolved M51 via a real `vo_target_resolve` call
-through the dlai01 vLLM (2026-07-02, macOS/arm64), and Verify steps 1–3 below were
-re-run against a live hub-spawned container on 2026-07-29. What's unproven is gp12
-itself: its spawner, its network, and an amd64 rebuild.
+Status: **validated end-to-end on gp12, 2026-07-30** — for a staff account. Not yet
+validated for a jailed Data Lab user, which is blocked on one thing (see *Blockers*).
 
-This runbook covers only what is **gp12-specific**. How the stack works, its
-configuration, and its gotchas live in **`frontend/README.md`** — read that first.
+> **The proof.** In JupyterLab chat on gp12: `@Claude resolve galaxy m51 using MANNA
+> mcp tools` → `✓ mcp__manna__vo_target_resolve` → RA 202.469575°, Dec +47.19525833°
+> (ICRS), with a matching `CallToolRequest` in the MANNA container log. The full chain:
+> persona → `claude-agent-acp` → `claude` → gpt-oss-120b on dlai01 → MANNA → a real
+> IVOA resolver call.
 
-## Architecture
+## What gp12 actually is
+
+gp12 runs **its own JupyterHub** — we do not deploy one. Established by inspection,
+2026-07-30:
+
+| | |
+|---|---|
+| Hub | JupyterHub 4.0.2 from `/data0/sw/anaconda3`, config `/root/ssl.jupyterhub_config.py` |
+| Public face | `configurable-http-proxy` on **:443**, TLS, `gp12.datalab.noirlab.edu` |
+| Spawner | **`LocalProcessSpawner`** — user servers are local processes on the host |
+| Auth | `dlauthenticator.DataLabAuthenticator` — real Data Lab accounts |
+| Users | `/home/jail/dlusers` (NFS, ~5100 accounts), chrooted to `/home/jail` |
+| Idle culling | `jupyterhub_idle_culler --timeout=21600` (6h) |
+| Stack | Python 3.10.13, JupyterLab 4.1.5, **jupyter-ai 3.0.1** already installed |
+
+**jupyter-ai was already there**, at versions matching our Docker image exactly
+(`jupyter-ai` 3.0.1, `jupyter-ai-acp-client` 0.1.5, `jupyter-server-documents` 0.2.5,
+`jupyterlab-chat` 0.22.1, …). We install no Python packages on gp12.
+
+Because the spawner is local, **loopback is shared** between the MCP container and every
+user server. No container networking, no service discovery, no off-host exposure.
 
 ```
-gp12 JupyterHub ──spawns──► user container (Jupyter AI + @CosmicCoder persona)
-                                    │                      │
-                          MCP tools │                      │ model
-                                    ▼                      ▼
-                        MANNA (shared service)      dlai01 vLLM  (direct, ADL network)
-                          http://mcp:8000/mcp/      http://dlai01…:8002
+gp12 JupyterHub (:443) ──spawns──► user server (local process, Jupyter AI persona)
+                                          │                    │
+                                MCP tools │                    │ model
+                                          ▼                    ▼
+                          MANNA container                dlai01 vLLM
+                          127.0.0.1:8000                 dlai01.csdc.noirlab.edu:8002
 ```
 
-Model and tools are **independent connections** — the persona reaches the model over
-`ANTHROPIC_BASE_URL` and the tools over the MCP URL; neither knows about the other.
+## What we deploy
 
-**One MCP deployment serves everyone.** The tools are anonymous, read-only, and the
-server never persists result bytes, so there is no per-user state to isolate — a single
-instance is correct, not just convenient, and users share one astropy/pyvo cache.
+Three things. Only the first is ours to run as a service.
 
-## What to deploy
-
-Everything comes from **`frontend/`**, hub profile — `mcp` (the shared tool server)
-plus `hub` (JupyterHub + DockerSpawner), which spawns the `lab` image per user:
+### 1. MANNA container
 
 ```bash
-cd deploy/frontend
-cp .env.example .env          # model endpoint + persona credentials
-docker compose build lab      # the single-user image DockerSpawner launches
-docker compose --profile hub up --build
+git clone https://github.com/dangause/manna.git ~/manna && cd ~/manna
+git checkout dev                       # or a release tag
+docker build -t manna:dev .
+docker run -d --name manna --restart unless-stopped \
+  -p 127.0.0.1:8000:8000 \
+  -e MANNA_HOST=0.0.0.0 -e MANNA_PORT=8000 -e MANNA_DEPLOYMENT=adl \
+  manna:dev
+curl -fsS http://127.0.0.1:8000/health          # {"status":"ok","version":"0.5.0",...}
 ```
 
-The trailing slash on `/mcp/` matters: `POST /mcp` 307-redirects (Starlette `Mount`).
+`MANNA_HOST=0.0.0.0` is the bind *inside* the container; `-p 127.0.0.1:8000:8000`
+keeps it on host loopback. For a real deployment this should be a systemd unit rather
+than an ad-hoc `docker run` in someone's home.
 
-## What must change from the dev defaults
+### 2. The persona harness (needs ops)
 
-`frontend/` is wired for local development. Four things are wrong for gp12:
+`claude-agent-acp` and `claude` are **not services** — the persona spawns them as
+subprocesses, so they must be executable from the user's server process. They must land
+in the **only tree bind-mounted into the jail**, `/data0/sw/anaconda3`:
 
-| Default | Why it breaks on gp12 | Change |
+```bash
+npm config set prefix /data0/sw/anaconda3
+npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
+```
+
+This requires **node ≥ 22** (see *Blockers*).
+
+### 3. System Jupyter config (needs ops)
+
+`/data0/sw/anaconda3/etc/jupyter/jupyter_server_config.py` — a `.py` file in that
+directory, **not** in `jupyter_server_config.d/` (that one only takes JSON extension
+toggles):
+
+```python
+import os
+
+# IPv6 is disabled on this host; `localhost` resolves to ::1 and binds fail.
+c.MCPServer.host = "127.0.0.1"
+
+# Model backend: dlai01 vLLM, direct over the ADL network. No proxy, keyless.
+os.environ.setdefault("ANTHROPIC_BASE_URL", "http://dlai01.csdc.noirlab.edu:8002")
+os.environ.setdefault("ANTHROPIC_API_KEY", "dummy")
+os.environ.setdefault("ANTHROPIC_DEFAULT_OPUS_MODEL", "openai/gpt-oss-120b")
+os.environ.setdefault("ANTHROPIC_DEFAULT_SONNET_MODEL", "openai/gpt-oss-120b")
+os.environ.setdefault("ANTHROPIC_DEFAULT_HAIKU_MODEL", "openai/gpt-oss-120b")
+os.environ.setdefault("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "4096")
+os.environ.setdefault("CLAUDE_CODE_MAX_CONTEXT_TOKENS", "131072")
+os.environ.setdefault("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "120000")
+os.environ.setdefault("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", "85")
+os.environ.setdefault("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
+
+# MCP servers handed to the persona. Setting this REPLACES the default, whose URL
+# uses `localhost` — see Gotchas.
+c.PersonaManager.builtin_mcp_servers = [
+    {"type": "http", "name": "manna", "url": "http://127.0.0.1:8000/mcp/", "headers": []},
+    {"type": "http", "name": "Jupyter MCP Server", "url": "http://127.0.0.1:3001/mcp", "headers": []},
+]
+```
+
+**`builtin_mcp_servers` is the delivery mechanism**, confirmed 2026-07-30: with the
+CLI-scope entry removed from `~/.claude.json`, the persona still had the tools. This is
+why nothing needs writing into users' NFS homes.
+
+Per-user tool pre-approval still lives in each user's home, and without it the persona
+asks permission for every call:
+
+```json
+// ~/.claude/settings.json
+{"permissions": {"allow": ["mcp__manna", "mcp__Jupyter_MCP_Server"]}}
+```
+
+## Blockers
+
+**Node is too old in the jail.** `@anthropic-ai/claude-code` 2.1.220 declares
+`engines: {"node": ">=22.0.0"}`. gp12 has:
+
+| Path | Version | Visible in jail? |
 |---|---|---|
-| The `mcp` image builds from the **working checkout** (`context: ../..`) | whatever branch the deploy host happens to be on becomes production | build from a tagged commit, and record which tag is deployed |
-| `DOCKER_NETWORK=frontend_default` | spawned containers can't resolve `mcp` or the hub → the persona has no tools | set to the actual network name (`<project>_default`) |
-| `mcp` publishes to **`127.0.0.1:18000`** | host-local; fine for debugging, but not how user containers should connect | user containers reach `mcp:8000` over the shared network — keep it that way, or bind an address ADL controls if the hub runs elsewhere |
+| `/usr/bin/node` | v26.5.0 | **no** — jail's `/usr/bin` is curated, no node |
+| `/data0/sw/anaconda3/bin/node` | **v18.16.0** | yes |
 
-All three break loudly on first use. Persistent user storage is **not** in this list —
-see Deferred.
+So a jailed Data Lab user cannot run the harness today. Either upgrade nodejs in the
+anaconda env, or install a modern node side-by-side (e.g.
+`/data0/sw/anaconda3/opt/node22`) and prepend it to `PATH` in the system config. The
+side-by-side option is lower risk on a shared env and is what should transfer to gp13.
 
-## Persona credentials
-
-The model backend is **dlai01's vLLM, reached directly over the Astro Data Lab
-network** — gp12 and dlai01 are both on it, so there is no proxy in the path:
-
-```bash
-ANTHROPIC_BASE_URL=http://dlai01.csdc.noirlab.edu:8002    # vLLM, 0.0.0.0 bind, keyless
-ANTHROPIC_API_KEY=dummy                                   # see below — still required
-ANTHROPIC_DEFAULT_OPUS_MODEL=openai/gpt-oss-120b          # and SONNET / HAIKU
-```
-
-**This drops the `.env.example` Basic-auth setup entirely.** The
-`https://datalab.noirlab.edu/astro-archives-mcp` nginx proxy exists to give *off-network*
-clients (a laptop, a container elsewhere) TLS and HTTP Basic auth. On the ADL network
-none of that applies, and neither does its main trap — with no Basic header there is
-nothing for `ANTHROPIC_AUTH_TOKEN` to collide with. Leave `ANTHROPIC_CUSTOM_HEADERS`
-unset.
-
-**`ANTHROPIC_API_KEY=dummy` is still needed.** It has nothing to do with the proxy:
-Claude Code's own login-state check needs *some* credential it recognizes, or it
-intermittently declares "You're not authenticated / run `claude /login`" mid-session.
-The keyless vLLM ignores it. This is expected to carry over unchanged from the proxied
-setup but has not been re-validated against a direct connection — check it first.
-
-Two consequences of dropping the proxy, worth raising with ADL ops:
-
-- **vLLM is keyless**, so anything that can route to `dlai01:8002` can use the GPUs.
-  Acceptable inside a trusted network; if not, `dlai01-vllm/docker-compose.yml` has a
-  commented `--api-key` line, and that key then rides `ANTHROPIC_AUTH_TOKEN` (no
-  collision, since there's no Basic header any more).
-- **Traffic is plain HTTP** on the internal network — no TLS between gp12 and dlai01.
-
-The context-window settings (`CLAUDE_CODE_MAX_CONTEXT_TOKENS` and friends) are
-unaffected — they describe the model, not the transport. Keep them.
-
-Everything above is per-user env injected by the spawner; `jupyterhub_config.py`
-forwards the `ANTHROPIC_*` variables to spawned containers. Hosted Claude remains a
-fallback if dlai01 is down: unset `ANTHROPIC_BASE_URL`, **comment out the
-`ANTHROPIC_DEFAULT_*_MODEL` lines** (or Claude Code requests an `openai/…` model
-Anthropic doesn't have), and supply a real credential.
+**Everything validated so far used a staff account** (`dgause`, local home, host node
+v26.5.0) — not a jailed `dlusers` account. A second validation round inside the jail is
+required before this is real for users.
 
 ## Verify
 
-Steps 1–3 need no model credentials — they check the tool path only. Step 4 is the
-end-to-end and needs the model backend up.
-
-**1. The service is up** (on the gp12 host):
-
 ```bash
-curl -fsS http://localhost:18000/health        # {"status":"ok","version":"0.5.0",...}
-```
+# 1. Service up (from the host)
+curl -fsS http://127.0.0.1:8000/health
 
-**2. It speaks MCP and exposes the tools** (from anywhere that can reach it):
-
-```bash
-npx -y @modelcontextprotocol/inspector --cli http://localhost:18000/mcp --method tools/list
+# 2. Protocol + tools
+npx -y @modelcontextprotocol/inspector --cli http://127.0.0.1:8000/mcp --method tools/list
 # → 12 tools: vo_archive_list, vo_tap_query, vo_target_resolve, …
+
+# 3. Harness, from a user's server (model path only)
+claude -p "say ok"
+
+# 4. End-to-end, in JupyterLab chat
+#    @Claude resolve galaxy m51 using MANNA mcp tools
+docker logs --tail 5 manna
 ```
 
-**3. A spawned user container can reach it, and has the persona config** (`docker exec`
-into a running single-user container):
+Success on step 4 = **RA 202.4696, Dec +47.195** *and* a fresh `CallToolRequest` in the
+container log. A confident answer with nothing in the log is the model guessing.
 
-```bash
-curl -fsS http://mcp:8000/health               # the cross-container hop works
-cat ~/.jupyter/mcp_settings.json               # → url: http://mcp:8000/mcp/
-```
+Do **not** use `claude mcp list` as a check — see Gotchas.
 
-Note it is **`~/.jupyter/mcp_settings.json`**, read by the Jupyter AI persona layer —
-*not* `claude mcp list`. The `claude` CLI keeps its own separate MCP config and will
-report "No MCP servers configured" even when the persona's tools work perfectly.
+## Gotchas (all hit on 2026-07-30)
 
-**4. End-to-end**, in JupyterLab chat: `@CosmicCoder use the MANNA tools to resolve M51.`
+- **IPv6 is disabled host-wide** (`disable_ipv6=1`, site policy — "we don't use IPv6
+  here"). Anything resolving `localhost` gets `::1` and fails with errno 99. Use the
+  `127.0.0.1` literal everywhere. This crashed `jupyter_server_mcp` on startup, which
+  killed the single-user server, which surfaced as a 60s hub spawn timeout — three
+  layers away from the cause.
+- **`builtin_mcp_servers`' default URL uses `localhost`.** The default entry for the
+  Jupyter MCP Server is built as `http://localhost:{mcp_port}/mcp`, so on this host it
+  points at a dead address. Setting the trait explicitly (above) replaces it.
+- **`claude mcp list` is not a valid check — twice over.** It reads the `claude` CLI's
+  own config, not the persona's, so it reports "No MCP servers configured" when the
+  persona works fine; and it reported `ConnectionRefused` against a server that was
+  reachable and serving. The container log is the only trustworthy signal.
+- **A healthy container can have a dead port binding.** Killing host processes can take
+  out `docker-proxy` while the container keeps running — `docker ps` shows `Up
+  (healthy)` and its own healthcheck passes, but nothing listens on the host.
+  `docker restart` recreates the binding; `docker start` on a running container is a
+  no-op.
+- **`jupyter_server_mcp` binds a fixed port 3001.** With `LocalProcessSpawner` every
+  user server runs on the same host, so concurrent users may collide. **Untested** —
+  raise with ADL ops before rollout. MANNA does not need this extension; disabling it
+  removes both this and the IPv6 problem.
+- **Config must be `jupyter_server_config.py`**, not a file under
+  `jupyter_server_config.d/` (JSON extension toggles only), and it is a *Jupyter Server*
+  setting — putting `c.MCPServer.host` in the JupyterHub config does nothing.
+- **Username/home mismatches break everything silently.** A duplicate-UID account left
+  the hub spawning as one user while the shell was another, so none of the per-user
+  config was read and the persona sat mute with no error anywhere. If the persona is
+  silent, check `whoami` and `$HOME` *inside the spawned server* first.
 
-Success = the `mcp` service log shows a `CallToolRequest` **and** the reply carries real
-coordinates (RA 202.4696, Dec +47.195). A plausible-looking answer with no tool call in
-the log is a failure, not a pass.
+## Not done yet
 
-## Deferred
-
-Both items below are known gaps, deliberately out of scope for the pilot. They are
-coupled: per-user storage is only meaningful once users have real identities.
-
-### Persistent user storage — future work
-
-Spawned containers mount **no volume**, and `DockerSpawner.remove = True`. `$HOME` lives
-in the container's writable layer, so **any respawn destroys the user's notebooks and
-chat history** — Stop/Start My Server in the Hub UI, an image rebuild, or a `docker rm`.
-It fails silently; nothing warns the user.
-
-For a pilot this is survivable, but only if users know. **Tell them notebooks are
-scratch space, and `docker cp` anything worth keeping out before a respawn.**
-
-Not done now because a volume alone doesn't finish the job — it introduces a second
-problem that has to be solved with it:
-
-> `mcp_settings.json` is baked into the image at `~/.jupyter/mcp_settings.json`, and the
-> Jupyter AI persona layer reads it by walking up from the chat directory. **A volume
-> mounted at `$HOME` covers it**, and the persona silently loses every tool — it keeps
-> answering, just from the model's own knowledge. That is the hardest failure mode to
-> notice, and a Docker *named* volume hides it further: it seeds itself from the image
-> on first spawn, so the tools work, then freezes — later image updates to
-> `mcp_settings.json` never reach existing users. A bind mount or NFS home fails
-> outright.
-
-So the work is a volume **plus** one of: seeding `~/.jupyter/` at spawn time from a
-read-only staging path (e.g. `/opt/manna/`) so it lands after the mount, or mounting the
-volume below `$HOME` (`~/work`) and leaving `~/.jupyter/` as image content. Add a
-backup/retention story and it stops being a one-line config change — hence deferred.
-
-### Auth — future work
-
-Hub mode ships `DummyAuthenticator`: one shared password from
-`JUPYTERHUB_DUMMY_PASSWORD`, any username accepted, no per-user identity. Accepted for
-internal NRAO/ADL use during the pilot.
-
-Replace it with a real authenticator before gp12 is reachable by anyone outside the
-team, and **before** persistent storage lands — with dummy auth, any user can log in
-under any other username and would get that user's files.
+- **Jailed-user validation** — the blocker above, then re-run Verify as a `dlusers` account.
+- **MANNA as a managed service** — systemd unit, pinned image tag, restart policy.
+- **Multi-user concurrency** — the port 3001 question.
+- **Persona rebrand** (`@CosmicCoder` + astronomy role framing). Cosmetic; it patches
+  `jupyter_ai_acp_client` in a shared env and reverts on any package upgrade. The
+  `~/.claude/CLAUDE.md` role framing is per-user and needs no privileges. See
+  `frontend/README.md`.
+- **gp13 promotion.** gp13 is production; gp12 is the sandbox. Everything here should be
+  reproducible as ops-owned config, not hand edits.
 
 ## Open questions for ADL ops
 
-- **Does ADL already run a JupyterHub on gp12 that we plug into**, or do we deploy the
-  hub from `frontend/`? If it's ADL's, we supply the single-user image plus the shared
-  MCP service and they point their spawner at it.
-- **Spawner and base image** — DockerSpawner? KubeSpawner? A bespoke VM image?
-- **Does ADL's spawner already mount home directories?** If it does, deferring persistent
-  storage is not actually available to us: the mount lands on `$HOME` on day one and
-  shadows `~/.jupyter/mcp_settings.json`, so the spawn-time seeding described under
-  Deferred becomes required before first use, not future work.
-- **Where does the MCP service live**, and how do user containers route to it — the
-  same docker network, a cluster service, or a hostname ADL provides?
-- **Can gp12 actually route to `dlai01:8002`**, and is leaving vLLM keyless on that
-  network acceptable? Both assumed above, neither confirmed.
+- Who owns the MANNA container long-term, and where should it be defined as a service?
+- Upgrade nodejs in `/data0/sw/anaconda3`, or install node ≥22 side-by-side?
+- Is the fixed port 3001 a real multi-user problem here, and has gp13 seen it?
+- Should the persona be rebranded for Data Lab users, and whose call is that?

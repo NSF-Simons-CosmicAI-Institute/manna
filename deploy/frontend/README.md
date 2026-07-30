@@ -67,11 +67,14 @@ docker compose --profile hub up --build
 
 ## Lifting to gp12
 
-Same images, same shared-MCP topology. ADL ops point their JupyterHub's single-user
-image at this frontend image and inject the same `ANTHROPIC_*` env for the model plus
-the MCP `mcp_settings.json`. The `chat` mode is a faithful stand-in for a single
-spawned user session. What differs on gp12 — the dev defaults that must change, and
-the open questions for ADL ops — is in `../gp12-runbook.md`.
+**This stack does not lift to gp12 as-is** — only the `mcp` service does. gp12 runs its
+own JupyterHub (bare metal, `LocalProcessSpawner`, Data Lab auth) with jupyter-ai
+already installed, so there is no single-user image to point at and no hub of ours to
+deploy. There, MANNA runs as a container on host loopback and the persona is configured
+through a system-level `jupyter_server_config.py` rather than files baked into an image.
+
+So treat this directory as **local development** plus the source of the `mcp` container.
+The real deployment is in `../gp12-runbook.md`, validated end-to-end on gp12 2026-07-30.
 
 ## Status / caveats
 

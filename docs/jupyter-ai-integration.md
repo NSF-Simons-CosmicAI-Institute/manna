@@ -148,16 +148,19 @@ pins and re-verify the patch still matches.
 
 ## gp12 deployment
 
-gp12 is a **shared JupyterHub**: it spawns a per-user single-user notebook server when a
-user opens a notebook. That changes where the MCP server runs, because "localhost" means
-*inside the user's spawned container*, not a shared host. MANNA is deployed there as
-**one shared MCP service** that every spawned container reaches over the network — the
-tools are anonymous, read-only, and hold no per-user state, so a single instance serves
-everyone.
+gp12 is a **shared JupyterHub** running on bare metal with `LocalProcessSpawner` — user
+servers are ordinary processes on the host, not containers, and jupyter-ai 3.0.1 is
+already installed there. Two consequences for this integration:
 
-Two things still have to be true per user, whatever the hub does: `mcp_settings.json`
-must land where that user's JupyterLab reads Jupyter config (baked into the single-user
-image at `~/.jupyter/`), and the persona needs model credentials injected by the spawner.
+- **MANNA runs as one container on host loopback** (`127.0.0.1:8000`), shared by every
+  user server. The tools are anonymous, read-only, and hold no per-user state, so one
+  instance serves everyone — and because the spawner is local, no container networking
+  is involved at all.
+- **MCP config is delivered by `c.PersonaManager.builtin_mcp_servers`** in a
+  system-level `jupyter_server_config.py`, not by an `mcp_settings.json` in each user's
+  home. Confirmed on gp12 2026-07-30. This matters because user homes there are NFS
+  mounts, which would shadow anything baked into an image.
 
-See **`deploy/gp12-runbook.md`** for the deployment procedure, and
-**`deploy/frontend/README.md`** for the stack it deploys.
+See **`deploy/gp12-runbook.md`** for the validated procedure and the gp12-specific
+gotchas. `deploy/frontend/` remains the local-development stack and the source of the
+MANNA container image.
