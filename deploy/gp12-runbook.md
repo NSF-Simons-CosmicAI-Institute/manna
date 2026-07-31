@@ -6,8 +6,9 @@ every user's notebook server reaches it at `http://127.0.0.1:8000/mcp/`.
 
 Status: **validated end-to-end on gp12** — from a user's home config 2026-07-30, then
 from **system config** 2026-07-31 with the per-user config removed, which is what proves
-it works for users other than the one who set it up. Not yet validated for a *jailed*
-Data Lab user, which is blocked on one thing (see *Blockers*).
+it works for users other than the one who set it up. The persona is branded
+`@CosmicCoder` there as of 2026-07-31. Not yet validated for a *jailed* Data Lab user,
+which is blocked on one thing (see *Blockers*).
 
 > **The proof.** In JupyterLab chat on gp12: `@Claude resolve galaxy m51 using MANNA
 > mcp tools` → `✓ mcp__manna__vo_target_resolve` → RA 202.469575°, Dec +47.19525833°
@@ -48,9 +49,9 @@ gp12 JupyterHub (:443) ──spawns──► user server (local process, Jupyter
 
 ## What we deploy
 
-Three things. Only the first is ours to run as a service. The files themselves live in
-**`gp12/`** next to this runbook — install them from the checkout rather than pasting
-from here, so what's deployed can be diffed against what's in git.
+Four things. Only the first is ours to run as a service; the fourth is optional. The
+files themselves live in **`gp12/`** next to this runbook — install them from the
+checkout rather than pasting from here, so what's deployed can be diffed against git.
 
 ### 1. MANNA container (needs ops)
 
@@ -150,6 +151,45 @@ homes.
 > it actually produces. That difference matters — `c = get_config()` parses fine but
 > would `NameError` at load time if the loader didn't inject it.
 
+### 4. Persona identity — `@CosmicCoder` (needs a scoped `sudo cp`)
+
+Optional, cosmetic, and **applied on gp12 2026-07-31**. Two independent halves:
+
+**The name, description, and avatar.** jupyter-ai 3.0.1 has no config knob for persona
+names — `PersonaManager`'s only configurable traits are `default_persona_id` and
+`builtin_mcp_servers` (verified on 0.0.12). So the built-in persona has to be renamed in
+the installed package:
+
+```bash
+cd /data0/sw/manna/deploy/gp12
+./rebrand-persona.sh
+rm -f ~/.jupyter/personas/cosmiccoder_persona.py    # see below
+```
+
+The script prepares the patched file in a temp dir and copies it in, so it needs only a
+scoped `sudo cp` grant. It refuses to run if the expected lines aren't present, backs up
+the original, and prints the revert command. **It reverts on any
+`pip install -U jupyter-ai-acp-client`** — tell ops, or it will vanish during routine
+maintenance and get diagnosed as something else.
+
+**The astronomy role framing** is separate and is the half that actually changes answer
+quality — `frontend/CLAUDE.md` copied to each user's `~/.claude/CLAUDE.md`. Delivering
+that to all users is unsolved (below).
+
+> **Two routes, mutually exclusive.** `gp12/personas/cosmiccoder_persona.py` dropped into
+> `~/.jupyter/personas/` also produces `@CosmicCoder`, with no privileges at all — but
+> local persona files only **add**, so the stock `@Claude` stays alongside. The script
+> *renames* the built-in one instead, which is the only way to end up with a single
+> entry. Do both and you get two `@CosmicCoder`s.
+>
+> If you use the local-file route, note the filename must contain **"persona"** —
+> `find_persona_files` globs only `*.py` whose stem matches, so `cosmiccoder.py` is
+> silently skipped: never imported, nothing logged, persona simply absent.
+>
+> Persona ids derive from module and class name
+> (`jupyter-ai-personas::<module>::<ClassName>`), so `default_persona_id` differs between
+> the two routes and must be updated when switching.
+
 **Unsolved: per-user tool pre-approval.** Without this file the persona asks permission
 for every call, and it lives in each user's home — the one piece of config with no
 system-wide home yet:
@@ -211,7 +251,7 @@ curl -fsS http://127.0.0.1:8000/health
 claude -p "say ok"          # → ok
 
 # 5. End-to-end, in JupyterLab chat
-#    @Claude resolve galaxy m51 using MANNA mcp tools
+#    @CosmicCoder resolve galaxy m51 using MANNA mcp tools   (@Claude if §4 not applied)
 docker logs --tail 5 manna
 ```
 
@@ -277,31 +317,8 @@ Do **not** use `claude mcp list` as a check — see Gotchas.
 - **Install the systemd unit on gp12.** It's specified above but not deployed — MANNA is
   currently an ad-hoc container in a user's home.
 - **Multi-user concurrency** — the port 3001 question.
-- **Persona identity — `@CosmicCoder`.** Two routes, and they differ in reach:
-  - *Per-user, no privileges* — **validated 2026-07-31**: drop
-    `gp12/personas/cosmiccoder_persona.py` into `~/.jupyter/personas/`. `@CosmicCoder`
-    appears with the right name, description, and avatar (an absolute `avatar_path`
-    outside the package's `static/` works fine). **The filename must contain
-    "persona"**: `find_persona_files` globs only `*.py` whose stem matches, so
-    `cosmiccoder.py` is silently skipped — never imported, nothing logged, persona
-    simply absent. Local files only **add**, so the stock `@Claude` remains alongside.
-  - *All users, and the only way to show **only** `@CosmicCoder`*: patch
-    `name`/`description`/avatar in `jupyter_ai_acp_client`
-    (`frontend/frontend.Dockerfile` has the exact sed lines, and the three targets are
-    confirmed present in gp12's copy). This renames the stock persona rather than adding
-    one. Needs write access to the shared env and reverts on any package upgrade. It also
-    changes what every account sees, which is a Data Lab product decision rather than an
-    ops one.
-
-  **The two are mutually exclusive.** `PersonaManager` has no allow/block/disable trait —
-  verified against the installed 0.0.12, whose only configurable traits are
-  `default_persona_id` and `builtin_mcp_servers` — so a local file can never hide the
-  built-in persona. Apply the patch *and* keep the local file and you get two
-  `@CosmicCoder`s; remove the local file when the patch lands.
-
-  The astronomy role framing is separate and independent — `frontend/CLAUDE.md` copied to
-  `~/.claude/CLAUDE.md`. That is the half that changes answer quality; the rebrand is
-  cosmetic.
+- **Persona branding is a Data Lab decision, not an ops one.** §4 is applied on gp12, but
+  it changes what every account sees — worth Chadd signing off before it reaches gp13.
 - **gp13 promotion.** gp13 is production; gp12 is the sandbox. Everything here should be
   reproducible as ops-owned config, not hand edits.
 
