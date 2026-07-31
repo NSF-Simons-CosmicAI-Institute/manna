@@ -65,6 +65,15 @@ docker build -t manna:v0.5.0 .
 > **No release tag exists yet** — the repo has never been tagged. Cut `v0.5.0` from a
 > promoted `main` before deploying, or pin a commit SHA in the meantime. Do not deploy
 > from `dev`: it moves, and the deployed version would silently change on every rebuild.
+>
+> Interim, as deployed 2026-07-31 — pin the image to the commit so the running version
+> is identifiable:
+> ```bash
+> cd /data0/sw/manna && SHA=$(git rev-parse --short HEAD)
+> docker build -t manna:0.5.0-$SHA .        # e.g. manna:0.5.0-4f891d9
+> ```
+> Note `/data0/sw` is world-writable (777), so the clone needs no privileges — but the
+> tree then belongs to whoever cloned it. Ops should chown it when installing the unit.
 
 Then run it as a systemd unit rather than an ad-hoc `docker run`, so it survives
 reboots and any user can't be the single point of failure:
@@ -209,19 +218,32 @@ required before this is real for users.
 
 ## Verify
 
+**Where you run each step matters** — the `ANTHROPIC_*` env comes from the system Jupyter
+config, so it exists inside a spawned server's process and *not* in an SSH shell. Running
+step 4 from SSH fails with `Not logged in · Please run /login`, which is misleading: it
+means Claude Code found no credential it recognizes, not that anyone needs to log in.
+
+| # | Run from | Checks |
+|---|---|---|
+| 1 | SSH on gp12 | service is up |
+| 2 | anywhere that reaches loopback | MCP protocol + tool count |
+| 3 | **a jailed user's terminal** | loopback crosses the chroot |
+| 4 | **a JupyterLab terminal** | model path |
+| 5 | JupyterLab chat | end-to-end |
+
 ```bash
-# 1. Service up (from the host)
+# 1. Service up
 curl -fsS http://127.0.0.1:8000/health
 
 # 2. Protocol + tools
 npx -y @modelcontextprotocol/inspector --cli http://127.0.0.1:8000/mcp --method tools/list
 # → 12 tools: vo_archive_list, vo_tap_query, vo_target_resolve, …
 
-# 3. Loopback reaches the jail — run from a JAILED user's terminal
+# 3. Loopback reaches the jail
 curl -fsS http://127.0.0.1:8000/health
 
-# 4. Harness, from a user's server (model path only)
-claude -p "say ok"
+# 4. Harness — model path only. MUST be a JupyterLab terminal, not SSH.
+claude -p "say ok"          # → ok
 
 # 5. End-to-end, in JupyterLab chat
 #    @Claude resolve galaxy m51 using MANNA mcp tools
@@ -246,6 +268,10 @@ Do **not** use `claude mcp list` as a check — see Gotchas.
   `127.0.0.1` literal everywhere. This crashed `jupyter_server_mcp` on startup, which
   killed the single-user server, which surfaced as a 60s hub spawn timeout — three
   layers away from the cause.
+- **"Not logged in · Please run /login" means missing env, not missing credentials.**
+  Claude Code prints it whenever it can't find a credential *it* recognizes — including
+  when `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` simply aren't set, as in an SSH shell
+  where the Jupyter config's `os.environ` block never ran. Nobody needs to log in.
 - **PATH order silently downgrades node, and the symptom looks nothing like it.**
   `/data0/sw/anaconda3/bin` contains node **v18.16.0**. `claude` is a node script with a
   `#!/usr/bin/env node` shebang, so prepending that directory drops the interpreter below
