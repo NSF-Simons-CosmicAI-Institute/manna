@@ -62,18 +62,29 @@ curl -fsS http://127.0.0.1:8000/health
   files. The opposite of §2.
 - Upgrade: checkout the new tag, rebuild, edit `ExecStart`, `daemon-reload && restart`.
 
-### 2. Persona harness — **BLOCKED**
+### 2. Persona harness — **BLOCKED, and the gate on all-user access**
 
 `claude` and `claude-agent-acp` are subprocesses the persona spawns, not services, so
-they must be executable from the user's server — which means the only tree bind-mounted
-into the jail:
+they must be on the PATH of the user's server — inside the only tree bind-mounted into
+the jail, `/data0/sw/anaconda3`. Install **side-by-side**, not into the env itself:
 
 ```bash
-npm config set prefix /data0/sw/anaconda3
+# node >=22 in its own prefix — do NOT upgrade the env's node (see below)
+conda create -y -p /data0/sw/anaconda3/opt/node22 -c conda-forge 'nodejs>=22'
+
+export PATH=/data0/sw/anaconda3/opt/node22/bin:$PATH
+npm config set prefix /data0/sw/anaconda3/opt/node22
 npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
 ```
 
-Requires **node ≥ 22**; that prefix has v18.16.0. See Blockers.
+- **`/data0` is shared across gp12, gp13, and other ADL servers.** Upgrading the env's
+  own node would affect all of them; a new subdirectory affects nothing else.
+- `claude.py` raises `PersonaRequirementsUnmet` at import when `claude-agent-acp` isn't
+  on PATH, and the persona then **doesn't appear in the chat at all** — no `@Claude`, no
+  `@CosmicCoder`. Confirmed 2026-07-31: a second user saw only `@file`. So until this
+  step lands, nobody but the person who installed it has a persona.
+- §3's `PATH` already points at `/data0/sw/anaconda3/opt/node22/bin` and must stay ahead
+  of `/data0/sw/anaconda3/bin`, whose node is v18.
 
 ### 3. System Jupyter config
 
@@ -89,8 +100,8 @@ print('LOADED OK', sorted(cfg.keys()))"     # → ['MCPServer', 'PersonaManager'
 sudo cp jupyter_server_config.py /data0/sw/anaconda3/etc/jupyter/
 ```
 
-It sets `c.MCPServer.host` (IPv6 fix), the `ANTHROPIC_*` model env, a `PATH` that
-deliberately excludes the anaconda prefix, and `c.PersonaManager.builtin_mcp_servers`.
+It sets `c.MCPServer.host` (IPv6 fix), the `ANTHROPIC_*` model env, a `PATH` putting
+node 22 ahead of the env's node 18, and `c.PersonaManager.builtin_mcp_servers`.
 
 - **`builtin_mcp_servers` is the delivery mechanism.** Confirmed by removing the user's
   own config entirely and seeing the tools survive — so nothing needs writing into NFS
@@ -103,7 +114,24 @@ deliberately excludes the anaconda prefix, and `c.PersonaManager.builtin_mcp_ser
   account; `compile()` only parses, so it passes files that raise at load time.
 - The scoped `sudo cp` grant matches a **relative** filename — hence the `cd`.
 
-### 4. Persona identity — optional, applied 2026-07-31
+### 4. Tool pre-approval, for every user
+
+Without it the persona asks permission on every tool call. `managed-settings.json` is
+Claude Code's admin-managed layer and needs no per-user file:
+
+```bash
+sudo mkdir -p /etc/claude-code
+sudo cp gp12/managed-settings.json /etc/claude-code/
+```
+
+- **Verified 2026-07-31**: with no `~/.claude/settings.json` the persona asked permission
+  and made no tool call; with this file it called the tool and returned coordinates.
+- `/etc` is **host-local**, so unlike `/data0` this does not reach gp13.
+- **Jailed users see the jail's `/etc`** — they likely need the same file at
+  `/home/jail/etc/claude-code/managed-settings.json`. Untested; check when a jailed
+  account is available.
+
+### 5. Persona identity — optional, applied 2026-07-31
 
 ```bash
 cd /data0/sw/manna/deploy/gp12
@@ -199,10 +227,10 @@ Every one of these was hit on 2026-07-30/31, and none announce themselves.
 - Cut a release tag — the systemd unit pins one that doesn't exist
 - Install the systemd unit; MANNA is currently an ad-hoc container
 - Port 3001 concurrency
-- **Per-user Claude config for ~5,100 users.** `~/.claude/settings.json` (tool
-  pre-approval — without it the persona prompts on every call) and `~/.claude/CLAUDE.md`
-  both live in user homes with no system-wide equivalent. Unverified candidates: Claude
-  Code managed settings, or a shared `CLAUDE_CONFIG_DIR`.
+- **`CLAUDE.md` for all users.** The astronomy role framing still has no system-wide
+  home — `managed-settings.json` (§4) solved tool pre-approval, but not this. Unverified
+  candidate: a shared `CLAUDE_CONFIG_DIR`, though that is also where per-user session
+  state goes.
 - gp13 promotion — everything here must be ops-owned config, not hand edits
 
 ## Open questions for ADL ops

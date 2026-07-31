@@ -57,7 +57,8 @@ os.environ.setdefault("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
 # and the per-user entry below can be dropped.
 os.environ["PATH"] = ":".join(
     [
-        os.path.join(os.path.expanduser("~"), ".npm-global/bin"),  # transitional
+        "/data0/sw/anaconda3/opt/node22/bin",  # node >=22 + the harness, jail-visible
+        os.path.join(os.path.expanduser("~"), ".npm-global/bin"),  # per-user fallback
         os.environ.get("PATH", "/usr/bin:/bin"),
     ]
 )
