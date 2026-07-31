@@ -48,22 +48,62 @@ gp12 JupyterHub (:443) ──spawns──► user server (local process, Jupyter
 
 Three things. Only the first is ours to run as a service.
 
-### 1. MANNA container
+### 1. MANNA container (needs ops)
+
+The checkout lives with the rest of the Astro Data Lab software in **`/data0/sw/`**,
+not in a user's home. Note `/data0/sw` is a symlink to `sw.tmpfs`, which despite the
+name is persistent local XFS on `/dev/sdc`.
 
 ```bash
-git clone https://github.com/dangause/manna.git ~/manna && cd ~/manna
-git checkout dev                       # or a release tag
-docker build -t manna:dev .
-docker run -d --name manna --restart unless-stopped \
+git clone https://github.com/dangause/manna.git /data0/sw/manna
+cd /data0/sw/manna && git checkout v0.5.0          # a tag, not a branch
+docker build -t manna:v0.5.0 .
+```
+
+> **No release tag exists yet** — the repo has never been tagged. Cut `v0.5.0` from a
+> promoted `main` before deploying, or pin a commit SHA in the meantime. Do not deploy
+> from `dev`: it moves, and the deployed version would silently change on every rebuild.
+
+Then run it as a systemd unit rather than an ad-hoc `docker run`, so it survives
+reboots and any user can't be the single point of failure:
+
+```ini
+# /etc/systemd/system/manna.service
+[Unit]
+Description=MANNA MCP server (IVOA archive tools for Jupyter AI)
+Documentation=https://github.com/dangause/manna
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+RestartSec=5
+ExecStartPre=-/usr/bin/docker rm -f manna
+ExecStart=/usr/bin/docker run --rm --name manna \
   -p 127.0.0.1:8000:8000 \
   -e MANNA_HOST=0.0.0.0 -e MANNA_PORT=8000 -e MANNA_DEPLOYMENT=adl \
-  manna:dev
+  manna:v0.5.0
+ExecStop=/usr/bin/docker stop manna
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl daemon-reload && systemctl enable --now manna
 curl -fsS http://127.0.0.1:8000/health          # {"status":"ok","version":"0.5.0",...}
 ```
 
-`MANNA_HOST=0.0.0.0` is the bind *inside* the container; `-p 127.0.0.1:8000:8000`
-keeps it on host loopback. For a real deployment this should be a systemd unit rather
-than an ad-hoc `docker run` in someone's home.
+`MANNA_HOST=0.0.0.0` is the bind *inside* the container; `-p 127.0.0.1:8000:8000` keeps
+it on host loopback, which is all that's needed — user servers are local processes on
+the same host.
+
+**This directory does not need to be jail-visible.** Users reach MANNA over loopback and
+never touch its files, so `/data0/sw/manna` being outside the jail's bind mounts is
+fine. That is the opposite of the persona harness below, which *must* be jail-visible.
+
+To upgrade: `git fetch && git checkout <newtag>`, rebuild with the new tag, update
+`ExecStart`, then `systemctl daemon-reload && systemctl restart manna`.
 
 ### 2. The persona harness (needs ops)
 
@@ -151,15 +191,24 @@ curl -fsS http://127.0.0.1:8000/health
 npx -y @modelcontextprotocol/inspector --cli http://127.0.0.1:8000/mcp --method tools/list
 # → 12 tools: vo_archive_list, vo_tap_query, vo_target_resolve, …
 
-# 3. Harness, from a user's server (model path only)
+# 3. Loopback reaches the jail — run from a JAILED user's terminal
+curl -fsS http://127.0.0.1:8000/health
+
+# 4. Harness, from a user's server (model path only)
 claude -p "say ok"
 
-# 4. End-to-end, in JupyterLab chat
+# 5. End-to-end, in JupyterLab chat
 #    @Claude resolve galaxy m51 using MANNA mcp tools
 docker logs --tail 5 manna
 ```
 
-Success on step 4 = **RA 202.4696, Dec +47.195** *and* a fresh `CallToolRequest` in the
+Step 3 is the assumption the whole design rests on. `chroot` doesn't create a network
+namespace, so a jailed process *should* reach host loopback — but that is reasoning, not
+evidence, and it has not been tested. If it fails, MANNA needs a different transport and
+much of this runbook changes. `curl` is present in the jail's `/usr/bin`, so the test
+needs nothing installed.
+
+Success on step 5 = **RA 202.4696, Dec +47.195** *and* a fresh `CallToolRequest` in the
 container log. A confident answer with nothing in the log is the model guessing.
 
 Do **not** use `claude mcp list` as a check — see Gotchas.
@@ -198,7 +247,10 @@ Do **not** use `claude mcp list` as a check — see Gotchas.
 ## Not done yet
 
 - **Jailed-user validation** — the blocker above, then re-run Verify as a `dlusers` account.
-- **MANNA as a managed service** — systemd unit, pinned image tag, restart policy.
+- **Cut a release tag.** The repo has never been tagged; the systemd unit above pins an
+  image tag that doesn't exist yet.
+- **Install the systemd unit on gp12.** It's specified above but not deployed — MANNA is
+  currently an ad-hoc container in a user's home.
 - **Multi-user concurrency** — the port 3001 question.
 - **Persona rebrand** (`@CosmicCoder` + astronomy role framing). Cosmetic; it patches
   `jupyter_ai_acp_client` in a shared env and reverts on any package upgrade. The
