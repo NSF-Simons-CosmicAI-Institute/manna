@@ -45,17 +45,17 @@ async def test_async_results_return_result_url_and_recipe(mcp_server, case):
         )
         prom = promotion.structured_content
         assert prom["mode"] == "async"
-        job_id = prom["job_id"]
+        job_url = prom["job_url"]
         job_url = prom["job_url"]
         assert "/async/" in job_url
         assert job_url in prom["fetch_recipe"]["code"]
 
         # 2) Poll status — GAVO completes instantly.
-        status = await client.call_tool("vo_tap_status", {"job_id": job_id})
+        status = await client.call_tool("vo_tap_status", {"job_url": job_url})
         assert status.structured_content["phase"] == "COMPLETED"
 
         # 3) Results: URL + recipe, no bytes fetched server-side.
-        results = await client.call_tool("vo_tap_results", {"job_id": job_id})
+        results = await client.call_tool("vo_tap_results", {"job_url": job_url})
         rp = results.structured_content
         assert rp["phase"] == "COMPLETED"
         assert rp["job_url"] == job_url

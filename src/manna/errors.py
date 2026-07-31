@@ -82,6 +82,21 @@ class JobNotReadyError(ToolExecutionError):
 
 
 @dataclass
+class JobGoneError(ToolExecutionError):
+    """The upstream job no longer exists (UWS 404/410).
+
+    Distinct from ArchiveError because the retry advice is the opposite: a job
+    that has been deleted or aged out of the archive's UWS store will never
+    come back, so 'wait_and_retry' would loop the model forever. Since the
+    server keeps no job registry, this upstream status is the *only* signal
+    that a job_url is dead.
+    """
+
+    error_class: str = "job_gone"
+    retry_strategy: RetryStrategy = "abandon"
+
+
+@dataclass
 class InternalError(ToolExecutionError):
     redact_message: ClassVar[bool] = True
     error_class: str = "internal_error"

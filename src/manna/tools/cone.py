@@ -5,6 +5,7 @@ from typing import Annotated
 from pydantic import Field
 
 from manna._archive_label import archive_label
+from manna._url_guard import ensure_safe_url
 from manna.archives._endpoints import (
     scs_endpoint_description,
     scs_endpoint_urls,
@@ -50,6 +51,7 @@ def vo_cone_search(
     For most uses, prefer vo_tap_query — SCS is here for catalogs that
     only expose the legacy protocol.
     """
+    ensure_safe_url(endpoint, param="endpoint")
     table = _get_cone().search(
         endpoint=endpoint,
         ra=ra,

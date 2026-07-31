@@ -21,9 +21,14 @@ class Settings(BaseSettings):
     # docs/archives-spec.md.
     archives: str | None = None
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    # Optional comma-separated allow-list of hostnames the server may fetch
+    # (e.g. "almascience.eso.org,eso.org"). Matches exactly or as a subdomain.
+    # Unset => any *public* host is reachable, which keeps vo_registry_search
+    # discovery working; private/loopback/link-local space is refused either
+    # way. See _url_guard.py.
+    allowed_hosts: str | None = None
     # Slice 5: async TAP family.
     tap_sync_timeout_seconds: float = 20.0
-    job_ttl_seconds: int = 3600
     # Inline response caps (shaper.py). A TAP result larger than EITHER limit
     # is routed to an async job whose result the client fetches itself (the
     # server never holds the bytes); discovery tools (cone / SIA search)
@@ -45,8 +50,8 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Process-wide Settings singleton.
 
-    Cached so runtime consumers (the lazy backend accessors, job_store
-    writes) read environment / .env once rather than re-parsing per call.
+    Cached so runtime consumers (the lazy backend accessors, the URL
+    guard) read environment / .env once rather than re-parsing per call.
     Tests that mutate the environment must call ``get_settings.cache_clear()``
     to force a re-read.
     """

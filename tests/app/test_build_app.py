@@ -39,9 +39,9 @@ async def test_health_endpoint_returns_version():
         data = r.json()
         assert data["status"] == "ok"
         assert data["version"] == __version__
-        # The stateless server no longer reports a result byte-store.
+        # The stateless server reports no byte-store and no job registry.
         assert "store" not in data
-        assert "job_store" in data
+        assert "job_store" not in data
 
 
 async def test_ready_endpoint():

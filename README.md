@@ -76,7 +76,7 @@ All settings are optional — defaults work for local dev. Set via environment v
 | `MANNA_DEPLOYMENT` | `local` | `local` / `adl` / `tacc` |
 | `MANNA_LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 | `MANNA_TAP_SYNC_TIMEOUT_SECONDS` | `20.0` | Timeout for sync TAP queries |
-| `MANNA_JOB_TTL_SECONDS` | `3600` | Async job result retention |
+| `MANNA_ALLOWED_HOSTS` | *(unset)* | Comma-separated hostnames the server may fetch (exact or subdomain match). Unset ⇒ any **public** host; private/loopback/link-local targets are refused regardless |
 | `MANNA_ARCHIVES` | *(unset)* | Comma-separated archive short_names to activate. Unset/empty ⇒ all archives physically present in `archives/` |
 | `MANNA_INLINE_ROW_LIMIT` | `200` | Max rows in an inline result before it's routed to an async job (TAP) or truncated (cone/SIA) |
 | `MANNA_INLINE_BYTE_LIMIT` | `49152` | Max bytes in an inline result before the same promotion/truncation applies (48 KiB) |

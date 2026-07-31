@@ -37,9 +37,9 @@ data. The persona is expected to **run that snippet in the user's notebook kerne
 the data lands as a local `table` the user can keep analyzing:
 
 ```
-persona: vo_tap_query(mode='async')  → job_url + job_id
-persona: vo_tap_status(job_id)       → COMPLETED
-persona: vo_tap_results(job_id)      → { result_url, fetch_recipe: { code: "import pyvo; …" } }
+persona: vo_tap_query(mode='async')  → job_url
+persona: vo_tap_status(job_url)      → COMPLETED
+persona: vo_tap_results(job_url)     → { result_url, fetch_recipe: { code: "import pyvo; …" } }
 persona: <Jupyter_MCP_Server: insert + execute a cell with fetch_recipe.code>
 kernel:  table = job.fetch_result().to_table()   # real astropy.Table, in the user's session
 ```

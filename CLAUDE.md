@@ -50,11 +50,11 @@ src/manna/
 │   └── <archive>.py   # ARCHIVE = Archive(..., schemas=(...), priority=N)
 │                      # (currently: alma.py, cadc.py, datalab.py, eso.py, gaia.py, gaia_ari.py, nrao.py, sdss.py)
 ├── _archive_label.py  # archive short_name lookup from a URL (label field on envelopes)
+├── _url_guard.py      # SSRF guard: scheme + public-address check on every user-supplied URL
 ├── config.py          # Settings (MANNA_* env, extra="ignore") + get_settings() singleton
 ├── _serialization.py  # shared dataclass → JSON-friendly dict helper
 ├── shaper.py          # astropy.Table → inline envelope; oversize → result-URL/fetch_recipe
 ├── errors.py          # ToolExecutionError taxonomy + error_to_payload (spec §7)
-├── job_store.py       # in-memory async TAP job registry (job_url directory, no bytes)
 ├── observability.py   # JSON logging + current_request_id ContextVar
 ├── app.py             # build_mcp() + build_app() factories; RequestIdMiddleware
 └── __main__.py        # uvicorn entry; called by `python -m manna`
@@ -68,6 +68,7 @@ Knowledge layer — **per-archive modules** (`archives/<short_name>.py`, see doc
 Result handling (stateless — the server never persists result bytes):
 - **Small results inline.** A TAP/cone/SIA result within the inline caps (`MANNA_INLINE_ROW_LIMIT` / `MANNA_INLINE_BYTE_LIMIT`) is returned inline via `shape_inline_table`.
 - **Large TAP results go async.** `vo_tap_query` mode='auto' re-submits an oversize sync result as an async job; mode='sync' raises `validation_error` telling the LLM to use mode='async'. `vo_tap_results` returns the upstream `job_url` + `result_url` + a **pyvo `fetch_recipe`** (`shape_result_url`) — the client loads the data itself (anonymous only). This is why there is no `result_store` or MCP Resource serving: designed for multi-tenant TACC where per-user byte caches don't scale.
+- **Async jobs are addressed by their upstream `job_url`, not a server-side id.** There is no JobStore. `vo_tap_status` / `vo_tap_results` / `vo_tap_abort` all take `job_url` and hit the archive live. A job the archive has dropped surfaces as `job_gone` (`retry_strategy=abandon`) via the upstream 404/410 — that status is the *only* liveness signal, since nothing is tracked locally.
 - **Large cone/SIA results truncate inline** with `truncated=true` — there's no async job to promote to, so the LLM is told to narrow the search.
 
 Tests mirror the source: `tests/unit/` (pure), `tests/archives/` (registry mechanics + one `test_<archive>.py` of content assertions per archive — deleting an archive deletes its test), `tests/backends/` (vcrpy cassettes), `tests/tools/` (in-memory MCP Client), `tests/contracts/` (tool schema + error envelope invariants), `tests/workflows/` (multi-tool chains), `tests/app/` (Starlette via httpx ASGITransport).
@@ -86,6 +87,8 @@ Tests mirror the source: `tests/unit/` (pure), `tests/archives/` (registry mecha
 
 - **Tools never touch raw pyvo.** Only `backends/` imports pyvo. Verifiable with `grep -r pyvo src/manna/tools/`.
 - **The server never persists result bytes.** No result cache, no MCP Resource serving. Large results are handed to the client as a `job_url` + `result_url` + pyvo `fetch_recipe`; the client fetches them itself. This is the load-bearing multi-tenant invariant — do NOT reintroduce a server-side byte store.
+- **The server holds NO cross-request state at all.** The JobStore was removed in the stateless-async-tap change: it was a process-global `dict` with no notion of caller identity, so in the shared-service topology (`deploy/frontend/docker-compose.yml` — one `mcp` service, one container per user, no auth) any session holding any `job_id` could read or abort another user's job. It also concealed nothing, because the promotion envelope already returned the `job_url`. Do NOT reintroduce a server-side job registry, cache, or session map; if you need per-caller state, it must be keyed on a verified caller identity, which this server does not yet have.
+- **Every user-supplied URL clears `_url_guard.ensure_safe_url` before it is fetched.** `endpoint` (tap/cone/sia), `ivoid_or_url` (registry, when not an `ivo://` IVOID), and `job_url` (status/results/abort). The guard rejects non-http(s) schemes and any target resolving to private/loopback/link-local/reserved space, which is what stops a caller pivoting to `http://hub:8000` or `169.254.169.254` from inside the compose network. `vo_tap_abort` sends an upstream DELETE, so this is load-bearing, not advisory. Known gap: DNS rebinding (we resolve, then `requests` resolves again) — see the module docstring.
 - **`truncated` is always a top-level boolean.** Never silently true. The ALMA_MCP prototype's `df.head(20)` is the explicit anti-pattern. Enforced in `shape_inline_table`.
 - **Error payloads carry `error_class` + `retry_strategy`.** `error_class` is the discriminator the LLM branches on. No `isError` key (intentional — the shared `_ERROR_DOCSTRING` in `tools/_constants.py`, appended to every tool's docstring, spells this out).
 - **Tokens / raw tracebacks never reach the LLM.** `InternalError.redact_message = True` (ClassVar) drives `error_to_payload` to swap in `_INTERNAL_GENERIC_MESSAGE`. Server logs retain the cause via `__cause__`.
