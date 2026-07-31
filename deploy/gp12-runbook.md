@@ -123,7 +123,10 @@ be reviewed and reinstalled rather than pasted. Install it from the checkout:
 
 ```bash
 cd /data0/sw/manna && git pull && cd deploy/gp12
-/data0/sw/anaconda3/bin/python -c "compile(open('jupyter_server_config.py').read(),'c','exec')"
+/data0/sw/anaconda3/bin/python -c "
+from traitlets.config.loader import PyFileConfigLoader
+cfg = PyFileConfigLoader('jupyter_server_config.py', path=['.']).load_config()
+print('LOADED OK', sorted(cfg.keys()))"     # → ['MCPServer', 'PersonaManager']
 sudo cp jupyter_server_config.py /data0/sw/anaconda3/etc/jupyter/
 ```
 
@@ -139,9 +142,13 @@ homes.
 > On gp12 this file can be installed without full root. Randy scoped a sudo rule to the
 > exact command `cp jupyter_server_config.py /data0/sw/anaconda3/etc/jupyter/` — note it
 > matches a **relative** filename, so run it from a directory holding a file by that
-> name. No hub restart is needed; each single-user server reads this at spawn. Always
-> `compile()`-check first: a syntax error here breaks spawns for every account on the
-> host.
+> name. No hub restart is needed; each single-user server reads this at spawn.
+>
+> **Always run the loader check first** — a bad config here breaks spawns for every
+> account on the host. Use `PyFileConfigLoader` rather than `compile()`: `compile()` only
+> parses, while the loader executes the file exactly as Jupyter does and shows the config
+> it actually produces. That difference matters — `c = get_config()` parses fine but
+> would `NameError` at load time if the loader didn't inject it.
 
 **Unsolved: per-user tool pre-approval.** Without this file the persona asks permission
 for every call, and it lives in each user's home — the one piece of config with no

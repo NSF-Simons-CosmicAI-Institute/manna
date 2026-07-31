@@ -15,13 +15,18 @@ can be reviewed, diffed, and reinstalled rather than pasted from a document.
 ```bash
 cd /data0/sw/manna && git pull
 cd deploy/gp12
-/data0/sw/anaconda3/bin/python -c "compile(open('jupyter_server_config.py').read(),'c','exec')"
+/data0/sw/anaconda3/bin/python -c "
+from traitlets.config.loader import PyFileConfigLoader
+cfg = PyFileConfigLoader('jupyter_server_config.py', path=['.']).load_config()
+print('LOADED OK', sorted(cfg.keys()))"     # → ['MCPServer', 'PersonaManager']
 sudo cp jupyter_server_config.py /data0/sw/anaconda3/etc/jupyter/
 ```
 
-The `sudo` grant matches a **relative** filename, which is why the `cd` matters. No
-hub restart is needed — each single-user server reads that config at spawn — but a
-syntax error in it breaks spawns for every account, hence the compile check.
+The `sudo` grant matches a **relative** filename, which is why the `cd` matters. No hub
+restart is needed — each single-user server reads that config at spawn — but a bad config
+breaks spawns for every account, hence the loader check. It executes the file the way
+Jupyter does and prints the config produced, which `compile()` cannot: `compile()` only
+parses, so it would pass a file that raises at load time.
 
 ## Not here
 

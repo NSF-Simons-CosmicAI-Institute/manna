@@ -2,10 +2,14 @@
 
 Install to /data0/sw/anaconda3/etc/jupyter/jupyter_server_config.py. Read by every
 single-user server at spawn, so no hub restart is needed — but a syntax error here
-breaks spawns for every account on the host. Always compile-check first:
+breaks spawns for every account on the host. Always run the loader check first — it
+executes this file the way Jupyter does, unlike compile(), which only parses:
 
     cd /data0/sw/manna/deploy/gp12
-    /data0/sw/anaconda3/bin/python -c "compile(open('jupyter_server_config.py').read(),'c','exec')"
+    /data0/sw/anaconda3/bin/python -c "
+    from traitlets.config.loader import PyFileConfigLoader
+    cfg = PyFileConfigLoader('jupyter_server_config.py', path=['.']).load_config()
+    print('LOADED OK', sorted(cfg.keys()))"
     sudo cp jupyter_server_config.py /data0/sw/anaconda3/etc/jupyter/
 
 See ../gp12-runbook.md for the full procedure and the gotchas behind each setting.
