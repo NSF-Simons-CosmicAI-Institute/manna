@@ -1,126 +1,84 @@
 # gp12 Deployment Runbook — MANNA via Jupyter AI
 
-Surface MANNA's VO tools to notebook users on Astro Data Lab's **gp12** through the
-Jupyter AI persona. MANNA runs as **one shared MCP service** on the host's loopback;
-every user's notebook server reaches it at `http://127.0.0.1:8000/mcp/`.
+MANNA's VO tools in Astro Data Lab notebooks, via the Jupyter AI persona. MANNA runs as
+**one container on host loopback**; every user's notebook server reaches it at
+`http://127.0.0.1:8000/mcp/`.
 
-Status: **validated end-to-end on gp12** — from a user's home config 2026-07-30, then
-from **system config** 2026-07-31 with the per-user config removed, which is what proves
-it works for users other than the one who set it up. The persona is branded
-`@CosmicCoder` there as of 2026-07-31. Not yet validated for a *jailed* Data Lab user,
-which is blocked on one thing (see *Blockers*).
+**Status:** validated end-to-end on gp12 from **system config**, 2026-07-31. Persona
+branded `@CosmicCoder`. Not yet validated for a *jailed* user — see Blockers.
 
-> **The proof.** In JupyterLab chat on gp12: `@Claude resolve galaxy m51 using MANNA
-> mcp tools` → `✓ mcp__manna__vo_target_resolve` → RA 202.469575°, Dec +47.19525833°
-> (ICRS), with a matching `CallToolRequest` in the MANNA container log. The full chain:
-> persona → `claude-agent-acp` → `claude` → gpt-oss-120b on dlai01 → MANNA → a real
-> IVOA resolver call.
+> **Proof.** Chat → `resolve galaxy m51 using MANNA mcp tools` →
+> `✓ mcp__manna__vo_target_resolve` → RA 202.469575°, Dec +47.19525833° (ICRS), with a
+> matching `CallToolRequest` in the container log.
 
-## What gp12 actually is
+## What gp12 is
 
-gp12 runs **its own JupyterHub** — we do not deploy one. Established by inspection,
-2026-07-30:
+gp12 runs **its own JupyterHub** — we deploy no hub and install no Python packages.
 
 | | |
 |---|---|
 | Hub | JupyterHub 4.0.2 from `/data0/sw/anaconda3`, config `/root/ssl.jupyterhub_config.py` |
-| Public face | `configurable-http-proxy` on **:443**, TLS, `gp12.datalab.noirlab.edu` |
-| Spawner | **`LocalProcessSpawner`** — user servers are local processes on the host |
-| Auth | `dlauthenticator.DataLabAuthenticator` — real Data Lab accounts |
-| Users | `/home/jail/dlusers` (NFS, ~5100 accounts), chrooted to `/home/jail` |
-| Idle culling | `jupyterhub_idle_culler --timeout=21600` (6h) |
-| Stack | Python 3.10.13, JupyterLab 4.1.5, **jupyter-ai 3.0.1** already installed |
+| Public | `configurable-http-proxy` on **:443**, `gp12.datalab.noirlab.edu` |
+| Spawner | **`LocalProcessSpawner`** — user servers are host processes |
+| Auth | `dlauthenticator.DataLabAuthenticator` |
+| Users | `/home/jail/dlusers` (NFS, ~5100), chrooted to `/home/jail` |
+| Stack | Python 3.10.13, JupyterLab 4.1.5, **jupyter-ai 3.0.1 already installed** |
 
-**jupyter-ai was already there**, at versions matching our Docker image exactly
-(`jupyter-ai` 3.0.1, `jupyter-ai-acp-client` 0.1.5, `jupyter-server-documents` 0.2.5,
-`jupyterlab-chat` 0.22.1, …). We install no Python packages on gp12.
-
-Because the spawner is local, **loopback is shared** between the MCP container and every
-user server. No container networking, no service discovery, no off-host exposure.
+Because the spawner is local, **loopback is shared** — no container networking, no
+service discovery, no off-host exposure.
 
 ```
-gp12 JupyterHub (:443) ──spawns──► user server (local process, Jupyter AI persona)
-                                          │                    │
-                                MCP tools │                    │ model
-                                          ▼                    ▼
-                          MANNA container                dlai01 vLLM
-                          127.0.0.1:8000                 dlai01.csdc.noirlab.edu:8002
+gp12 JupyterHub (:443) ──spawns──► user server (Jupyter AI persona)
+                                        │                │
+                              MCP tools │                │ model
+                                        ▼                ▼
+                            MANNA container        dlai01 vLLM
+                            127.0.0.1:8000         dlai01.csdc.noirlab.edu:8002
 ```
 
-## What we deploy
+## Deploy
 
-Four things. Only the first is ours to run as a service; the fourth is optional. The
-files themselves live in **`gp12/`** next to this runbook — install them from the
-checkout rather than pasting from here, so what's deployed can be diffed against git.
+Files live in **`gp12/`** next to this runbook. Install from the checkout, not by pasting
+— then what's deployed can be diffed against git.
 
-### 1. MANNA container (needs ops)
-
-The checkout lives with the rest of the Astro Data Lab software in **`/data0/sw/`**,
-not in a user's home. Note `/data0/sw` is a symlink to `sw.tmpfs`, which despite the
-name is persistent local XFS on `/dev/sdc`.
+### 1. MANNA container
 
 ```bash
 git clone https://github.com/dangause/manna.git /data0/sw/manna
-cd /data0/sw/manna && git checkout v0.5.0          # a tag, not a branch
+cd /data0/sw/manna && git checkout v0.5.0
 docker build -t manna:v0.5.0 .
-```
-
-> **No release tag exists yet** — the repo has never been tagged. Cut `v0.5.0` from a
-> promoted `main` before deploying, or pin a commit SHA in the meantime. Do not deploy
-> from `dev`: it moves, and the deployed version would silently change on every rebuild.
->
-> Interim, as deployed 2026-07-31 — pin the image to the commit so the running version
-> is identifiable:
-> ```bash
-> cd /data0/sw/manna && SHA=$(git rev-parse --short HEAD)
-> docker build -t manna:0.5.0-$SHA .        # e.g. manna:0.5.0-4f891d9
-> ```
-> Note `/data0/sw` is world-writable (777), so the clone needs no privileges — but the
-> tree then belongs to whoever cloned it. Ops should chown it when installing the unit.
-
-Run it as a systemd unit rather than an ad-hoc `docker run`, so it survives reboots and
-no single user is a point of failure. The unit is **`gp12/manna.service`** — install it
-rather than retyping it:
-
-```bash
-cd /data0/sw/manna/deploy/gp12
-sudo cp manna.service /etc/systemd/system/
+cd deploy/gp12 && sudo cp manna.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now manna
-curl -fsS http://127.0.0.1:8000/health          # {"status":"ok","version":"0.5.0",...}
+curl -fsS http://127.0.0.1:8000/health
 ```
 
-Edit the image tag in the unit to match what you built. It publishes to
-**`127.0.0.1:8000`** only — user servers are local processes on this host, so loopback
-is sufficient and binding wider would expose the tools for no benefit.
+- **No release tag exists yet.** Cut one from `main`, or pin a commit
+  (`docker build -t manna:0.5.0-$(git rev-parse --short HEAD) .`). Never deploy from
+  `dev` — the deployed version would change on every rebuild.
+- `/data0/sw` is world-writable, so the clone needs no privileges — but it belongs to
+  whoever cloned it. Ops should `chown` it.
+- Publishes to `127.0.0.1:8000` only. That's sufficient: user servers are local.
+- **Does not need to be jail-visible** — users reach MANNA over the network, never its
+  files. The opposite of §2.
+- Upgrade: checkout the new tag, rebuild, edit `ExecStart`, `daemon-reload && restart`.
 
-**This directory does not need to be jail-visible.** Users reach MANNA over loopback and
-never touch its files, so `/data0/sw/manna` being outside the jail's bind mounts is
-fine. That is the opposite of the persona harness below, which *must* be jail-visible.
+### 2. Persona harness — **BLOCKED**
 
-To upgrade: `git fetch && git checkout <newtag>`, rebuild with the new tag, update
-`ExecStart`, then `systemctl daemon-reload && systemctl restart manna`.
-
-### 2. The persona harness (needs ops)
-
-`claude-agent-acp` and `claude` are **not services** — the persona spawns them as
-subprocesses, so they must be executable from the user's server process. They must land
-in the **only tree bind-mounted into the jail**, `/data0/sw/anaconda3`:
+`claude` and `claude-agent-acp` are subprocesses the persona spawns, not services, so
+they must be executable from the user's server — which means the only tree bind-mounted
+into the jail:
 
 ```bash
 npm config set prefix /data0/sw/anaconda3
 npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
 ```
 
-This requires **node ≥ 22** (see *Blockers*).
+Requires **node ≥ 22**; that prefix has v18.16.0. See Blockers.
 
-### 3. System Jupyter config (needs ops)
+### 3. System Jupyter config
 
-`/data0/sw/anaconda3/etc/jupyter/jupyter_server_config.py` — a `.py` file in that
-directory, **not** in `jupyter_server_config.d/` (that one only takes JSON extension
-toggles):
-
-The file is **`gp12/jupyter_server_config.py`**, kept in version control so it can
-be reviewed and reinstalled rather than pasted. Install it from the checkout:
+Install `gp12/jupyter_server_config.py` to
+`/data0/sw/anaconda3/etc/jupyter/jupyter_server_config.py`:
 
 ```bash
 cd /data0/sw/manna && git pull && cd deploy/gp12
@@ -131,200 +89,125 @@ print('LOADED OK', sorted(cfg.keys()))"     # → ['MCPServer', 'PersonaManager'
 sudo cp jupyter_server_config.py /data0/sw/anaconda3/etc/jupyter/
 ```
 
-It sets four things: `c.MCPServer.host` (the IPv6 fix), the `ANTHROPIC_*` model env,
-a `PATH` that deliberately does **not** prepend the anaconda prefix, and
-`c.PersonaManager.builtin_mcp_servers`. Each carries a comment explaining why.
+It sets `c.MCPServer.host` (IPv6 fix), the `ANTHROPIC_*` model env, a `PATH` that
+deliberately excludes the anaconda prefix, and `c.PersonaManager.builtin_mcp_servers`.
 
-**`builtin_mcp_servers` is the delivery mechanism**, confirmed twice: 2026-07-30 with
-the CLI-scope entry removed from `~/.claude.json`, and 2026-07-31 with the user's entire
-`~/.jupyter/jupyter_server_config.py` moved aside. Nothing needs writing into users' NFS
-homes.
+- **`builtin_mcp_servers` is the delivery mechanism.** Confirmed by removing the user's
+  own config entirely and seeing the tools survive — so nothing needs writing into NFS
+  homes.
+- Must be a `.py` in that directory, **not** in `jupyter_server_config.d/` (JSON
+  extension toggles only). It's a *Jupyter Server* setting; in the JupyterHub config it
+  does nothing.
+- No hub restart needed — each server reads it at spawn.
+- **Always run the loader check**, not `compile()`. A bad config breaks spawns for every
+  account; `compile()` only parses, so it passes files that raise at load time.
+- The scoped `sudo cp` grant matches a **relative** filename — hence the `cd`.
 
-> On gp12 this file can be installed without full root. Randy scoped a sudo rule to the
-> exact command `cp jupyter_server_config.py /data0/sw/anaconda3/etc/jupyter/` — note it
-> matches a **relative** filename, so run it from a directory holding a file by that
-> name. No hub restart is needed; each single-user server reads this at spawn.
->
-> **Always run the loader check first** — a bad config here breaks spawns for every
-> account on the host. Use `PyFileConfigLoader` rather than `compile()`: `compile()` only
-> parses, while the loader executes the file exactly as Jupyter does and shows the config
-> it actually produces. That difference matters — `c = get_config()` parses fine but
-> would `NameError` at load time if the loader didn't inject it.
-
-### 4. Persona identity — `@CosmicCoder` (needs a scoped `sudo cp`)
-
-Optional, cosmetic, and **applied on gp12 2026-07-31**. Two independent halves:
-
-**The name, description, and avatar.** jupyter-ai 3.0.1 has no config knob for persona
-names — `PersonaManager`'s only configurable traits are `default_persona_id` and
-`builtin_mcp_servers` (verified on 0.0.12). So the built-in persona has to be renamed in
-the installed package:
+### 4. Persona identity — optional, applied 2026-07-31
 
 ```bash
 cd /data0/sw/manna/deploy/gp12
 ./rebrand-persona.sh
-rm -f ~/.jupyter/personas/cosmiccoder_persona.py    # see below
+rm -f ~/.jupyter/personas/cosmiccoder_persona.py
 ```
 
-The script prepares the patched file in a temp dir and copies it in, so it needs only a
-scoped `sudo cp` grant. It refuses to run if the expected lines aren't present, backs up
-the original, and prints the revert command. **It reverts on any
-`pip install -U jupyter-ai-acp-client`** — tell ops, or it will vanish during routine
-maintenance and get diagnosed as something else.
+jupyter-ai 3.0.1 has no config knob for persona names, so the script renames the built-in
+persona in site-packages. It needs only a scoped `sudo cp`, refuses to run if the
+expected lines are absent, and backs up the original.
 
-**The astronomy role framing** is separate and is the half that actually changes answer
-quality — `frontend/CLAUDE.md` copied to each user's `~/.claude/CLAUDE.md`. Delivering
-that to all users is unsolved (below).
+- **Reverts on any `pip install -U jupyter-ai-acp-client`.** Tell ops, or it will vanish
+  during maintenance and be misdiagnosed.
+- Alternative with no privileges at all: `gp12/personas/cosmiccoder_persona.py` in
+  `~/.jupyter/personas/`. But local files only **add** — `@Claude` stays alongside. The
+  filename must contain **"persona"** or it's silently skipped.
+- **The two are mutually exclusive** — do both and you get two `@CosmicCoder`s.
+- Persona ids are `jupyter-ai-personas::<module>::<ClassName>`, so `default_persona_id`
+  differs between the routes.
 
-> **Two routes, mutually exclusive.** `gp12/personas/cosmiccoder_persona.py` dropped into
-> `~/.jupyter/personas/` also produces `@CosmicCoder`, with no privileges at all — but
-> local persona files only **add**, so the stock `@Claude` stays alongside. The script
-> *renames* the built-in one instead, which is the only way to end up with a single
-> entry. Do both and you get two `@CosmicCoder`s.
->
-> If you use the local-file route, note the filename must contain **"persona"** —
-> `find_persona_files` globs only `*.py` whose stem matches, so `cosmiccoder.py` is
-> silently skipped: never imported, nothing logged, persona simply absent.
->
-> Persona ids derive from module and class name
-> (`jupyter-ai-personas::<module>::<ClassName>`), so `default_persona_id` differs between
-> the two routes and must be updated when switching.
-
-**Unsolved: per-user tool pre-approval.** Without this file the persona asks permission
-for every call, and it lives in each user's home — the one piece of config with no
-system-wide home yet:
-
-```json
-// ~/.claude/settings.json
-{"permissions": {"allow": ["mcp__manna", "mcp__Jupyter_MCP_Server"]}}
-```
-
-Candidate fixes, neither verified: a Claude Code managed-settings path, or pointing
-`CLAUDE_CONFIG_DIR` at a shared read-only directory from the config above.
+Separately, `frontend/CLAUDE.md` → `~/.claude/CLAUDE.md` gives the astronomy role
+framing. That's the half that changes answer quality; the rebrand is cosmetic.
 
 ## Blockers
 
-**Node is too old in the jail.** `@anthropic-ai/claude-code` 2.1.220 declares
-`engines: {"node": ">=22.0.0"}`. gp12 has:
+**Node is too old in the jail.** `claude-code` 2.1.220 requires `node >=22`:
 
-| Path | Version | Visible in jail? |
+| Path | Version | In jail? |
 |---|---|---|
-| `/usr/bin/node` | v26.5.0 | **no** — jail's `/usr/bin` is curated, no node |
+| `/usr/bin/node` | v26.5.0 | **no** — jail's `/usr/bin` is curated |
 | `/data0/sw/anaconda3/bin/node` | **v18.16.0** | yes |
 
-So a jailed Data Lab user cannot run the harness today. Either upgrade nodejs in the
-anaconda env, or install a modern node side-by-side (e.g.
-`/data0/sw/anaconda3/opt/node22`) and prepend it to `PATH` in the system config. The
-side-by-side option is lower risk on a shared env and is what should transfer to gp13.
+Fix by upgrading nodejs in the anaconda env, or installing node ≥22 side-by-side and
+prepending it to `PATH`. Upgrading in place removes the PATH-ordering footgun entirely.
 
-**Everything validated so far used a staff account** (`dgause`, local home, host node
-v26.5.0) — not a jailed `dlusers` account. A second validation round inside the jail is
-required before this is real for users.
+**All validation used a staff account** (`dgause`, local home, host node) — not a jailed
+`dlusers` account. A second round inside the jail is required.
 
 ## Verify
 
-**Where you run each step matters** — the `ANTHROPIC_*` env comes from the system Jupyter
-config, so it exists inside a spawned server's process and *not* in an SSH shell. Running
-step 4 from SSH fails with `Not logged in · Please run /login`, which is misleading: it
-means Claude Code found no credential it recognizes, not that anyone needs to log in.
+Where each step runs matters — the `ANTHROPIC_*` env comes from the system config, so it
+exists inside a spawned server and **not** in an SSH shell.
 
-| # | Run from | Checks |
-|---|---|---|
-| 1 | SSH on gp12 | service is up |
-| 2 | anywhere that reaches loopback | MCP protocol + tool count |
-| 3 | **a jailed user's terminal** | loopback crosses the chroot |
-| 4 | **a JupyterLab terminal** | model path |
-| 5 | JupyterLab chat | end-to-end |
+| # | Run from | Command | Pass |
+|---|---|---|---|
+| 1 | SSH | `curl -fsS http://127.0.0.1:8000/health` | `"version":"0.5.0"` |
+| 2 | anywhere on loopback | `npx -y @modelcontextprotocol/inspector --cli http://127.0.0.1:8000/mcp --method tools/list` | 12 tools |
+| 3 | **jailed user's terminal** | `curl -fsS http://127.0.0.1:8000/health` | reachable |
+| 4 | **JupyterLab terminal** | `claude -p "say ok"` | `ok` |
+| 5 | JupyterLab chat | `@CosmicCoder resolve galaxy m51 using MANNA mcp tools` | coords **+** log |
 
-```bash
-# 1. Service up
-curl -fsS http://127.0.0.1:8000/health
+- **Step 3 is the assumption everything rests on** and is untested. `chroot` shares the
+  host network namespace, so it *should* work — but that's reasoning, not evidence. If it
+  fails, MANNA needs a different transport. `curl` is already in the jail.
+- **Step 5 passes only with both**: RA 202.4696 / Dec +47.195 **and** a fresh
+  `CallToolRequest` in `docker logs manna`. A confident answer with nothing in the log is
+  the model guessing.
+- **Never use `claude mcp list`** — see Gotchas.
 
-# 2. Protocol + tools
-npx -y @modelcontextprotocol/inspector --cli http://127.0.0.1:8000/mcp --method tools/list
-# → 12 tools: vo_archive_list, vo_tap_query, vo_target_resolve, …
+## Gotchas
 
-# 3. Loopback reaches the jail
-curl -fsS http://127.0.0.1:8000/health
+Every one of these was hit on 2026-07-30/31, and none announce themselves.
 
-# 4. Harness — model path only. MUST be a JupyterLab terminal, not SSH.
-claude -p "say ok"          # → ok
-
-# 5. End-to-end, in JupyterLab chat
-#    @CosmicCoder resolve galaxy m51 using MANNA mcp tools   (@Claude if §4 not applied)
-docker logs --tail 5 manna
-```
-
-Step 3 is the assumption the whole design rests on. `chroot` doesn't create a network
-namespace, so a jailed process *should* reach host loopback — but that is reasoning, not
-evidence, and it has not been tested. If it fails, MANNA needs a different transport and
-much of this runbook changes. `curl` is present in the jail's `/usr/bin`, so the test
-needs nothing installed.
-
-Success on step 5 = **RA 202.4696, Dec +47.195** *and* a fresh `CallToolRequest` in the
-container log. A confident answer with nothing in the log is the model guessing.
-
-Do **not** use `claude mcp list` as a check — see Gotchas.
-
-## Gotchas (hit on 2026-07-30/31)
-
-- **IPv6 is disabled host-wide** (`disable_ipv6=1`, site policy — "we don't use IPv6
-  here"). Anything resolving `localhost` gets `::1` and fails with errno 99. Use the
-  `127.0.0.1` literal everywhere. This crashed `jupyter_server_mcp` on startup, which
-  killed the single-user server, which surfaced as a 60s hub spawn timeout — three
-  layers away from the cause.
-- **"Not logged in · Please run /login" means missing env, not missing credentials.**
-  Claude Code prints it whenever it can't find a credential *it* recognizes — including
-  when `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` simply aren't set, as in an SSH shell
-  where the Jupyter config's `os.environ` block never ran. Nobody needs to log in.
-- **PATH order silently downgrades node, and the symptom looks nothing like it.**
-  `/data0/sw/anaconda3/bin` contains node **v18.16.0**. `claude` is a node script with a
-  `#!/usr/bin/env node` shebang, so prepending that directory drops the interpreter below
-  claude-code's `>=22`. The persona then **connects to MANNA, lists all 12 tools, and
-  never calls one** — the chat just hangs, and MANNA's log shows a clean
-  `ListToolsRequest` with no error, because from MANNA's side nothing is wrong. The only
-  signal is the *absence* of a `CallToolRequest`. Hit on 2026-07-31 by prepending that
-  path in the system config; fixed by removing it.
-- **`builtin_mcp_servers`' default URL uses `localhost`.** The default entry for the
-  Jupyter MCP Server is built as `http://localhost:{mcp_port}/mcp`, so on this host it
-  points at a dead address. Setting the trait explicitly (above) replaces it.
-- **`claude mcp list` is not a valid check — twice over.** It reads the `claude` CLI's
-  own config, not the persona's, so it reports "No MCP servers configured" when the
-  persona works fine; and it reported `ConnectionRefused` against a server that was
-  reachable and serving. The container log is the only trustworthy signal.
+- **IPv6 is disabled host-wide** (site policy). Anything resolving `localhost` gets `::1`
+  and fails with errno 99 — use the `127.0.0.1` literal everywhere. This killed
+  `jupyter_server_mcp`, which killed the single-user server, which surfaced as a 60s hub
+  spawn timeout: three layers from the cause.
+- **PATH order silently downgrades node.** Prepending `/data0/sw/anaconda3/bin` drops
+  `claude` to node 18. The persona then connects, lists all 12 tools, and **never calls
+  one** — no error anywhere, because nothing is wrong from MANNA's side. The only signal
+  is the *absence* of a `CallToolRequest`.
+- **`builtin_mcp_servers`' default URL uses `localhost`** — dead on this host. Setting
+  the trait replaces the default, so restate the Jupyter MCP Server entry with an IPv4
+  literal or you lose it.
+- **`claude mcp list` lies, twice over.** It reads the CLI's config, not the persona's,
+  and it reported `ConnectionRefused` against a server that was serving fine. The
+  container log is the only trustworthy signal.
 - **A healthy container can have a dead port binding.** Killing host processes can take
-  out `docker-proxy` while the container keeps running — `docker ps` shows `Up
-  (healthy)` and its own healthcheck passes, but nothing listens on the host.
-  `docker restart` recreates the binding; `docker start` on a running container is a
-  no-op.
-- **`jupyter_server_mcp` binds a fixed port 3001.** With `LocalProcessSpawner` every
-  user server runs on the same host, so concurrent users may collide. **Untested** —
-  raise with ADL ops before rollout. MANNA does not need this extension; disabling it
-  removes both this and the IPv6 problem.
-- **Config must be `jupyter_server_config.py`**, not a file under
-  `jupyter_server_config.d/` (JSON extension toggles only), and it is a *Jupyter Server*
-  setting — putting `c.MCPServer.host` in the JupyterHub config does nothing.
-- **Username/home mismatches break everything silently.** A duplicate-UID account left
-  the hub spawning as one user while the shell was another, so none of the per-user
-  config was read and the persona sat mute with no error anywhere. If the persona is
-  silent, check `whoami` and `$HOME` *inside the spawned server* first.
+  out `docker-proxy` while `docker ps` still shows `Up (healthy)`. `docker restart`
+  recreates it; `docker start` on a running container is a no-op.
+- **"Not logged in · Please run /login" means missing env, not missing credentials** —
+  typically running `claude` from SSH, where the config's `os.environ` never ran.
+- **Silent persona? Check identity first.** A duplicate-UID account had the hub spawning
+  as one user while the shell was another, so no per-user config was read and the chat
+  sat mute. Run `whoami; echo $HOME` *inside the spawned server*.
+- **`jupyter_server_mcp` binds a fixed port 3001.** With `LocalProcessSpawner` concurrent
+  users may collide. Untested. MANNA doesn't need that extension — disabling it removes
+  this and the IPv6 problem together.
 
 ## Not done yet
 
-- **Jailed-user validation** — the blocker above, then re-run Verify as a `dlusers` account.
-- **Cut a release tag.** The repo has never been tagged; the systemd unit above pins an
-  image tag that doesn't exist yet.
-- **Install the systemd unit on gp12.** It's specified above but not deployed — MANNA is
-  currently an ad-hoc container in a user's home.
-- **Multi-user concurrency** — the port 3001 question.
-- **Persona branding is a Data Lab decision, not an ops one.** §4 is applied on gp12, but
-  it changes what every account sees — worth Chadd signing off before it reaches gp13.
-- **gp13 promotion.** gp13 is production; gp12 is the sandbox. Everything here should be
-  reproducible as ops-owned config, not hand edits.
+- Jailed-user validation (blocked on node ≥ 22)
+- Cut a release tag — the systemd unit pins one that doesn't exist
+- Install the systemd unit; MANNA is currently an ad-hoc container
+- Port 3001 concurrency
+- **Per-user Claude config for ~5,100 users.** `~/.claude/settings.json` (tool
+  pre-approval — without it the persona prompts on every call) and `~/.claude/CLAUDE.md`
+  both live in user homes with no system-wide equivalent. Unverified candidates: Claude
+  Code managed settings, or a shared `CLAUDE_CONFIG_DIR`.
+- gp13 promotion — everything here must be ops-owned config, not hand edits
 
 ## Open questions for ADL ops
 
-- Who owns the MANNA container long-term, and where should it be defined as a service?
+- Who owns the MANNA container long-term?
 - Upgrade nodejs in `/data0/sw/anaconda3`, or install node ≥22 side-by-side?
-- Is the fixed port 3001 a real multi-user problem here, and has gp13 seen it?
-- Should the persona be rebranded for Data Lab users, and whose call is that?
+- Is fixed port 3001 a real multi-user problem here — has gp13 seen it?
+- Is `@CosmicCoder` the branding Data Lab wants? (Chadd's call, not ops.)
