@@ -4,8 +4,10 @@ Surface MANNA's VO tools to notebook users on Astro Data Lab's **gp12** through 
 Jupyter AI persona. MANNA runs as **one shared MCP service** on the host's loopback;
 every user's notebook server reaches it at `http://127.0.0.1:8000/mcp/`.
 
-Status: **validated end-to-end on gp12, 2026-07-30** — for a staff account. Not yet
-validated for a jailed Data Lab user, which is blocked on one thing (see *Blockers*).
+Status: **validated end-to-end on gp12** — from a user's home config 2026-07-30, then
+from **system config** 2026-07-31 with the per-user config removed, which is what proves
+it works for users other than the one who set it up. Not yet validated for a *jailed*
+Data Lab user, which is blocked on one thing (see *Blockers*).
 
 > **The proof.** In JupyterLab chat on gp12: `@Claude resolve galaxy m51 using MANNA
 > mcp tools` → `✓ mcp__manna__vo_target_resolve` → RA 202.469575°, Dec +47.19525833°
@@ -142,6 +144,18 @@ os.environ.setdefault("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "120000")
 os.environ.setdefault("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", "85")
 os.environ.setdefault("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
 
+# The persona spawns `claude-agent-acp`, which must be on PATH.
+#
+# Do NOT prepend /data0/sw/anaconda3/bin: its node is v18.16.0, and `claude` is a
+# node script resolved via `#!/usr/bin/env node`, so putting it first silently
+# downgrades the interpreter below claude-code's `>=22` and the harness dies after
+# listing tools. Once ops installs node >=22, that bin dir must come BEFORE the
+# anaconda prefix. See Gotchas.
+os.environ["PATH"] = ":".join([
+    os.path.join(os.path.expanduser("~"), ".npm-global/bin"),   # transitional
+    os.environ.get("PATH", "/usr/bin:/bin"),
+])
+
 # MCP servers handed to the persona. Setting this REPLACES the default, whose URL
 # uses `localhost` — see Gotchas.
 c.PersonaManager.builtin_mcp_servers = [
@@ -150,17 +164,29 @@ c.PersonaManager.builtin_mcp_servers = [
 ]
 ```
 
-**`builtin_mcp_servers` is the delivery mechanism**, confirmed 2026-07-30: with the
-CLI-scope entry removed from `~/.claude.json`, the persona still had the tools. This is
-why nothing needs writing into users' NFS homes.
+**`builtin_mcp_servers` is the delivery mechanism**, confirmed twice: 2026-07-30 with
+the CLI-scope entry removed from `~/.claude.json`, and 2026-07-31 with the user's entire
+`~/.jupyter/jupyter_server_config.py` moved aside. Nothing needs writing into users' NFS
+homes.
 
-Per-user tool pre-approval still lives in each user's home, and without it the persona
-asks permission for every call:
+> On gp12 this file can be installed without full root. Randy scoped a sudo rule to the
+> exact command `cp jupyter_server_config.py /data0/sw/anaconda3/etc/jupyter/` — note it
+> matches a **relative** filename, so run it from a directory holding a file by that
+> name. No hub restart is needed; each single-user server reads this at spawn. Always
+> `compile()`-check first: a syntax error here breaks spawns for every account on the
+> host.
+
+**Unsolved: per-user tool pre-approval.** Without this file the persona asks permission
+for every call, and it lives in each user's home — the one piece of config with no
+system-wide home yet:
 
 ```json
 // ~/.claude/settings.json
 {"permissions": {"allow": ["mcp__manna", "mcp__Jupyter_MCP_Server"]}}
 ```
+
+Candidate fixes, neither verified: a Claude Code managed-settings path, or pointing
+`CLAUDE_CONFIG_DIR` at a shared read-only directory from the config above.
 
 ## Blockers
 
@@ -213,13 +239,21 @@ container log. A confident answer with nothing in the log is the model guessing.
 
 Do **not** use `claude mcp list` as a check — see Gotchas.
 
-## Gotchas (all hit on 2026-07-30)
+## Gotchas (hit on 2026-07-30/31)
 
 - **IPv6 is disabled host-wide** (`disable_ipv6=1`, site policy — "we don't use IPv6
   here"). Anything resolving `localhost` gets `::1` and fails with errno 99. Use the
   `127.0.0.1` literal everywhere. This crashed `jupyter_server_mcp` on startup, which
   killed the single-user server, which surfaced as a 60s hub spawn timeout — three
   layers away from the cause.
+- **PATH order silently downgrades node, and the symptom looks nothing like it.**
+  `/data0/sw/anaconda3/bin` contains node **v18.16.0**. `claude` is a node script with a
+  `#!/usr/bin/env node` shebang, so prepending that directory drops the interpreter below
+  claude-code's `>=22`. The persona then **connects to MANNA, lists all 12 tools, and
+  never calls one** — the chat just hangs, and MANNA's log shows a clean
+  `ListToolsRequest` with no error, because from MANNA's side nothing is wrong. The only
+  signal is the *absence* of a `CallToolRequest`. Hit on 2026-07-31 by prepending that
+  path in the system config; fixed by removing it.
 - **`builtin_mcp_servers`' default URL uses `localhost`.** The default entry for the
   Jupyter MCP Server is built as `http://localhost:{mcp_port}/mcp`, so on this host it
   points at a dead address. Setting the trait explicitly (above) replaces it.
