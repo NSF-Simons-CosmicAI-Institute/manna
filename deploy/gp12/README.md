@@ -8,7 +8,7 @@ can be reviewed, diffed, and reinstalled rather than pasted from a document.
 |---|---|---|
 | `jupyter_server_config.py` | `/data0/sw/anaconda3/etc/jupyter/` | scoped `sudo cp` |
 | `manna.service` | `/etc/systemd/system/` | root |
-| `personas/cosmiccoder.py` | `~/.jupyter/personas/` | nothing (per-user) |
+| `personas/cosmiccoder_persona.py` | `~/.jupyter/personas/` | nothing (per-user) |
 
 `/data0/sw/manna` is a git checkout on gp12, so the deploy loop is a pull and a copy:
 
@@ -35,5 +35,5 @@ parses, so it would pass a file that raises at load time.
   per-user files under `~/.claude/`, and delivering them to ~5,100 users is an open
   problem — see the runbook.
 - **The `@CosmicCoder` site-packages patch** lives in `../frontend/frontend.Dockerfile`.
-  `personas/cosmiccoder.py` here is the per-user alternative that needs no privileges;
+  `personas/cosmiccoder_persona.py` here is the per-user alternative that needs no privileges;
   it *adds* the persona rather than replacing the stock `@Claude`.

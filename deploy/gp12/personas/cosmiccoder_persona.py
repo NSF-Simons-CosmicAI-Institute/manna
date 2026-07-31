@@ -5,15 +5,14 @@ description, and avatar differ. jupyter-ai derives the chat `@`-handle from the
 display name (`display_name.replace(" ", "-")`), so the name below IS the handle.
 
     mkdir -p ~/.jupyter/personas
-    cp cosmiccoder.py ~/.jupyter/personas/
+    cp cosmiccoder_persona.py ~/.jupyter/personas/
     # restart your server, then type `@` in the chat
 
-STATUS: UNVERIFIED. `PersonaManager` loads local personas from a
-`.jupyter/personas/` directory (`load_from_dir`), but this subclass approach has
-not been run. Two specific unknowns: whether `load_from_dir` picks up a subclass
-defined this way, and whether `avatar_path` works pointing outside the package's
-own `static/` directory. If the persona doesn't appear, check the hub log for a
-load error and try dropping `avatar_path`.
+THE FILENAME IS LOAD-BEARING. `find_persona_files` only globs `*.py` whose stem
+contains "persona" (case-insensitive) and does not start with `_` or `.`. Naming
+this file `cosmiccoder.py` gets it silently skipped — never imported, nothing
+logged, and the persona simply never appears. That exact mistake cost a
+debugging round on 2026-07-31, so keep "persona" in the name.
 
 LIMITATION: local persona files only *add* — they cannot hide the built-in
 `@Claude`, so both handles will be present. Replacing the stock persona requires

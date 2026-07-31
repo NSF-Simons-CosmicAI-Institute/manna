@@ -278,9 +278,11 @@ Do **not** use `claude mcp list` as a check — see Gotchas.
   currently an ad-hoc container in a user's home.
 - **Multi-user concurrency** — the port 3001 question.
 - **Persona identity — `@CosmicCoder`.** Two routes, and they differ in reach:
-  - *Per-user, no privileges*: drop `gp12/personas/cosmiccoder.py` into
-    `~/.jupyter/personas/`. `PersonaManager` loads local personas from there. But local
-    files only **add** — the stock `@Claude` stays, so you get both handles. Untested.
+  - *Per-user, no privileges*: drop `gp12/personas/cosmiccoder_persona.py` into
+    `~/.jupyter/personas/`. But local files only **add** — the stock `@Claude` stays, so
+    you get both handles. **The filename must contain "persona"**: `find_persona_files`
+    globs only `*.py` whose stem matches that, so `cosmiccoder.py` is silently skipped —
+    never imported, nothing logged, persona simply absent.
   - *All users*: patch `name`/`description`/avatar in `jupyter_ai_acp_client`
     (`frontend/frontend.Dockerfile` has the exact sed lines, and the three targets are
     confirmed present in gp12's copy). Needs write access to the shared env and reverts
