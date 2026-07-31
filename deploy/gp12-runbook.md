@@ -278,16 +278,26 @@ Do **not** use `claude mcp list` as a check — see Gotchas.
   currently an ad-hoc container in a user's home.
 - **Multi-user concurrency** — the port 3001 question.
 - **Persona identity — `@CosmicCoder`.** Two routes, and they differ in reach:
-  - *Per-user, no privileges*: drop `gp12/personas/cosmiccoder_persona.py` into
-    `~/.jupyter/personas/`. But local files only **add** — the stock `@Claude` stays, so
-    you get both handles. **The filename must contain "persona"**: `find_persona_files`
-    globs only `*.py` whose stem matches that, so `cosmiccoder.py` is silently skipped —
-    never imported, nothing logged, persona simply absent.
-  - *All users*: patch `name`/`description`/avatar in `jupyter_ai_acp_client`
+  - *Per-user, no privileges* — **validated 2026-07-31**: drop
+    `gp12/personas/cosmiccoder_persona.py` into `~/.jupyter/personas/`. `@CosmicCoder`
+    appears with the right name, description, and avatar (an absolute `avatar_path`
+    outside the package's `static/` works fine). **The filename must contain
+    "persona"**: `find_persona_files` globs only `*.py` whose stem matches, so
+    `cosmiccoder.py` is silently skipped — never imported, nothing logged, persona
+    simply absent. Local files only **add**, so the stock `@Claude` remains alongside.
+  - *All users, and the only way to show **only** `@CosmicCoder`*: patch
+    `name`/`description`/avatar in `jupyter_ai_acp_client`
     (`frontend/frontend.Dockerfile` has the exact sed lines, and the three targets are
-    confirmed present in gp12's copy). Needs write access to the shared env and reverts
-    on any package upgrade. It also changes what every account sees, which is a Data Lab
-    product decision rather than an ops one.
+    confirmed present in gp12's copy). This renames the stock persona rather than adding
+    one. Needs write access to the shared env and reverts on any package upgrade. It also
+    changes what every account sees, which is a Data Lab product decision rather than an
+    ops one.
+
+  **The two are mutually exclusive.** `PersonaManager` has no allow/block/disable trait —
+  verified against the installed 0.0.12, whose only configurable traits are
+  `default_persona_id` and `builtin_mcp_servers` — so a local file can never hide the
+  built-in persona. Apply the patch *and* keep the local file and you get two
+  `@CosmicCoder`s; remove the local file when the patch lands.
 
   The astronomy role framing is separate and independent — `frontend/CLAUDE.md` copied to
   `~/.claude/CLAUDE.md`. That is the half that changes answer quality; the rebrand is
