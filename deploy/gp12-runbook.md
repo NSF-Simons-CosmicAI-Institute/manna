@@ -66,25 +66,34 @@ curl -fsS http://127.0.0.1:8000/health
 
 `claude` and `claude-agent-acp` are subprocesses the persona spawns, not services, so
 they must be on the PATH of the user's server — inside the only tree bind-mounted into
-the jail, `/data0/sw/anaconda3`. Install **side-by-side**, not into the env itself:
+the jail, `/data0/sw/anaconda3`. That env's node is **v18.16.0**; `claude-code` requires
+**≥22**.
+
+Preferred — upgrade in place, so the binaries land on a PATH that is already set up:
 
 ```bash
-# node >=22 in its own prefix — do NOT upgrade the env's node (see below)
-conda create -y -p /data0/sw/anaconda3/opt/node22 -c conda-forge 'nodejs>=22'
-
-export PATH=/data0/sw/anaconda3/opt/node22/bin:$PATH
-npm config set prefix /data0/sw/anaconda3/opt/node22
-npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
+conda install -y -p /data0/sw/anaconda3 -c conda-forge 'nodejs>=22'
+npm install -g --prefix /data0/sw/anaconda3 \
+  @anthropic-ai/claude-code @zed-industries/claude-agent-acp
 ```
 
-- **`/data0` is shared across gp12, gp13, and other ADL servers.** Upgrading the env's
-  own node would affect all of them; a new subdirectory affects nothing else.
-- `claude.py` raises `PersonaRequirementsUnmet` at import when `claude-agent-acp` isn't
-  on PATH, and the persona then **doesn't appear in the chat at all** — no `@Claude`, no
-  `@CosmicCoder`. Confirmed 2026-07-31: a second user saw only `@file`. So until this
-  step lands, nobody but the person who installed it has a persona.
-- §3's `PATH` already points at `/data0/sw/anaconda3/opt/node22/bin` and must stay ahead
-  of `/data0/sw/anaconda3/bin`, whose node is v18.
+Fallback if anything on gp12 still needs node 18 — side-by-side, fully reversible:
+
+```bash
+mkdir -p /data0/sw/anaconda3/opt && cd /data0/sw/anaconda3/opt
+curl -fsSLO https://nodejs.org/dist/v22.11.0/node-v22.11.0-linux-x64.tar.xz
+tar xf node-v22.11.0-linux-x64.tar.xz && mv node-v22.11.0-linux-x64 node22
+/data0/sw/anaconda3/opt/node22/bin/npm install -g \
+  --prefix /data0/sw/anaconda3/opt/node22 \
+  @anthropic-ai/claude-code @zed-industries/claude-agent-acp
+```
+
+- §3's `PATH` handles either shape; the side-by-side prefix wins when present.
+- Use `npm install -g --prefix ...`, not `npm config set prefix` — the latter writes to
+  the running admin's `~/.npmrc`, so the next admin silently installs elsewhere.
+- **This is the gate on all-user access.** `claude.py` raises `PersonaRequirementsUnmet`
+  at import when `claude-agent-acp` isn't on PATH, and the persona then **doesn't appear
+  in the chat at all**. Confirmed 2026-07-31: a second user saw only `@file`.
 
 ### 3. System Jupyter config
 
@@ -114,22 +123,30 @@ node 22 ahead of the env's node 18, and `c.PersonaManager.builtin_mcp_servers`.
   account; `compile()` only parses, so it passes files that raise at load time.
 - The scoped `sudo cp` grant matches a **relative** filename — hence the `cd`.
 
-### 4. Tool pre-approval, for every user
+### 4. Per-user config, for every user
 
-Without it the persona asks permission on every tool call. `managed-settings.json` is
-Claude Code's admin-managed layer and needs no per-user file:
+Both files users need are delivered by Claude Code's **managed policy** layer — one
+root-owned directory, no per-user files, nothing written to NFS homes, and users cannot
+override it:
 
 ```bash
-sudo mkdir -p /etc/claude-code
-sudo cp gp12/managed-settings.json /etc/claude-code/
+sudo mkdir -p /etc/claude-code /home/jail/etc/claude-code
+sudo cp gp12/claude-code/* /etc/claude-code/            # non-jailed staff accounts
+sudo cp gp12/claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
 ```
 
-- **Verified 2026-07-31**: with no `~/.claude/settings.json` the persona asked permission
-  and made no tool call; with this file it called the tool and returned coordinates.
-- `/etc` is **host-local**, so unlike `/data0` this does not reach gp13.
-- **Jailed users see the jail's `/etc`** — they likely need the same file at
-  `/home/jail/etc/claude-code/managed-settings.json`. Untested; check when a jailed
-  account is available.
+| File | Supplies | Without it |
+|---|---|---|
+| `managed-settings.json` | tool pre-approval | persona prompts on every call |
+| `CLAUDE.md` | astronomy role framing | a generic coding assistant |
+
+- **Both verified by A/B, 2026-08-02.** With the user's own `~/.claude` files removed,
+  the policy copies still applied: the tool fired without prompting, and a sentinel
+  instruction in the policy `CLAUDE.md` appeared in the reply.
+- Two copies because a chrooted process resolves `/etc` inside the jail. The jail `/etc`
+  is not NFS, so neither copy reaches gp13.
+- This is why nothing needs `CLAUDE_CONFIG_DIR` or per-user seeding — and why the NFS
+  `~/.claude.json` read-modify-write hazard isn't ours to solve.
 
 ### 5. Persona identity — optional, applied 2026-07-31
 
@@ -152,8 +169,7 @@ expected lines are absent, and backs up the original.
 - Persona ids are `jupyter-ai-personas::<module>::<ClassName>`, so `default_persona_id`
   differs between the routes.
 
-Separately, `frontend/CLAUDE.md` → `~/.claude/CLAUDE.md` gives the astronomy role
-framing. That's the half that changes answer quality; the rebrand is cosmetic.
+The role framing is separate and ships via §4; the rebrand is cosmetic.
 
 ## Blockers
 
@@ -227,10 +243,6 @@ Every one of these was hit on 2026-07-30/31, and none announce themselves.
 - Cut a release tag — the systemd unit pins one that doesn't exist
 - Install the systemd unit; MANNA is currently an ad-hoc container
 - Port 3001 concurrency
-- **`CLAUDE.md` for all users.** The astronomy role framing still has no system-wide
-  home — `managed-settings.json` (§4) solved tool pre-approval, but not this. Unverified
-  candidate: a shared `CLAUDE_CONFIG_DIR`, though that is also where per-user session
-  state goes.
 - gp13 promotion — everything here must be ops-owned config, not hand edits
 
 ## Open questions for ADL ops

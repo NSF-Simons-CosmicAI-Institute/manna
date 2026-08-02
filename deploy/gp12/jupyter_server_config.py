@@ -46,22 +46,19 @@ os.environ.setdefault("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", "85")
 # 401 against a local backend and get surfaced as "not authenticated" mid-session.
 os.environ.setdefault("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
 
-# The persona spawns `claude-agent-acp`, which must be on PATH.
+# The persona spawns `claude-agent-acp`, which must be on PATH — and `claude` is a
+# node script resolved via `#!/usr/bin/env node`, so whichever node comes first on
+# PATH is the interpreter it runs under. claude-code requires node >=22; if node 18
+# wins, the persona connects to MANNA, lists all 12 tools, and never calls one, with
+# no error anywhere.
 #
-# Do NOT prepend /data0/sw/anaconda3/bin: its node is v18.16.0, `claude` is a node
-# script resolved via `#!/usr/bin/env node`, and claude-code requires >=22. Putting
-# it first silently downgrades the interpreter — the persona then connects to MANNA,
-# lists all 12 tools, and never calls one, with no error anywhere.
-#
-# Once ops installs node >=22, that bin dir must come BEFORE the anaconda prefix,
-# and the per-user entry below can be dropped.
-os.environ["PATH"] = ":".join(
-    [
-        "/data0/sw/anaconda3/opt/node22/bin",  # node >=22 + the harness, jail-visible
-        os.path.join(os.path.expanduser("~"), ".npm-global/bin"),  # per-user fallback
-        os.environ.get("PATH", "/usr/bin:/bin"),
-    ]
-)
+# Handles either install shape: node >=22 upgraded in place (binaries land in the
+# env's own bin), or installed side-by-side under opt/node22. The side-by-side path
+# comes first so it wins when both exist.
+_prefixes = [
+    p for p in ("/data0/sw/anaconda3/opt/node22/bin", "/data0/sw/anaconda3/bin") if os.path.isdir(p)
+]
+os.environ["PATH"] = ":".join(_prefixes + [os.environ.get("PATH", "/usr/bin:/bin")])
 
 # MCP servers handed to the persona. Setting this REPLACES the default, whose URL is
 # built as http://localhost:{port}/mcp and is therefore dead on this host — so the

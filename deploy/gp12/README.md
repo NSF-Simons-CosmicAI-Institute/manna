@@ -9,7 +9,7 @@ can be reviewed, diffed, and reinstalled rather than pasted from a document.
 | `jupyter_server_config.py` | `/data0/sw/anaconda3/etc/jupyter/` | scoped `sudo cp` |
 | `manna.service` | `/etc/systemd/system/` | root |
 | `personas/cosmiccoder_persona.py` | `~/.jupyter/personas/` | nothing (per-user) |
-| `managed-settings.json` | `/etc/claude-code/` | root |
+| `claude-code/` (2 files) | `/etc/claude-code/` **and** `/home/jail/etc/claude-code/` | root |
 | `rebrand-persona.sh` | patches installed `jupyter_ai_acp_client` | scoped `sudo cp` |
 
 `/data0/sw/manna` is a git checkout on gp12, so the deploy loop is a pull and a copy:
