@@ -15,7 +15,6 @@ tests under tests/tools/, which exercise the same astropy votable code path.
 import pytest
 from vcr.stubs import VCRHTTPResponse
 
-from manna import _archive_label
 from manna.app import build_mcp
 from manna.tools import schema as _schema_tool
 
@@ -59,16 +58,6 @@ def _offline_dns(monkeypatch):
     this fixture explicitly.
     """
     monkeypatch.setattr("manna._url_guard._resolve", lambda host: ["93.184.216.34"])
-
-
-@pytest.fixture(autouse=True)
-def _clear_archive_label_cache():
-    """archive_label() memoizes hostname-derived labels for process lifetime.
-    Wipe it around every test so the (deterministic) cache can't couple tests
-    to each other or to ordering."""
-    _archive_label._CACHE.clear()
-    yield
-    _archive_label._CACHE.clear()
 
 
 def _read(self, *args, **kwargs):
