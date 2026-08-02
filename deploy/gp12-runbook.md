@@ -130,9 +130,10 @@ root-owned directory, no per-user files, nothing written to NFS homes, and users
 override it:
 
 ```bash
+cd /data0/sw/manna && git pull && cd deploy/gp12
 sudo mkdir -p /etc/claude-code /home/jail/etc/claude-code
-sudo cp gp12/claude-code/* /etc/claude-code/            # non-jailed staff accounts
-sudo cp gp12/claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
+sudo cp claude-code/* /etc/claude-code/            # non-jailed staff accounts
+sudo cp claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
 ```
 
 | File | Supplies | Without it |
@@ -154,7 +155,7 @@ sudo cp gp12/claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
 ### 5. Persona identity — optional, applied 2026-07-31
 
 ```bash
-cd /data0/sw/manna/deploy/gp12
+cd /data0/sw/manna && git pull && cd deploy/gp12
 ./rebrand-persona.sh
 rm -f ~/.jupyter/personas/cosmiccoder_persona.py
 ```
