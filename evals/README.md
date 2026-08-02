@@ -43,7 +43,22 @@ task prompt ─► model under test (Anthropic Messages API)  ─► emits tool_
 - **`rejudge.py`** — re-scores a saved results file's `rubric` tasks with a (possibly
   different) judge model, without re-running the agent loop.
 - **`selftest.py`** — offline self-test of the scoring/ablation machinery (`score.py` +
-  `context.py`); no model calls, no network.
+  `context.py`); no model calls, no network. Because it never contacts the model it
+  **cannot** tell you whether `EVAL_MODEL_NAME` is still valid — a green selftest with a
+  stale model name is expected, not reassuring. `run.py` covers that with a preflight.
+
+### Model preflight
+
+`run.py` checks `EVAL_MODEL_NAME` / `EVAL_JUDGE_NAME` against the endpoint's
+`/v1/models` before running anything, and exits 2 with the served list if a name is
+gone. This exists because the proxy's model changed (Qwen → gpt-oss) while `evals/.env`
+kept the old name: every task then failed with an opaque
+`NotFoundError: The model ... does not exist` partway through a run, which looks like a
+MANNA regression rather than a config problem.
+
+Only a *positive* absence blocks a run. A hosted endpoint (no `base_url`), an
+unreachable host, or an unrecognised payload all pass through — absence of evidence
+never fails the run.
 
 ## Install
 
