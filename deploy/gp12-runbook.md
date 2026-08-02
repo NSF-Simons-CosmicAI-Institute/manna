@@ -143,8 +143,11 @@ sudo cp gp12/claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
 - **Both verified by A/B, 2026-08-02.** With the user's own `~/.claude` files removed,
   the policy copies still applied: the tool fired without prompting, and a sentinel
   instruction in the policy `CLAUDE.md` appeared in the reply.
-- Two copies because a chrooted process resolves `/etc` inside the jail. The jail `/etc`
-  is not NFS, so neither copy reaches gp13.
+- **Install to both, every time.** A chrooted process resolving `/etc` gets the jail's
+  copy and cannot see the host's, so this is two filesystems rather than redundancy.
+  Dropping the jail copy silently removes the config for every real user; dropping the
+  host copy makes staff testing unrepresentative. Neither is NFS, so neither reaches
+  gp13.
 - This is why nothing needs `CLAUDE_CONFIG_DIR` or per-user seeding — and why the NFS
   `~/.claude.json` read-modify-write hazard isn't ours to solve.
 

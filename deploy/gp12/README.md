@@ -30,12 +30,28 @@ breaks spawns for every account, hence the loader check. It executes the file th
 Jupyter does and prints the config produced, which `compile()` cannot: `compile()` only
 parses, so it would pass a file that raises at load time.
 
+## `claude-code/` goes to two places
+
+```bash
+sudo mkdir -p /etc/claude-code /home/jail/etc/claude-code
+sudo cp claude-code/* /etc/claude-code/            # non-jailed staff accounts
+sudo cp claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
+```
+
+Not redundancy — a chrooted process resolving `/etc` gets the jail's copy and cannot
+see the host's. **Install to both, every time**; dropping the jail copy silently
+removes the config for all ~5,100 real users, and dropping the host copy makes your own
+testing unrepresentative of theirs.
+
+Claude Code's managed-policy layer loads these in every session regardless of working
+directory, and users cannot override them — which is why nothing here needs writing into
+user homes.
+
 ## Not here
 
-- **`CLAUDE.md`** (persona role/style) and **`claude_settings.json`** (tool
-  pre-approval) live in `../frontend/`, shared with the local dev stack. Both are
-  per-user files under `~/.claude/`, and delivering them to ~5,100 users is an open
-  problem — see the runbook.
-- **The `@CosmicCoder` site-packages patch** lives in `../frontend/frontend.Dockerfile`.
-  `personas/cosmiccoder_persona.py` here is the per-user alternative that needs no privileges;
+- **The `@CosmicCoder` site-packages patch** lives in `../frontend/frontend.Dockerfile`;
+  `rebrand-persona.sh` here applies the same edits to a bare-metal install.
+  `personas/cosmiccoder_persona.py` is the per-user alternative needing no privileges —
   it *adds* the persona rather than replacing the stock `@Claude`.
+- `claude-code/CLAUDE.md` is a copy of `../frontend/CLAUDE.md`, which the local dev stack
+  bakes into its image. Keep them in step when the persona's framing changes.

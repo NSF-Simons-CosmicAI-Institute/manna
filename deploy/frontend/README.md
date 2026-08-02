@@ -70,8 +70,12 @@ docker compose --profile hub up --build
 **This stack does not lift to gp12 as-is** — only the `mcp` service does. gp12 runs its
 own JupyterHub (bare metal, `LocalProcessSpawner`, Data Lab auth) with jupyter-ai
 already installed, so there is no single-user image to point at and no hub of ours to
-deploy. There, MANNA runs as a container on host loopback and the persona is configured
-through a system-level `jupyter_server_config.py` rather than files baked into an image.
+deploy. There, MANNA runs as a container on host loopback, the persona is configured
+through a system-level `jupyter_server_config.py`, and `CLAUDE.md` / tool pre-approval
+ship via Claude Code's managed-policy directory — not files baked into an image.
+
+`CLAUDE.md` here and `../gp12/claude-code/CLAUDE.md` are the same content by two delivery
+routes; keep them in step.
 
 So treat this directory as **local development** plus the source of the `mcp` container.
 The real deployment is in `../gp12-runbook.md`, validated end-to-end on gp12 2026-07-30.

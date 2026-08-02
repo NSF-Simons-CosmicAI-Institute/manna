@@ -161,6 +161,11 @@ already installed there. Two consequences for this integration:
   home. Confirmed on gp12 2026-07-30. This matters because user homes there are NFS
   mounts, which would shadow anything baked into an image.
 
+- **Persona role framing and tool pre-approval ship via Claude Code's managed-policy
+  layer** — `CLAUDE.md` and `managed-settings.json` in `/etc/claude-code/`, plus a copy
+  in the jail's `/etc` for chrooted users. Confirmed 2026-08-02. Same reasoning: the
+  image bakes these into `~/.claude/`, which an NFS home would shadow.
+
 See **`deploy/gp12-runbook.md`** for the validated procedure and the gp12-specific
 gotchas. `deploy/frontend/` remains the local-development stack and the source of the
 MANNA container image.
