@@ -42,6 +42,26 @@ gp12 JupyterHub (:443) ──spawns──► user server (Jupyter AI persona)
 Files live in **`gp12/`** next to this runbook. Install from the checkout, not by pasting
 — then what's deployed can be diffed against git.
 
+**Routine updates.** `/data0/sw/manna` is a `datalab`-owned checkout tracking `main`, so
+every change is a pull as that account and an install as yourself (the scoped `sudo cp`
+grants are per-user):
+
+```bash
+sudo su - datalab
+cd /data0/sw/manna && git pull && exit
+cd /data0/sw/manna/deploy/gp12
+```
+
+| Changed | Reinstall | Takes effect |
+|---|---|---|
+| MANNA server | rebuild image, `systemctl restart manna` | immediately |
+| `jupyter_server_config.py` | §3 | next server spawn |
+| `claude-code/*` | §4 | next server spawn |
+| persona name/avatar | §5 (`./rebrand-persona.sh`) | next server spawn |
+
+"Next server spawn" means each user must Stop/Start their own server from the Hub
+Control Panel — a hub restart does not do it.
+
 ### 1. MANNA container
 
 ```bash
@@ -190,8 +210,8 @@ expected lines are absent, and backs up the original.
 - **Reverts on any `pip install -U jupyter-ai-acp-client`.** Tell ops, or it will vanish
   during maintenance and be misdiagnosed.
 - Alternative with no privileges at all: `gp12/personas/datalab_persona.py` in
-  `~/.jupyter/personas/`. But local files only **add** — `@Claude` stays alongside. The
-  filename must contain **"persona"** or it's silently skipped.
+  `~/.jupyter/personas/`. But local files only **add**, so the built-in persona stays
+  alongside. The filename must contain **"persona"** or it's silently skipped.
 - **The two are mutually exclusive** — do both and you get two `@datalab` personas.
 - Persona ids are `jupyter-ai-personas::<module>::<ClassName>`, so `default_persona_id`
   differs between the routes.
@@ -232,7 +252,7 @@ exists inside a spawned server and **not** in an SSH shell.
 
 ## Gotchas
 
-Every one of these was hit on 2026-07-30/31, and none announce themselves.
+Every one of these was hit during the rollout, and none announce themselves.
 
 - **IPv6 is disabled host-wide** (site policy). Anything resolving `localhost` gets `::1`
   and fails with errno 99 — use the `127.0.0.1` literal everywhere. This killed
@@ -269,13 +289,16 @@ Every one of these was hit on 2026-07-30/31, and none announce themselves.
 
 ## Not done yet
 
-- Cut a release tag — the systemd unit pins one that doesn't exist
-- Install the systemd unit; MANNA is currently an ad-hoc container
-- Port 3001 concurrency
-- gp13 promotion — everything here must be ops-owned config, not hand edits
+- **Install the systemd unit** — MANNA is still a hand-started container, so a reboot
+  takes the assistant's tools offline with no obvious cause. Needs root.
+- **Cut a release tag** — the unit pins one that doesn't exist yet.
+- **Two open server bugs** (fixed separately, not in this deployment):
+  `vo_sia_search` raises on the waveband values its own schema documents; and SIA/cone
+  results carry no `fetch_recipe`, so the assistant writes its own retrieval code
+  instead of building on MANNA's.
+- **gp13 promotion** — everything here must be ops-owned config, not hand edits.
 
 ## Open questions for ADL ops
 
-- Who owns the MANNA container long-term?
-- Upgrade nodejs in `/data0/sw/anaconda3`, or install node ≥22 side-by-side?
-- Is fixed port 3001 a real multi-user problem here — has gp13 seen it?
+- Who owns the MANNA container long-term, and when does the systemd unit go in?
+- Is `@datalab` the branding Data Lab wants long-term?
