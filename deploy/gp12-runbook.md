@@ -57,8 +57,10 @@ curl -fsS http://127.0.0.1:8000/health
 - **No release tag exists yet.** Cut one from `main`, or pin a commit
   (`docker build -t manna:0.5.0-$(git rev-parse --short HEAD) .`). Never deploy from
   `dev` — the deployed version would change on every rebuild.
-- `/data0/sw` is world-writable, so the clone needs no privileges — but it belongs to
-  whoever cloned it. Ops should `chown` it.
+- **The checkout is `datalab`-owned**, to keep `/data0/sw` consistent. Update it as that
+  account (`sudo su - datalab`, then `git pull`), and install as yourself — the scoped
+  `sudo cp` grants belong to your own user, not `datalab`. Pulling as yourself leaves
+  files owned by you and git refuses with "dubious ownership" until someone fixes it.
 - Publishes to `127.0.0.1:8000` only. That's sufficient: user servers are local.
 - **Does not need to be jail-visible** — users reach MANNA over the network, never its
   files. The opposite of §2.

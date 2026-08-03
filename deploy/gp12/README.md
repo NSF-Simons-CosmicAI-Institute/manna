@@ -15,8 +15,8 @@ can be reviewed, diffed, and reinstalled rather than pasted from a document.
 `/data0/sw/manna` is a git checkout on gp12, so the deploy loop is a pull and a copy:
 
 ```bash
-cd /data0/sw/manna && git pull
-cd deploy/gp12
+sudo su - datalab -c 'cd /data0/sw/manna && git pull'   # checkout is datalab-owned
+cd /data0/sw/manna/deploy/gp12
 /data0/sw/anaconda3/bin/python -c "
 from traitlets.config.loader import PyFileConfigLoader
 cfg = PyFileConfigLoader('jupyter_server_config.py', path=['.']).load_config()
