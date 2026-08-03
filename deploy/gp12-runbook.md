@@ -4,10 +4,9 @@ MANNA's VO tools in Astro Data Lab notebooks, via the Jupyter AI persona. MANNA 
 **one container on host loopback**; every user's notebook server reaches it at
 `http://127.0.0.1:8000/mcp/`.
 
-**Status:** validated end-to-end on gp12 from **system config**, 2026-07-31. Persona
-branded `@CosmicCoder`. The harness landed in the shared env 2026-08-03, so all users
-should now have a persona — **pending confirmation by a second account**. Not yet
-validated for a *jailed* user.
+**Status:** validated end-to-end on gp12, including from a **jailed Data Lab account**
+(2026-08-03). Persona branded `@CosmicCoder`, harness in the shared env, config from
+system paths — nothing depends on any one user's home.
 
 > **Proof.** Chat → `resolve galaxy m51 using MANNA mcp tools` →
 > `✓ mcp__manna__vo_target_resolve` → RA 202.469575°, Dec +47.19525833° (ICRS), with a
@@ -57,6 +56,9 @@ curl -fsS http://127.0.0.1:8000/health
 - **No release tag exists yet.** Cut one from `main`, or pin a commit
   (`docker build -t manna:0.5.0-$(git rev-parse --short HEAD) .`). Never deploy from
   `dev` — the deployed version would change on every rebuild.
+- **Deploy from `main` or a tag, never a feature branch.** The checkout on gp12 tracks
+  whatever branch it was last set to; point it at the released line once this work
+  merges (`sudo su - datalab`, then `git checkout main && git pull`).
 - **The checkout is `datalab`-owned**, to keep `/data0/sw` consistent. Update it as that
   account (`sudo su - datalab`, then `git pull`), and install as yourself — the scoped
   `sudo cp` grants belong to your own user, not `datalab`. Pulling as yourself leaves
@@ -183,23 +185,15 @@ expected lines are absent, and backs up the original.
 
 The role framing is separate and ships via §4; the rebrand is cosmetic.
 
-## Blockers
+## Resolved
 
-**All validation has used a staff account** (`dgause` — local home, full filesystem
-view), not a jailed `dlusers` account. Everything below is reasoning until someone runs
-it from a real Data Lab session:
-
-- Does loopback cross the chroot? (Verify step 3 — needs nothing installed)
-- Does the persona find the harness on a jailed PATH?
-- Does the jail's `/etc/claude-code/` copy actually apply?
-
-Nothing is known to be broken; it simply hasn't been checked from the account type that
-matters.
-
-> The node blocker is **resolved**. `/data0/sw/anaconda3` shipped node v18.16.0 while
-> `claude-code` requires ≥22, so the persona never registered for anyone. Ops upgraded
-> the env to **v24.10.0** on 2026-08-03 and installed both CLI tools there. The PATH
-> handling in §3 remains because it also covers the side-by-side layout.
+- **Node too old.** `/data0/sw/anaconda3` shipped v18.16.0 while `claude-code` requires
+  ≥22, so the persona never registered for *anyone* — it hides itself when its adapter
+  isn't on PATH. Ops upgraded the env to **v24.10.0** (2026-08-03). §3's PATH handling
+  stays, since it also covers the side-by-side layout.
+- **Jailed accounts.** Loopback crosses the chroot, the harness resolves on a jailed
+  PATH, and the jail's `/etc/claude-code/` copy applies. All three confirmed 2026-08-03
+  — they were the last assumptions the design rested on.
 
 ## Verify
 
@@ -214,9 +208,10 @@ exists inside a spawned server and **not** in an SSH shell.
 | 4 | **JupyterLab terminal** | `claude -p "say ok"` | `ok` |
 | 5 | JupyterLab chat | `@CosmicCoder resolve galaxy m51 using MANNA mcp tools` | coords **+** log |
 
-- **Step 3 is the assumption everything rests on** and is untested. `chroot` shares the
-  host network namespace, so it *should* work — but that's reasoning, not evidence. If it
-  fails, MANNA needs a different transport. `curl` is already in the jail.
+- **Step 3 was the assumption everything rested on** — confirmed 2026-08-03: `chroot`
+  shares the host network namespace, so loopback crosses it. `curl` is already in the
+  jail, so this test needs nothing installed. Re-run it after any change to how MANNA is
+  published.
 - **Step 5 passes only with both**: RA 202.4696 / Dec +47.195 **and** a fresh
   `CallToolRequest` in `docker logs manna`. A confident answer with nothing in the log is
   the model guessing.
@@ -258,7 +253,6 @@ Every one of these was hit on 2026-07-30/31, and none announce themselves.
 
 ## Not done yet
 
-- Jailed-user validation — no longer blocked, just unrun
 - Cut a release tag — the systemd unit pins one that doesn't exist
 - Install the systemd unit; MANNA is currently an ad-hoc container
 - Port 3001 concurrency
