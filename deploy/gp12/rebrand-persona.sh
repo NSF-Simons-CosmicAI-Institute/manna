@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebrand the stock Jupyter AI ACP persona as @CosmicCoder on gp12.
+# Rebrand the stock Jupyter AI ACP persona as @datalab on gp12.
 #
 # jupyter-ai 3.0.1 has no config knob for persona names, and local persona files
 # can only ADD personas — so replacing @Claude means editing the installed
@@ -15,8 +15,11 @@
 # REVERTS ON UPGRADE. Any `pip install -U jupyter-ai-acp-client` restores the
 # stock persona. Re-run this afterwards.
 #
-# AFTER RUNNING: delete ~/.jupyter/personas/cosmiccoder_persona.py, or you get
-# two @CosmicCoders — the local file adds one and this renames the built-in.
+# The avatar file is still named CosmicCoder.png because the scoped `sudo cp` grant
+# matches that exact filename. Swapping in a Data Lab logo needs a new grant.
+#
+# AFTER RUNNING: delete ~/.jupyter/personas/datalab_persona.py, or you get two
+# @datalab personas — the local file adds one and this renames the built-in.
 
 set -euo pipefail
 
@@ -26,7 +29,7 @@ AVATAR="${AVATAR:-/data0/sw/manna/deploy/frontend/CosmicCoder.png}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-DESC="CosmicAI archive assistant — Claude Code with the MANNA MCP tools."
+DESC="NOIRLab Astro Data Lab assistant — archive tools for notebooks."
 
 [ -r "$SRC" ] || { echo "FATAL: cannot read $SRC" >&2; exit 1; }
 [ -r "$AVATAR" ] || { echo "FATAL: cannot read $AVATAR" >&2; exit 1; }
@@ -48,11 +51,11 @@ cd "$WORK"
 cp "$SRC" claude.py
 cp "$AVATAR" CosmicCoder.png
 
-sed -i 's/name="Claude"/name="CosmicCoder"/' claude.py
+sed -i 's/name="Claude"/name="datalab"/' claude.py
 sed -i "s#description=\"Claude Code as an ACP agent persona.\"#description=\"${DESC}\"#" claude.py
 sed -i 's/"claude.svg"/"CosmicCoder.png"/' claude.py
 
-grep -q 'name="CosmicCoder"' claude.py || { echo "FATAL: patch did not apply" >&2; exit 1; }
+grep -q 'name="datalab"' claude.py || { echo "FATAL: patch did not apply" >&2; exit 1; }
 grep -q 'CosmicCoder.png' claude.py     || { echo "FATAL: avatar not repointed" >&2; exit 1; }
 python3 -c "import ast,sys; ast.parse(open('claude.py').read())" || {
   echo "FATAL: patched file does not parse" >&2; exit 1; }
@@ -63,7 +66,7 @@ sudo cp CosmicCoder.png "$PKG/static/"
 
 echo
 echo "done. Now:"
-echo "  rm -f ~/.jupyter/personas/cosmiccoder_persona.py   # avoid two CosmicCoders"
+echo "  rm -f ~/.jupyter/personas/datalab_persona.py   # avoid two @datalab personas"
 echo "  restart your server from the Hub Control Panel"
 echo
 echo "to revert:  sudo cp \$HOME/claude.py.orig.<date> $PKG/acp_personas/claude.py"

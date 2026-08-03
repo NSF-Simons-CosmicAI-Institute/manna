@@ -60,15 +60,26 @@ _prefixes = [
 ]
 os.environ["PATH"] = ":".join(_prefixes + [os.environ.get("PATH", "/usr/bin:/bin")])
 
+# jupyter_server_mcp binds a FIXED port (default 3001) inside each single-user server.
+# Under LocalProcessSpawner every user's server shares one host, so the first to spawn
+# wins 3001 and everyone else's extension fails to bind — while still being pointed at
+# that port, i.e. at another user's notebook server. Observed 2026-08-03: a second user's
+# persona got permission errors from a server that wasn't theirs.
+#
+# Derive a per-user port instead. This file runs inside each user's own process, so
+# os.getuid() is theirs, and the same value feeds both the bind and the URL handed to
+# the persona.
+_mcp_port = 20000 + (os.getuid() % 40000)
+c.MCPExtensionApp.mcp_port = _mcp_port
+
 # MCP servers handed to the persona. Setting this REPLACES the default, whose URL is
-# built as http://localhost:{port}/mcp and is therefore dead on this host — so the
-# Jupyter MCP Server entry has to be restated here with an IPv4 literal.
+# built as http://localhost:{port}/mcp and is therefore dead on this host (IPv6 off).
 c.PersonaManager.builtin_mcp_servers = [
     {"type": "http", "name": "manna", "url": "http://127.0.0.1:8000/mcp/", "headers": []},
     {
         "type": "http",
         "name": "Jupyter MCP Server",
-        "url": "http://127.0.0.1:3001/mcp",
+        "url": f"http://127.0.0.1:{_mcp_port}/mcp",
         "headers": [],
     },
 ]

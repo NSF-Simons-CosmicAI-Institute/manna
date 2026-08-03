@@ -8,7 +8,7 @@ can be reviewed, diffed, and reinstalled rather than pasted from a document.
 |---|---|---|
 | `jupyter_server_config.py` | `/data0/sw/anaconda3/etc/jupyter/` | scoped `sudo cp` |
 | `manna.service` | `/etc/systemd/system/` | root |
-| `personas/cosmiccoder_persona.py` | `~/.jupyter/personas/` | nothing (per-user) |
+| `personas/datalab_persona.py` | `~/.jupyter/personas/` | nothing (per-user) |
 | `claude-code/` (2 files) | `/etc/claude-code/` **and** `/home/jail/etc/claude-code/` | root |
 | `rebrand-persona.sh` | patches installed `jupyter_ai_acp_client` | scoped `sudo cp` |
 
@@ -50,9 +50,11 @@ user homes.
 
 ## Not here
 
-- **The `@CosmicCoder` site-packages patch** lives in `../frontend/frontend.Dockerfile`;
-  `rebrand-persona.sh` here applies the same edits to a bare-metal install.
-  `personas/cosmiccoder_persona.py` is the per-user alternative needing no privileges —
-  it *adds* the persona rather than replacing the stock `@Claude`.
-- `claude-code/CLAUDE.md` is a copy of `../frontend/CLAUDE.md`, which the local dev stack
-  bakes into its image. Keep them in step when the persona's framing changes.
+- **The persona rename** is the same technique as `../frontend/frontend.Dockerfile`
+  (which brands the local dev stack `@CosmicCoder`); `rebrand-persona.sh` here applies it
+  to a bare-metal install as **`@datalab`**. `personas/datalab_persona.py` is the
+  per-user alternative needing no privileges — it *adds* the persona rather than
+  replacing the stock `@Claude`.
+- `claude-code/CLAUDE.md` and `../frontend/CLAUDE.md` **deliberately differ in branding**:
+  gp12 is a Data Lab product, the local dev stack is the CosmicAI prototype. Keep the
+  response-style guidance in step; let the naming diverge.

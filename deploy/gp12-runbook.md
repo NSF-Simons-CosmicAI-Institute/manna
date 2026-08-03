@@ -5,7 +5,7 @@ MANNA's VO tools in Astro Data Lab notebooks, via the Jupyter AI persona. MANNA 
 `http://127.0.0.1:8000/mcp/`.
 
 **Status:** validated end-to-end on gp12, including from a **jailed Data Lab account**
-(2026-08-03). Persona branded `@CosmicCoder`, harness in the shared env, config from
+(2026-08-03). Persona branded `@datalab`, harness in the shared env, config from
 system paths — nothing depends on any one user's home.
 
 > **Proof.** Chat → `resolve galaxy m51 using MANNA mcp tools` →
@@ -162,12 +162,12 @@ sudo cp claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
 - This is why nothing needs `CLAUDE_CONFIG_DIR` or per-user seeding — and why the NFS
   `~/.claude.json` read-modify-write hazard isn't ours to solve.
 
-### 5. Persona identity — optional, applied 2026-07-31
+### 5. Persona identity — `@datalab`
 
 ```bash
 cd /data0/sw/manna && git pull && cd deploy/gp12
 ./rebrand-persona.sh
-rm -f ~/.jupyter/personas/cosmiccoder_persona.py
+rm -f ~/.jupyter/personas/datalab_persona.py
 ```
 
 jupyter-ai 3.0.1 has no config knob for persona names, so the script renames the built-in
@@ -176,10 +176,10 @@ expected lines are absent, and backs up the original.
 
 - **Reverts on any `pip install -U jupyter-ai-acp-client`.** Tell ops, or it will vanish
   during maintenance and be misdiagnosed.
-- Alternative with no privileges at all: `gp12/personas/cosmiccoder_persona.py` in
+- Alternative with no privileges at all: `gp12/personas/datalab_persona.py` in
   `~/.jupyter/personas/`. But local files only **add** — `@Claude` stays alongside. The
   filename must contain **"persona"** or it's silently skipped.
-- **The two are mutually exclusive** — do both and you get two `@CosmicCoder`s.
+- **The two are mutually exclusive** — do both and you get two `@datalab` personas.
 - Persona ids are `jupyter-ai-personas::<module>::<ClassName>`, so `default_persona_id`
   differs between the routes.
 
@@ -206,7 +206,7 @@ exists inside a spawned server and **not** in an SSH shell.
 | 2 | anywhere on loopback | `npx -y @modelcontextprotocol/inspector --cli http://127.0.0.1:8000/mcp --method tools/list` | 12 tools |
 | 3 | **jailed user's terminal** | `curl -fsS http://127.0.0.1:8000/health` | reachable |
 | 4 | **JupyterLab terminal** | `claude -p "say ok"` | `ok` |
-| 5 | JupyterLab chat | `@CosmicCoder resolve galaxy m51 using MANNA mcp tools` | coords **+** log |
+| 5 | JupyterLab chat | `@datalab resolve galaxy m51 using MANNA mcp tools` | coords **+** log |
 
 - **Step 3 was the assumption everything rested on** — confirmed 2026-08-03: `chroot`
   shares the host network namespace, so loopback crosses it. `curl` is already in the
@@ -247,9 +247,12 @@ Every one of these was hit on 2026-07-30/31, and none announce themselves.
   active — observed running `docker logs` unprompted. Not an escalation (every user has
   a JupyterLab terminal), but ops should know the assistant executes as the logged-in
   account, not a sandbox.
-- **`jupyter_server_mcp` binds a fixed port 3001.** With `LocalProcessSpawner` concurrent
-  users may collide. Untested. MANNA doesn't need that extension — disabling it removes
-  this and the IPv6 problem together.
+- **`jupyter_server_mcp` binds a fixed port — fixed in §3, don't undo it.** Its default
+  is 3001, and under `LocalProcessSpawner` the first user to spawn wins that port while
+  every other user's persona is still *pointed* at it — i.e. at someone else's notebook
+  server. Seen on 2026-08-03: a second user's notebook tools all failed with permission
+  errors from a server that wasn't theirs. §3 derives the port from `os.getuid()` so each
+  user binds and connects to their own.
 
 ## Not done yet
 
@@ -263,4 +266,4 @@ Every one of these was hit on 2026-07-30/31, and none announce themselves.
 - Who owns the MANNA container long-term?
 - Upgrade nodejs in `/data0/sw/anaconda3`, or install node ≥22 side-by-side?
 - Is fixed port 3001 a real multi-user problem here — has gp13 seen it?
-- Is `@CosmicCoder` the branding Data Lab wants? (Chadd's call, not ops.)
+- A Data Lab logo for the persona avatar — currently still `CosmicCoder.png`.
