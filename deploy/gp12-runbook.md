@@ -70,10 +70,10 @@ curl -fsS http://127.0.0.1:8000/health
 
 `claude` and `claude-agent-acp` are subprocesses the persona spawns, not services, so
 they must be on the PATH of the user's server — inside the only tree bind-mounted into
-the jail, `/data0/sw/anaconda3`. That env's node is **v18.16.0**; `claude-code` requires
-**≥22**.
+the jail, `/data0/sw/anaconda3`. `claude-code` requires **node ≥22**; that env shipped
+v18.16.0, and was upgraded to **v24.10.0** on 2026-08-03.
 
-Preferred — upgrade in place, so the binaries land on a PATH that is already set up:
+Done in place, so the binaries land on a PATH that is already set up:
 
 ```bash
 conda install -y -p /data0/sw/anaconda3 -c conda-forge 'nodejs>=22'
@@ -185,18 +185,21 @@ The role framing is separate and ships via §4; the rebrand is cosmetic.
 
 ## Blockers
 
-**Node is too old in the jail.** `claude-code` 2.1.220 requires `node >=22`:
+**All validation has used a staff account** (`dgause` — local home, full filesystem
+view), not a jailed `dlusers` account. Everything below is reasoning until someone runs
+it from a real Data Lab session:
 
-| Path | Version | In jail? |
-|---|---|---|
-| `/usr/bin/node` | v26.5.0 | **no** — jail's `/usr/bin` is curated |
-| `/data0/sw/anaconda3/bin/node` | **v18.16.0** | yes |
+- Does loopback cross the chroot? (Verify step 3 — needs nothing installed)
+- Does the persona find the harness on a jailed PATH?
+- Does the jail's `/etc/claude-code/` copy actually apply?
 
-Fix by upgrading nodejs in the anaconda env, or installing node ≥22 side-by-side and
-prepending it to `PATH`. Upgrading in place removes the PATH-ordering footgun entirely.
+Nothing is known to be broken; it simply hasn't been checked from the account type that
+matters.
 
-**All validation used a staff account** (`dgause`, local home, host node) — not a jailed
-`dlusers` account. A second round inside the jail is required.
+> The node blocker is **resolved**. `/data0/sw/anaconda3` shipped node v18.16.0 while
+> `claude-code` requires ≥22, so the persona never registered for anyone. Ops upgraded
+> the env to **v24.10.0** on 2026-08-03 and installed both CLI tools there. The PATH
+> handling in §3 remains because it also covers the side-by-side layout.
 
 ## Verify
 
@@ -245,13 +248,17 @@ Every one of these was hit on 2026-07-30/31, and none announce themselves.
 - **Silent persona? Check identity first.** A duplicate-UID account had the hub spawning
   as one user while the shell was another, so no per-user config was read and the chat
   sat mute. Run `whoami; echo $HOME` *inside the spawned server*.
+- **The persona can run shell commands as the user.** Claude Code's Bash tool is
+  active — observed running `docker logs` unprompted. Not an escalation (every user has
+  a JupyterLab terminal), but ops should know the assistant executes as the logged-in
+  account, not a sandbox.
 - **`jupyter_server_mcp` binds a fixed port 3001.** With `LocalProcessSpawner` concurrent
   users may collide. Untested. MANNA doesn't need that extension — disabling it removes
   this and the IPv6 problem together.
 
 ## Not done yet
 
-- Jailed-user validation (blocked on node ≥ 22)
+- Jailed-user validation — no longer blocked, just unrun
 - Cut a release tag — the systemd unit pins one that doesn't exist
 - Install the systemd unit; MANNA is currently an ad-hoc container
 - Port 3001 concurrency
