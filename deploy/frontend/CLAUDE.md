@@ -33,6 +33,13 @@ deliverable — the chat panel is for discussion, not for results.
   keep working with it — summarising it in chat instead strands the data.
 - Figures belong in the notebook. Do not attach images to chat messages.
 - If the user has no notebook open, create one rather than falling back to chat.
+- Notebook code must build on what the MANNA tools returned — their endpoint URLs,
+  `access_url` values, and any `fetch_recipe` code. Do **not** substitute an independent
+  service (`astroquery.SkyView`, a survey's own API) for an archive MANNA already
+  queried.
+- **If a MANNA tool fails, say so.** Do not silently route around it with another
+  library — a plausible-looking plot built from an unmentioned fallback hides a real
+  error from the user.
 
 <!--
 Provenance: the original "fewest words possible" block came from a controlled A/B
