@@ -63,7 +63,7 @@ discovery/metadata tools, but cannot materialize a large result — it can only 
 |------------------|----------------------------------------------------------------|-------|
 | JupyterLab 4 + Jupyter AI v3 | `pip install jupyter-ai` (or conda-forge)          | Use a **separate env** from this server's `uv` env. |
 | Node.js          | conda/system package                                           | Required by the Claude Code ACP adapter. |
-| An ACP agent     | `npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp` | Provides the `claude-agent-acp` binary the Claude persona launches; it wraps the `claude` CLI for auth/model calls, so install both (verified against `jupyter_ai_acp_client` 0.1.5). npm warns the adapter was renamed to `@agentclientprotocol/claude-agent-acp` — either works today. |
+| An ACP agent     | `npm install -g @anthropic-ai/claude-code @agentclientprotocol/claude-agent-acp` | Provides the `claude-agent-acp` binary the Claude persona launches; it wraps the `claude` CLI for auth/model calls, so install both (verified against `jupyter_ai_acp_client` 0.1.5). The adapter was renamed from `@zed-industries/claude-agent-acp`; both still provide the `claude-agent-acp` binary, which is what the persona gates on. |
 | Agent auth       | reuse your existing Claude Code login                          | The Claude persona wraps the `claude` CLI's own auth, so if you already use Claude Code you're set. If a token is expired the persona replies telling you to run `claude /login`. No separate API key step. |
 | This MCP server  | `uv run python -m manna`                          | Serves `http://localhost:8000/mcp/`. |
 
@@ -81,7 +81,7 @@ discovery/metadata tools, but cannot materialize a large result — it can only 
    python -m venv ~/jai-test && source ~/jai-test/bin/activate
    pip install "jupyter-ai>=3" jupyterlab
    # the Claude persona's ACP adapter wraps the `claude` CLI, so install both (needs Node.js):
-   npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
+   npm install -g @anthropic-ai/claude-code @agentclientprotocol/claude-agent-acp
    ```
    > Tip: pin a venv to Python 3.12 — the Jupyter stack may lack wheels on very new
    > Python (e.g. 3.14). `uv venv --python 3.12 .venv` works well.

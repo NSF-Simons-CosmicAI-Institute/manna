@@ -5,7 +5,9 @@ MANNA's VO tools in Astro Data Lab notebooks, via the Jupyter AI persona. MANNA 
 `http://127.0.0.1:8000/mcp/`.
 
 **Status:** validated end-to-end on gp12 from **system config**, 2026-07-31. Persona
-branded `@CosmicCoder`. Not yet validated for a *jailed* user — see Blockers.
+branded `@CosmicCoder`. The harness landed in the shared env 2026-08-03, so all users
+should now have a persona — **pending confirmation by a second account**. Not yet
+validated for a *jailed* user.
 
 > **Proof.** Chat → `resolve galaxy m51 using MANNA mcp tools` →
 > `✓ mcp__manna__vo_target_resolve` → RA 202.469575°, Dec +47.19525833° (ICRS), with a
@@ -62,7 +64,7 @@ curl -fsS http://127.0.0.1:8000/health
   files. The opposite of §2.
 - Upgrade: checkout the new tag, rebuild, edit `ExecStart`, `daemon-reload && restart`.
 
-### 2. Persona harness — **BLOCKED, and the gate on all-user access**
+### 2. Persona harness — installed 2026-08-03
 
 `claude` and `claude-agent-acp` are subprocesses the persona spawns, not services, so
 they must be on the PATH of the user's server — inside the only tree bind-mounted into
@@ -74,7 +76,7 @@ Preferred — upgrade in place, so the binaries land on a PATH that is already s
 ```bash
 conda install -y -p /data0/sw/anaconda3 -c conda-forge 'nodejs>=22'
 npm install -g --prefix /data0/sw/anaconda3 \
-  @anthropic-ai/claude-code @zed-industries/claude-agent-acp
+  @anthropic-ai/claude-code @agentclientprotocol/claude-agent-acp
 ```
 
 Fallback if anything on gp12 still needs node 18 — side-by-side, fully reversible:
@@ -85,12 +87,16 @@ curl -fsSLO https://nodejs.org/dist/v22.11.0/node-v22.11.0-linux-x64.tar.xz
 tar xf node-v22.11.0-linux-x64.tar.xz && mv node-v22.11.0-linux-x64 node22
 /data0/sw/anaconda3/opt/node22/bin/npm install -g \
   --prefix /data0/sw/anaconda3/opt/node22 \
-  @anthropic-ai/claude-code @zed-industries/claude-agent-acp
+  @anthropic-ai/claude-code @agentclientprotocol/claude-agent-acp
 ```
 
 - §3's `PATH` handles either shape; the side-by-side prefix wins when present.
 - Use `npm install -g --prefix ...`, not `npm config set prefix` — the latter writes to
   the running admin's `~/.npmrc`, so the next admin silently installs elsewhere.
+- The ACP adapter was **renamed** from `@zed-industries/claude-agent-acp` to
+  `@agentclientprotocol/claude-agent-acp`. Both still provide the `claude-agent-acp`
+  binary, which is what the persona gates on. npm may also require
+  `--allow-scripts=@anthropic-ai/claude-code` for its postinstall step.
 - **This is the gate on all-user access.** `claude.py` raises `PersonaRequirementsUnmet`
   at import when `claude-agent-acp` isn't on PATH, and the persona then **doesn't appear
   in the chat at all**. Confirmed 2026-07-31: a second user saw only `@file`.
