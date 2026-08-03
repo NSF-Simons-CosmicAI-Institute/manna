@@ -139,11 +139,21 @@ Both files users need are delivered by Claude Code's **managed policy** layer �
 root-owned directory, no per-user files, nothing written to NFS homes, and users cannot
 override it:
 
+One-time setup (root). The bind mount is what makes a single copy serve both jailed and
+non-jailed accounts:
+
 ```bash
-cd /data0/sw/manna && git pull && cd deploy/gp12
 sudo mkdir -p /etc/claude-code /home/jail/etc/claude-code
-sudo cp claude-code/* /etc/claude-code/            # non-jailed staff accounts
-sudo cp claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
+sudo mount --bind /etc/claude-code /home/jail/etc/claude-code
+# add the equivalent /etc/fstab line so it survives reboot
+```
+
+Then, to install or update:
+
+```bash
+cd /data0/sw/manna && git pull && cd deploy/gp12/claude-code
+sudo cp CLAUDE.md /etc/claude-code/
+sudo cp managed-settings.json /etc/claude-code/
 ```
 
 | File | Supplies | Without it |
@@ -154,11 +164,14 @@ sudo cp claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
 - **Both verified by A/B, 2026-08-02.** With the user's own `~/.claude` files removed,
   the policy copies still applied: the tool fired without prompting, and a sentinel
   instruction in the policy `CLAUDE.md` appeared in the reply.
-- **Install to both, every time.** A chrooted process resolving `/etc` gets the jail's
-  copy and cannot see the host's, so this is two filesystems rather than redundancy.
-  Dropping the jail copy silently removes the config for every real user; dropping the
-  host copy makes staff testing unrepresentative. Neither is NFS, so neither reaches
-  gp13.
+- **Why the bind mount.** A chrooted process resolving `/etc` gets the jail's copy and
+  cannot see the host's — two filesystems, not redundancy. Without the mount you must
+  install to both paths every time, and the persona wording churns often enough that they
+  *will* drift. A symlink can't do this job: inside a chroot an absolute symlink target
+  resolves against the jail root, so only the host→jail direction works, which would put
+  system config under `/home/jail`. Neither path is NFS, so neither reaches gp13.
+- Verify the mount is live before trusting a copy:
+  `diff /etc/claude-code/CLAUDE.md /home/jail/etc/claude-code/CLAUDE.md`
 - This is why nothing needs `CLAUDE_CONFIG_DIR` or per-user seeding — and why the NFS
   `~/.claude.json` read-modify-write hazard isn't ours to solve.
 

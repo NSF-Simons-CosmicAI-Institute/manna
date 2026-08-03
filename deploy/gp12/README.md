@@ -9,7 +9,7 @@ can be reviewed, diffed, and reinstalled rather than pasted from a document.
 | `jupyter_server_config.py` | `/data0/sw/anaconda3/etc/jupyter/` | scoped `sudo cp` |
 | `manna.service` | `/etc/systemd/system/` | root |
 | `personas/datalab_persona.py` | `~/.jupyter/personas/` | nothing (per-user) |
-| `claude-code/` (2 files) | `/etc/claude-code/` **and** `/home/jail/etc/claude-code/` | root |
+| `claude-code/` (2 files) | `/etc/claude-code/` (bind-mounted into the jail) | scoped `sudo cp` |
 | `rebrand-persona.sh` + `datalab.png` | patches installed `jupyter_ai_acp_client` | scoped `sudo cp` |
 
 `/data0/sw/manna` is a git checkout on gp12, so the deploy loop is a pull and a copy. It
@@ -31,18 +31,20 @@ breaks spawns for every account, hence the loader check. It executes the file th
 Jupyter does and prints the config produced, which `compile()` cannot: `compile()` only
 parses, so it would pass a file that raises at load time.
 
-## `claude-code/` goes to two places
+## `claude-code/` — one copy, bind-mounted
+
+`/etc/claude-code` is **bind-mounted** to `/home/jail/etc/claude-code`, so one copy
+serves both jailed and non-jailed accounts:
 
 ```bash
-sudo mkdir -p /etc/claude-code /home/jail/etc/claude-code
-sudo cp claude-code/* /etc/claude-code/            # non-jailed staff accounts
-sudo cp claude-code/* /home/jail/etc/claude-code/  # jailed Data Lab users
+cd claude-code
+sudo cp CLAUDE.md /etc/claude-code/
+sudo cp managed-settings.json /etc/claude-code/
 ```
 
-Not redundancy — a chrooted process resolving `/etc` gets the jail's copy and cannot
-see the host's. **Install to both, every time**; dropping the jail copy silently
-removes the config for all ~5,100 real users, and dropping the host copy makes your own
-testing unrepresentative of theirs.
+The mount exists because a chrooted process resolving `/etc` gets the jail's copy and
+cannot see the host's. Without it you'd install to both paths every time and they would
+eventually drift.
 
 Claude Code's managed-policy layer loads these in every session regardless of working
 directory, and users cannot override them — which is why nothing here needs writing into
