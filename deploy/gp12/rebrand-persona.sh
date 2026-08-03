@@ -29,44 +29,61 @@ AVATAR="${AVATAR:-/data0/sw/manna/deploy/frontend/CosmicCoder.png}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-DESC="NOIRLab Astro Data Lab assistant — archive tools for notebooks."
+NAME="${NAME:-datalab}"
+DESC="${DESC:-NOIRLab Astro Data Lab assistant — archive tools for notebooks.}"
+# Filename only. The scoped `sudo cp` grant matches this exact name, so changing it
+# needs a matching grant from ops.
+AVATAR_FILE="$(basename "$AVATAR")"
 
 [ -r "$SRC" ] || { echo "FATAL: cannot read $SRC" >&2; exit 1; }
 [ -r "$AVATAR" ] || { echo "FATAL: cannot read $AVATAR" >&2; exit 1; }
 
-# Refuse to run against a version whose lines we don't recognise, rather than
-# silently producing a no-op patch.
-for pat in 'name="Claude"' 'description="Claude Code as an ACP agent persona."' 'claude.svg'; do
-  grep -q -- "$pat" "$SRC" || {
-    echo "FATAL: expected line not found in $SRC: $pat" >&2
+# Idempotent: works on a pristine install and on one this script already patched
+# (so a rename, or a re-run after `pip install -U`, both behave). Reads whatever is
+# currently there rather than assuming the stock strings.
+CUR_NAME=$(grep -oE 'name="[^"]*"' "$SRC" | head -1)
+CUR_DESC=$(grep -oE 'description="[^"]*"' "$SRC" | head -1)
+CUR_AVATAR=$(grep -oE '"(claude\.svg|[A-Za-z0-9_-]+\.png)"' "$SRC" | head -1)
+
+for var in CUR_NAME CUR_DESC CUR_AVATAR; do
+  [ -n "${!var}" ] || {
+    echo "FATAL: could not locate $var in $SRC" >&2
     echo "The installed jupyter-ai-acp-client differs from 0.1.5 — re-check the patch." >&2
     exit 1
   }
 done
+echo "current: $CUR_NAME / $CUR_AVATAR"
 
-cp "$SRC" "$HOME/claude.py.orig.$(date +%Y%m%d)"
-echo "backed up original to $HOME/claude.py.orig.$(date +%Y%m%d)"
+# Never overwrite an existing backup — the first one is the only pristine copy, and
+# a same-day re-run would otherwise replace it with an already-patched file.
+BAK="$HOME/claude.py.orig"
+if [ -e "$BAK" ]; then
+  echo "keeping existing backup at $BAK"
+else
+  cp "$SRC" "$BAK"
+  echo "backed up original to $BAK"
+fi
 
 cd "$WORK"
 cp "$SRC" claude.py
-cp "$AVATAR" CosmicCoder.png
+cp "$AVATAR" "$AVATAR_FILE"
 
-sed -i 's/name="Claude"/name="datalab"/' claude.py
-sed -i "s#description=\"Claude Code as an ACP agent persona.\"#description=\"${DESC}\"#" claude.py
-sed -i 's/"claude.svg"/"CosmicCoder.png"/' claude.py
+sed -i "s#${CUR_NAME}#name=\"${NAME}\"#" claude.py
+sed -i "s#${CUR_DESC}#description=\"${DESC}\"#" claude.py
+sed -i "s#${CUR_AVATAR}#\"${AVATAR_FILE}\"#" claude.py
 
-grep -q 'name="datalab"' claude.py || { echo "FATAL: patch did not apply" >&2; exit 1; }
-grep -q 'CosmicCoder.png' claude.py     || { echo "FATAL: avatar not repointed" >&2; exit 1; }
+grep -q "name=\"${NAME}\"" claude.py     || { echo "FATAL: patch did not apply" >&2; exit 1; }
+grep -q "${AVATAR_FILE}" claude.py         || { echo "FATAL: avatar not repointed" >&2; exit 1; }
 python3 -c "import ast,sys; ast.parse(open('claude.py').read())" || {
   echo "FATAL: patched file does not parse" >&2; exit 1; }
 
 echo "patched file prepared in $WORK — installing"
 sudo cp claude.py "$PKG/acp_personas/"
-sudo cp CosmicCoder.png "$PKG/static/"
+sudo cp "$AVATAR_FILE" "$PKG/static/"
 
 echo
 echo "done. Now:"
 echo "  rm -f ~/.jupyter/personas/datalab_persona.py   # avoid two @datalab personas"
 echo "  restart your server from the Hub Control Panel"
 echo
-echo "to revert:  sudo cp \$HOME/claude.py.orig.<date> $PKG/acp_personas/claude.py"
+echo "to revert:  sudo cp \$HOME/claude.py.orig $PKG/acp_personas/claude.py"
