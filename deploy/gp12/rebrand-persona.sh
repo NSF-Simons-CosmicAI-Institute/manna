@@ -8,6 +8,11 @@
 #
 #   cd /data0/sw/manna/deploy/gp12 && ./rebrand-persona.sh
 #
+# Name, description and avatar are env-overridable. To swap in a Data Lab logo
+# (ops must grant `cp <filename>` to the package's static/ dir first):
+#
+#   AVATAR=/data0/sw/manna/deploy/gp12/datalab.png ./rebrand-persona.sh
+#
 # Deliberately does NOT vendor claude.py into this repo: the file is upstream
 # code that changes between releases. Patching the installed copy in place keeps
 # us honest about which version we edited.
@@ -15,13 +20,21 @@
 # REVERTS ON UPGRADE. Any `pip install -U jupyter-ai-acp-client` restores the
 # stock persona. Re-run this afterwards.
 #
-# The avatar file is still named CosmicCoder.png because the scoped `sudo cp` grant
-# matches that exact filename. Swapping in a Data Lab logo needs a new grant.
 #
 # AFTER RUNNING: delete ~/.jupyter/personas/datalab_persona.py, or you get two
 # @datalab personas — the local file adds one and this renames the built-in.
 
 set -euo pipefail
+
+# The sudo cp grants are scoped to a named user. Running this as datalab or root
+# makes sudo prompt for a password nobody has, and the script just hangs.
+case "$(id -un)" in
+  root | datalab)
+    echo "FATAL: run this as your own account, not $(id -un)." >&2
+    echo "Pull as datalab; install as yourself — the sudo cp grants are per-user." >&2
+    exit 1
+    ;;
+esac
 
 PKG="${PKG:-/data0/sw/anaconda3/lib/python3.10/site-packages/jupyter_ai_acp_client}"
 SRC="$PKG/acp_personas/claude.py"
