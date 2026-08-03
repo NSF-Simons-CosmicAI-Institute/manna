@@ -10,7 +10,7 @@ can be reviewed, diffed, and reinstalled rather than pasted from a document.
 | `manna.service` | `/etc/systemd/system/` | root |
 | `personas/datalab_persona.py` | `~/.jupyter/personas/` | nothing (per-user) |
 | `claude-code/` (2 files) | `/etc/claude-code/` **and** `/home/jail/etc/claude-code/` | root |
-| `rebrand-persona.sh` | patches installed `jupyter_ai_acp_client` | scoped `sudo cp` |
+| `rebrand-persona.sh` + `datalab.png` | patches installed `jupyter_ai_acp_client` | scoped `sudo cp` |
 
 `/data0/sw/manna` is a git checkout on gp12, so the deploy loop is a pull and a copy. It
 should track **`main` or a tag** — not a feature branch — once this work has merged:

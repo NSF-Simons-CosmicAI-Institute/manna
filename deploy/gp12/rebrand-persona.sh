@@ -8,10 +8,8 @@
 #
 #   cd /data0/sw/manna/deploy/gp12 && ./rebrand-persona.sh
 #
-# Name, description and avatar are env-overridable. To swap in a Data Lab logo
-# (ops must grant `cp <filename>` to the package's static/ dir first):
-#
-#   AVATAR=/data0/sw/manna/deploy/gp12/datalab.png ./rebrand-persona.sh
+# NAME, DESC and AVATAR are env-overridable. Changing the avatar FILENAME needs a
+# matching `cp <filename>` grant from ops — the destination name is derived from it.
 #
 # Deliberately does NOT vendor claude.py into this repo: the file is upstream
 # code that changes between releases. Patching the installed copy in place keeps
@@ -38,7 +36,7 @@ esac
 
 PKG="${PKG:-/data0/sw/anaconda3/lib/python3.10/site-packages/jupyter_ai_acp_client}"
 SRC="$PKG/acp_personas/claude.py"
-AVATAR="${AVATAR:-/data0/sw/manna/deploy/frontend/CosmicCoder.png}"
+AVATAR="${AVATAR:-/data0/sw/manna/deploy/gp12/datalab.png}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 

@@ -266,4 +266,3 @@ Every one of these was hit on 2026-07-30/31, and none announce themselves.
 - Who owns the MANNA container long-term?
 - Upgrade nodejs in `/data0/sw/anaconda3`, or install node ≥22 side-by-side?
 - Is fixed port 3001 a real multi-user problem here — has gp13 seen it?
-- A Data Lab logo for the persona avatar — currently still `CosmicCoder.png`.
