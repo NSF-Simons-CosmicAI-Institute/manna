@@ -1,8 +1,8 @@
 """Agent loop: drive a real LLM through the MCP tools and record the trace.
 
-Model calls go to the configured Anthropic-Messages endpoint (the dlai01 vLLM
-gpt-oss-120b by default — the same endpoint the Jupyter AI persona uses). Tool calls
-execute against an in-memory ``Client(build_mcp())`` with **live network** to the
+Model calls go to the configured Anthropic-Messages endpoint (a local vLLM
+endpoint by default, set via ``EVAL_MODEL_*`` env vars). Tool calls execute
+against an in-memory ``Client(build_mcp())`` with **live network** to the
 real archives (the eval measures real correctness, so no cassettes here).
 
 The full structured trace — ordered (tool, args, result) plus the final answer —
@@ -74,8 +74,8 @@ class ModelConfig:
         """Build from env.
 
         The model-under-test (prefix ``EVAL_MODEL``) inherits the persona's bare
-        ``ANTHROPIC_*`` vars, so the same ``deploy/frontend/.env`` that runs the
-        persona also runs the eval. Any OTHER prefix (e.g. ``EVAL_JUDGE``) is read
+        ``ANTHROPIC_*`` vars, so the same env file that runs the persona harness
+        also runs the eval. Any OTHER prefix (e.g. ``EVAL_JUDGE``) is read
         from its own vars ONLY — no ANTHROPIC_* fallback — so a hosted-Claude judge
         stays fully isolated from a local-proxy model-under-test (different base_url,
         different auth, no leaked Basic-auth header).

@@ -2,11 +2,11 @@
 
 The server fetches URLs supplied as tool arguments (TAP/cone/SIA
 ``endpoint``, registry ``ivoid_or_url``, async ``job_url``). Those fetches
-originate *inside* the server's network, which in the shared-service
-deployment also holds the JupyterHub and every other user's container. An
-unguarded fetch is therefore a pivot into trusted address space, and pyvo's
-error strings carry upstream status/body fragments back to the caller, so it
-is not even blind.
+originate *inside* the server's network, which in a shared-service topology
+(one server process, many users, no per-user auth) also holds every other
+user's session. An unguarded fetch is therefore a pivot into trusted address
+space, and pyvo's error strings carry upstream status/body fragments back to
+the caller, so it is not even blind.
 
 Policy, in order:
 

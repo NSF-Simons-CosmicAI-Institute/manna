@@ -37,7 +37,7 @@ The recommended LLM workflow for a positional query:
 
 ```bash
 uv sync
-uv run pytest --record-mode=none        # 524 tests, offline replay
+uv run pytest --record-mode=none        # 651 tests, offline replay
 uv run python -m manna                  # server on http://localhost:8000
 ```
 
@@ -115,5 +115,5 @@ Inspect the cassette diff before committing — large changes in the VOTable nam
 ## Docs
 
 - [`docs/archives-spec.md`](docs/archives-spec.md) — how per-archive knowledge modules work, and how to author one
-- [`docs/jupyter-ai-integration.md`](docs/jupyter-ai-integration.md) — surfacing the tools in Jupyter AI
-- [`deploy/`](deploy/) — deployment runbooks (gp12, dlai01 vLLM, dockerized frontend)
+
+Deployment configurations are maintained in a separate repository.

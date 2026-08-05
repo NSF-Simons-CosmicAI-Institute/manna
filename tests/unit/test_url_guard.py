@@ -2,9 +2,9 @@
 
 Every URL the LLM can influence (TAP/cone/SIA endpoints, registry
 ivoid_or_url, async job_urls) reaches an HTTP client inside the server's
-network. In the shared-service deployment that network also holds the
-JupyterHub and every other user's container, so an unguarded fetch is a
-pivot into trusted space.
+network. In a shared-service topology (one server process, many users, no
+per-user auth) that network also holds every other user's session, so an
+unguarded fetch is a pivot into trusted space.
 
 DNS is stubbed via the `_resolve` seam — these tests never touch the
 network.

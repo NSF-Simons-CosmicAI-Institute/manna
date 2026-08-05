@@ -1,8 +1,8 @@
 # evals/ — agentic evaluation harness
 
-Measures how well a real LLM (the dlai01 vLLM **gpt-oss-120b** by default) uses this
-server's MCP tools to answer astronomer tasks — and whether the server's curated
-context actually earns its keep.
+Measures how well a real LLM (a local vLLM endpoint by default, configured via
+`EVAL_MODEL_*` env vars) uses this server's MCP tools to answer astronomer tasks —
+and whether the server's curated context actually earns its keep.
 
 The suite is organized in four tiers: **1** tool-selection accuracy (single intent, no
 chaining), **2** multi-step task success (real workflows), **3** a context ablation that
@@ -77,7 +77,7 @@ cp evals/.env.example evals/.env    # then edit evals/.env
 
 | Var | Purpose |
 |-----|---------|
-| `EVAL_MODEL_NAME` / `_BASE_URL` / `_API_KEY` / `_CUSTOM_HEADERS` | the **model under test** (dlai01 gpt-oss-120b via the datalab proxy) |
+| `EVAL_MODEL_NAME` / `_BASE_URL` / `_API_KEY` / `_CUSTOM_HEADERS` | the **model under test** (a local vLLM endpoint by default) |
 | `EVAL_MODEL_BACKEND` (+ `EVAL_JUDGE_BACKEND`) | wire shape: `anthropic` (default) or `openai` |
 | `EVAL_JUDGE_NAME` / `_API_KEY` (+ `_BASE_URL` / `_CUSTOM_HEADERS`) | the rubric **judge** |
 | `EVAL_MAX_STEPS` / `EVAL_ASYNC_POLL_SLEEP` | optional run knobs |
@@ -89,7 +89,7 @@ proxy `ANTHROPIC_*`/`EVAL_MODEL_*` vars), so a **hosted Claude Haiku** judge (`E
 for real numbers) (~75–85% JSON-parseable) is the zero-cost fallback. Never let the model
 grade itself for real numbers; if no judge is set, rubric tasks report as *unscored*
 (never silently passed). (`EVAL_MODEL_*` also still falls back to the persona's bare
-`ANTHROPIC_*` vars if you prefer to reuse `deploy/frontend/.env`.)
+`ANTHROPIC_*` vars if you prefer to reuse a persona harness's own env file.)
 
 ## Run
 
@@ -105,7 +105,7 @@ Tier-3 tasks (and `--condition both`) run twice — full vs. ablated — and the
 prints the **trap-avoidance delta**, the headline "is this server worth it" number.
 Keep `--concurrency` low (default 3) against a single-GPU-hosted model.
 
-## Clean-state run recipe (dlai01)
+## Clean-state run recipe
 
 Stale persona env exports (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`,
 `ANTHROPIC_DEFAULT_*_MODEL`) left over from a Claude Code persona session hijack the judge
@@ -162,7 +162,7 @@ today; a registry, so add a driver in one entry) end-to-end and scores its trans
 
 ```bash
 uv run python -m evals.persona_run --limit 3               # Claude Code persona, 3 tasks
-uv run python -m evals.persona_run --same-model --limit 3  # persona at the same dlai01 model (free)
+uv run python -m evals.persona_run --same-model --limit 3  # persona at the same served model (free)
 uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/persona-*.json
 ```
 

@@ -13,7 +13,7 @@ uppercase an identifier.
 
 ```bash
 uv sync                                  # install deps + dev deps
-uv run pytest --record-mode=none         # 524 tests, offline replay (incl. tests/evals/)
+uv run pytest --record-mode=none         # 651 tests, offline replay (incl. tests/evals/)
 uv run pytest --record-mode=once -k <t>  # re-record one cassette (needs net)
 uv run ruff check .                      # lint
 uv run python -m manna                   # boot server on :8000 (MANNA_PORT to override)
@@ -38,7 +38,11 @@ src/manna/
 │   ├── cone.py               # vo_cone_search
 │   ├── sia.py                # vo_sia_search
 │   ├── find_observations.py  # vo_find_observations (cross-archive: resolve -> pick archive -> SIA/cone)
-│   └── _constants.py         # shared tool-layer constants (_ERROR_DOCSTRING)
+│   ├── count.py               # vo_count_observations
+│   ├── survey.py              # vo_survey_target
+│   ├── inspect.py             # vo_inspect_table
+│   ├── _select.py             # shared resolve + archive-selection helpers for count/survey/find facades
+│   └── _constants.py          # shared tool-layer constants (_ERROR_DOCSTRING)
 ├── archives/          # per-archive knowledge (one <short_name>.py each)
 │   ├── _model.py      # Archive, Schema dataclasses (leaf)
 │   ├── _select.py     # pure parse_allow/sort/select/validate helpers
@@ -87,7 +91,7 @@ Tests mirror the source: `tests/unit/` (pure), `tests/archives/` (registry mecha
 
 - **Tools never touch raw pyvo.** Only `backends/` imports pyvo. Verifiable with `grep -r pyvo src/manna/tools/`.
 - **The server never persists result bytes.** No result cache, no MCP Resource serving. Large results are handed to the client as a `job_url` + `result_url` + pyvo `fetch_recipe`; the client fetches them itself. This is the load-bearing multi-tenant invariant — do NOT reintroduce a server-side byte store.
-- **The server holds NO cross-request state at all.** The JobStore was removed in the stateless-async-tap change: it was a process-global `dict` with no notion of caller identity, so in the shared-service topology (`deploy/frontend/docker-compose.yml` — one `mcp` service, one container per user, no auth) any session holding any `job_id` could read or abort another user's job. It also concealed nothing, because the promotion envelope already returned the `job_url`. Do NOT reintroduce a server-side job registry, cache, or session map; if you need per-caller state, it must be keyed on a verified caller identity, which this server does not yet have.
+- **The server holds NO cross-request state at all.** The JobStore was removed in the stateless-async-tap change: it was a process-global `dict` with no notion of caller identity, so in a shared-service topology (one server process, many users, no per-user auth) any session holding any `job_id` could read or abort another user's job. It also concealed nothing, because the promotion envelope already returned the `job_url`. Do NOT reintroduce a server-side job registry, cache, or session map; if you need per-caller state, it must be keyed on a verified caller identity, which this server does not yet have.
 - **Every user-supplied URL clears `_url_guard.ensure_safe_url` before it is fetched.** `endpoint` (tap/cone/sia), `ivoid_or_url` (registry, when not an `ivo://` IVOID), and `job_url` (status/results/abort). The guard rejects non-http(s) schemes and any target resolving to private/loopback/link-local/reserved space, which is what stops a caller pivoting to `http://hub:8000` or `169.254.169.254` from inside the compose network. `vo_tap_abort` sends an upstream DELETE, so this is load-bearing, not advisory. Known gap: DNS rebinding (we resolve, then `requests` resolves again) — see the module docstring.
 - **`truncated` is always a top-level boolean.** Never silently true. The ALMA_MCP prototype's `df.head(20)` is the explicit anti-pattern. Enforced in `shape_inline_table`.
 - **Error payloads carry `error_class` + `retry_strategy`.** `error_class` is the discriminator the LLM branches on. No `isError` key (intentional — the shared `_ERROR_DOCSTRING` in `tools/_constants.py`, appended to every tool's docstring, spells this out).
