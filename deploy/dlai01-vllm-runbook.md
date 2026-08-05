@@ -1,4 +1,14 @@
-**2026-07-28: Qwen decommissioned by policy; current model: `openai/gpt-oss-120b` — see docs/qwen-replacement-bakeoff.md.** Qwen-era sections below are kept as historical validation record. Current boot path: `cp candidates/gpt-oss-120b.env .env` once, then bare `docker compose up -d` (also the reboot-recovery path).
+**Currently serving `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8`** (since 2026-08-04, on trial).
+Boot path: `cp candidates/nemotron3-super.env .env` once, then bare `docker compose up -d`
+— also the reboot-recovery path.
+
+> Model history: Qwen3.5 decommissioned by policy 2026-07-28; `openai/gpt-oss-120b` won
+> the replacement bake-off (docs/qwen-replacement-bakeoff.md) and ran until 2026-08-04.
+> Qwen- and gpt-oss-era sections below are kept as historical validation record.
+>
+> **The served model is paired with `_MODEL` in `deploy/gp12/jupyter_server_config.py`.**
+> Changing one without the other breaks the assistant for every gp12 user with "model may
+> not exist". Verify after any swap: `curl -s http://localhost:8002/v1/models`.
 
 # dlai01 Model-Hosting — Validation Record & Runbook
 
