@@ -429,7 +429,6 @@ def _fit_tables(out: dict, catalog: list[dict], budget: int) -> list[dict]:
 
 def shape_promotion(
     *,
-    job_id: str,
     job_url: str,
     archive: str,
     phase: str,
@@ -439,21 +438,24 @@ def shape_promotion(
     auto-mode timeout fallback, or an oversize sync result).
 
     Shape-disjoint from the inline tabular envelope: there are no rows.
-    The LLM branches on the literal `mode: "async"`. Carries both the
-    opaque `job_id` (for our vo_tap_status / vo_tap_abort) and the
-    upstream `job_url` + a pyvo fetch_recipe so the client can load the
-    result itself once the job completes.
+    The LLM branches on the literal `mode: "async"`.
+
+    The upstream `job_url` is the job's only handle — pass it back to
+    vo_tap_status / vo_tap_results / vo_tap_abort. There is deliberately no
+    server-side job id: the server holds no per-job state, so nothing in this
+    process can be reached by a caller who did not submit the job.
     """
     return {
         "mode": "async",
-        "job_id": job_id,
         "job_url": job_url,
         "phase": phase,
         "submitted_at": submitted_at.isoformat(),
         "archive": archive,
         "next_steps": [
-            "Poll vo_tap_status(job_id) until phase is COMPLETED or ERROR.",
-            "When COMPLETED, call vo_tap_results(job_id) to get the result_url and a fetch_recipe.",
+            "Poll vo_tap_status(job_url) until phase is COMPLETED or ERROR — "
+            "pass back the job_url from this response, verbatim.",
+            "When COMPLETED, call vo_tap_results(job_url) to get the "
+            "result_url and a fetch_recipe.",
             "Then execute the fetch_recipe code with your code-execution "
             "tool to load the data — do not abandon the job or re-submit "
             "the query.",

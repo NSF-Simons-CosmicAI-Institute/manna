@@ -4,6 +4,7 @@ from typing import Annotated
 
 from pydantic import Field
 
+from manna._url_guard import ensure_safe_url
 from manna.backends.registry import RegistryClient
 from manna.errors import wrap_tool_errors
 from manna.shaper import (
@@ -117,6 +118,11 @@ def vo_registry_describe(
     via vo_tap_query (or vo_schema_describe for curated tables). See the
     returned hints.
     """
+    # An `ivo://` IVOID is a registry identifier, not a fetch target — it is
+    # resolved through RegTAP, so guarding it would break discovery. Anything
+    # else is a URL we are about to request, and must clear the SSRF guard.
+    if not ivoid_or_url.lower().startswith("ivo://"):
+        ensure_safe_url(ivoid_or_url, param="ivoid_or_url")
     described = _get_registry().describe(ivoid_or_url=ivoid_or_url)
     return shape_registry_describe_result(described, table_filter=table_filter)
 

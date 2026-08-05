@@ -7,7 +7,7 @@ from starlette.middleware import Middleware
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
-from manna import __version__, job_store
+from manna import __version__
 from manna.archives._traps import silent_trap_cheatsheet
 from manna.observability import (
     current_request_id,
@@ -112,13 +112,8 @@ def build_app() -> Starlette:
     mcp_app = mcp.http_app(path="/")
 
     async def health(_request):
-        return JSONResponse(
-            {
-                "status": "ok",
-                "version": __version__,
-                "job_store": job_store.size_estimate(),
-            }
-        )
+        # No per-job stats: the server keeps no job state to report on.
+        return JSONResponse({"status": "ok", "version": __version__})
 
     async def ready(_request):
         # Slice A: no backend pre-warm. Later slices ping a known TAP endpoint.

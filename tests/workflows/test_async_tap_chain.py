@@ -3,13 +3,13 @@
 Steps the LLM takes when a sync query times out (or it picks mode='async'
 explicitly):
 
-    1. vo_tap_query(mode='async')      → promotion envelope with job_id + job_url
-    2. vo_tap_status(job_id)           → phase
+    1. vo_tap_query(mode='async')      → promotion envelope with job_url
+    2. vo_tap_status(job_url)           → phase
     3. (poll until COMPLETED)
-    4. vo_tap_results(job_id)          → result_url + pyvo fetch_recipe
+    4. vo_tap_results(job_url)          → result_url + pyvo fetch_recipe
 
 Per-tool tests already cover each step in isolation. This file verifies
-the *chain* — specifically that the job_id round-trips correctly and the
+the *chain* — specifically that the job_url round-trips correctly and the
 final envelope hands the client an upstream URL + fetch recipe (the
 server never fetches the result bytes itself).
 
@@ -19,7 +19,7 @@ The TapClient backend is faked so this stays hermetic + fast.
 import pytest
 from fastmcp import Client
 
-from manna import job_store
+from manna.errors import JobGoneError
 from manna.tools import tap as tap_tools
 
 
@@ -45,28 +45,23 @@ class _FakeTapClient:
     def __init__(self):
         self.job = _FakeAsyncJob()
         self.submit_calls: list[tuple] = []
+        self.deleted = False
 
     def submit_async(self, *, endpoint, adql, maxrec):
         self.submit_calls.append((endpoint, adql, maxrec))
         return f"{endpoint}/async/test-job-id"
 
     def load_job(self, job_url):
+        if self.deleted:
+            raise JobGoneError(message="The archive no longer has this job.")
         return self.job
 
     def abort_job(self, job_url):
+        self.deleted = True
         self.job.delete()
 
     def query(self, *, endpoint, adql, maxrec):
         raise NotImplementedError("workflow tests use async only")
-
-
-@pytest.fixture(autouse=True)
-def _clear_jobs():
-    with job_store._LOCK:
-        job_store._STORE.clear()
-    yield
-    with job_store._LOCK:
-        job_store._STORE.clear()
 
 
 @pytest.fixture
@@ -78,7 +73,7 @@ def fake_tap(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
-    """The headline chain. Verify the same job_id flows from promotion
+    """The headline chain. Verify the same job_url flows from promotion
     through status (mid-flight) to results (after completion), and the
     final envelope hands the client the upstream job_url + result_url +
     a pyvo fetch_recipe (no bytes fetched server-side)."""
@@ -95,20 +90,19 @@ async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
         prom_payload = promotion.structured_content
         assert prom_payload["mode"] == "async"
         assert prom_payload["phase"] == "EXECUTING"
-        job_id = prom_payload["job_id"]
-        assert len(job_id) == 12
-        # The promotion already carries the real upstream job URL + recipe.
+        # The job_url IS the handle — no separate server-side id.
         job_url = prom_payload["job_url"]
+        assert "job_id" not in prom_payload
         assert job_url.endswith("/async/test-job-id")
         assert job_url in prom_payload["fetch_recipe"]["code"]
 
         # Step 2: check status — still mid-flight
-        status = await client.call_tool("vo_tap_status", {"job_id": job_id})
+        status = await client.call_tool("vo_tap_status", {"job_url": job_url})
         assert status.structured_content["phase"] == "EXECUTING"
-        assert status.structured_content["job_id"] == job_id
+        assert status.structured_content["job_url"] == job_url
 
         # Step 3: try to fetch results — should get job_not_ready
-        early = await client.call_tool("vo_tap_results", {"job_id": job_id})
+        early = await client.call_tool("vo_tap_results", {"job_url": job_url})
         assert early.structured_content["error_class"] == "job_not_ready"
         assert early.structured_content["retry_strategy"] == "poll"
 
@@ -116,11 +110,11 @@ async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
         fake_tap.job.phase = "COMPLETED"
 
         # Step 5: status reports COMPLETED
-        status = await client.call_tool("vo_tap_status", {"job_id": job_id})
+        status = await client.call_tool("vo_tap_status", {"job_url": job_url})
         assert status.structured_content["phase"] == "COMPLETED"
 
         # Step 6: results return a result-URL envelope + fetch recipe
-        results = await client.call_tool("vo_tap_results", {"job_id": job_id})
+        results = await client.call_tool("vo_tap_results", {"job_url": job_url})
         rp = results.structured_content
         assert rp["phase"] == "COMPLETED"
         assert rp["job_url"] == job_url
@@ -133,8 +127,13 @@ async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
 
 @pytest.mark.asyncio
 async def test_chain_abort_invalidates_subsequent_status(mcp_server, fake_tap):
-    """User aborts mid-flight; status/results on the same job_id must
-    surface as validation_error (the JobStore entry is evicted)."""
+    """User aborts mid-flight; status on the same job_url must then report
+    job_gone.
+
+    Previously this asserted validation_error from a JobStore eviction. With no
+    store, the abort deletes the job upstream and the next status gets the
+    archive's own 404 — same practical signal (retry_strategy=abandon), but
+    sourced from the system that actually owns the job."""
     async with Client(mcp_server) as client:
         promotion = await client.call_tool(
             "vo_tap_query",
@@ -144,15 +143,15 @@ async def test_chain_abort_invalidates_subsequent_status(mcp_server, fake_tap):
                 "mode": "async",
             },
         )
-        job_id = promotion.structured_content["job_id"]
+        job_url = promotion.structured_content["job_url"]
 
         # Abort
-        abort = await client.call_tool("vo_tap_abort", {"job_id": job_id})
+        abort = await client.call_tool("vo_tap_abort", {"job_url": job_url})
         assert abort.structured_content["phase"] == "ABORTED"
 
-        # Subsequent status: unknown job_id
-        status = await client.call_tool("vo_tap_status", {"job_id": job_id})
-        assert status.structured_content["error_class"] == "validation_error"
+        # Subsequent status: the archive no longer has it
+        status = await client.call_tool("vo_tap_status", {"job_url": job_url})
+        assert status.structured_content["error_class"] == "job_gone"
         assert status.structured_content["retry_strategy"] == "abandon"
 
 
@@ -169,7 +168,7 @@ async def test_chain_handles_phase_error_with_message(mcp_server, fake_tap):
                 "mode": "async",
             },
         )
-        job_id = promotion.structured_content["job_id"]
+        job_url = promotion.structured_content["job_url"]
 
         # Upstream completes with ERROR + message
         class _ErrSummary:
@@ -178,7 +177,7 @@ async def test_chain_handles_phase_error_with_message(mcp_server, fake_tap):
         fake_tap.job.phase = "ERROR"
         fake_tap.job._error_summary = _ErrSummary()
 
-        results = await client.call_tool("vo_tap_results", {"job_id": job_id})
+        results = await client.call_tool("vo_tap_results", {"job_url": job_url})
         rp = results.structured_content
         assert rp["error_class"] == "tap_query_error"
         assert rp["retry_strategy"] == "fix_and_retry"
@@ -199,12 +198,12 @@ async def test_chain_handles_phase_error_with_empty_message(mcp_server, fake_tap
                 "mode": "async",
             },
         )
-        job_id = promotion.structured_content["job_id"]
+        job_url = promotion.structured_content["job_url"]
 
         fake_tap.job.phase = "ERROR"
         fake_tap.job._error_summary = None  # the NRAO regression case
 
-        results = await client.call_tool("vo_tap_results", {"job_id": job_id})
+        results = await client.call_tool("vo_tap_results", {"job_url": job_url})
         rp = results.structured_content
         assert rp["error_class"] == "tap_query_error"
         # Message must be SOMETHING actionable, even if upstream gave nothing

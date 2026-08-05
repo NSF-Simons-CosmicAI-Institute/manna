@@ -48,6 +48,20 @@ def _offline_column_fetch(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _offline_dns(monkeypatch):
+    """Keep the SSRF guard's hostname resolution off the network.
+
+    ``_url_guard.ensure_safe_url`` resolves each hostname to verify it lands in
+    public address space. Left alone that would make ~every tool test depend on
+    live DNS for almalscience/noirlab/etc. Stubbing the resolver to a public
+    address keeps the suite offline while preserving the guard's real logic:
+    tests that exercise *blocking* use IP literals (never resolved) or override
+    this fixture explicitly.
+    """
+    monkeypatch.setattr("manna._url_guard._resolve", lambda host: ["93.184.216.34"])
+
+
+@pytest.fixture(autouse=True)
 def _clear_archive_label_cache():
     """archive_label() memoizes hostname-derived labels for process lifetime.
     Wipe it around every test so the (deterministic) cache can't couple tests

@@ -7,8 +7,8 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from manna import job_store
 from manna._archive_label import archive_label
+from manna._url_guard import ensure_safe_url
 from manna.archives._endpoints import (
     tap_endpoint_description,
     tap_endpoint_urls,
@@ -69,19 +69,13 @@ def _trap_hint(*, endpoint: str, adql: str) -> Iterator[None]:
 def _promote_async(*, endpoint: str, adql: str, maxrec: int) -> dict:
     """Submit async and return a promotion envelope.
 
-    Wraps submit + JobStore put + envelope shaping. Raises ArchiveError
-    if the async submission itself fails (so the caller still gets a
-    structured payload via wrap_tool_errors).
+    Raises ArchiveError if the async submission itself fails (so the caller
+    still gets a structured payload via wrap_tool_errors).
+
+    Nothing is recorded server-side: the returned job_url is the whole handle.
     """
     job_url = _get_tap().submit_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
-    job_id, _ = job_store.put(
-        job_url=job_url,
-        endpoint=endpoint,
-        adql=adql,
-        ttl_seconds=get_settings().job_ttl_seconds,
-    )
     return shape_promotion(
-        job_id=job_id,
         job_url=job_url,
         archive=archive_label(endpoint),
         phase="EXECUTING",
@@ -153,7 +147,7 @@ def vo_tap_query(
                 "Execution mode. 'sync' = TAP /sync only (default Slice-A "
                 "behavior; times out as archive_error). 'async' = skip "
                 "sync, submit /async, return a promotion envelope with "
-                "job_id. 'auto' (default) = try sync first; on timeout, "
+                "job_url. 'auto' (default) = try sync first; on timeout, "
                 "transparently promote to async."
             ),
         ),
@@ -178,7 +172,7 @@ def vo_tap_query(
        small result, or mode='auto' when the query finished within the
        sync timeout AND fit inline. No `mode` key on the response.
 
-    2. Promotion envelope (mode='async', job_id, job_url, fetch_recipe).
+    2. Promotion envelope (mode='async', job_url, fetch_recipe).
        Returned when mode='async', when mode='auto' and the sync attempt
        timed out, or when mode='auto' and the sync result was too large
        to inline. Disambiguate by checking payload.get('mode') == 'async'.
@@ -186,10 +180,12 @@ def vo_tap_query(
     mode='sync' with an oversize result does NOT auto-promote — it raises
     validation_error telling you to re-run with mode='async'.
 
-    For async results, poll vo_tap_status(job_id) until phase is
-    COMPLETED, then call vo_tap_results(job_id) — or fetch client-side
-    with the pyvo fetch_recipe carried on the promotion envelope.
+    For async results, poll vo_tap_status(job_url) until phase is
+    COMPLETED, then call vo_tap_results(job_url) — or fetch client-side
+    with the pyvo fetch_recipe carried on the promotion envelope. Pass the
+    job_url back verbatim; it is the job's only handle.
     """
+    ensure_safe_url(endpoint, param="endpoint")
     # Every path that can surface a DalQueryError runs inside _trap_hint, so a
     # rejected query carries its curated fix regardless of which mode found it.
     with _trap_hint(endpoint=endpoint, adql=adql):
@@ -228,7 +224,17 @@ def vo_tap_query(
 vo_tap_query.__doc__ = (vo_tap_query.__doc__ or "") + _ERROR_DOCSTRING
 
 
-def _status_payload(*, job_id: str, job, endpoint: str) -> dict:
+_JOB_URL_FIELD = Field(
+    description=(
+        "The upstream job_url returned by vo_tap_query when it went async "
+        "(mode='async' or auto-promote). Pass it back verbatim — it is the "
+        "job's only handle."
+    ),
+    examples=["https://almascience.eso.org/tap/async/1234567"],
+)
+
+
+def _status_payload(*, job, job_url: str) -> dict:
     """Build the status response from a live AsyncTAPJob."""
     error_message = None
     if job.phase == "ERROR":
@@ -239,62 +245,39 @@ def _status_payload(*, job_id: str, job, endpoint: str) -> dict:
     started = getattr(job, "starttime", None)
     ended = getattr(job, "endtime", None)
     return {
-        "job_id": job_id,
+        "job_url": job_url,
         "phase": job.phase,
         "started_at": started.isoformat() if started else None,
         "ended_at": ended.isoformat() if ended else None,
         "error_message": error_message,
-        "archive": archive_label(endpoint),
+        "archive": archive_label(job_url),
     }
 
 
 @wrap_tool_errors
-def vo_tap_status(
-    job_id: Annotated[
-        str,
-        Field(
-            description=(
-                "Opaque 12-character job_id returned by vo_tap_query "
-                "when it goes async (mode='async' or auto-promote)."
-            ),
-            min_length=12,
-            max_length=12,
-        ),
-    ],
-) -> dict:
+def vo_tap_status(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     """Fetch the live UWS phase for an async TAP job.
 
-    Returns {job_id, phase, started_at, ended_at, error_message, archive}.
+    Returns {job_url, phase, started_at, ended_at, error_message, archive}.
     Phase is read live from the upstream service; no local caching.
 
     Phases per UWS spec: PENDING, QUEUED, EXECUTING, COMPLETED, ERROR,
     ABORTED, ARCHIVED, HELD, SUSPENDED, UNKNOWN. The LLM branches on
     the string.
+
+    If the archive has deleted or expired the job, this raises job_gone
+    (retry_strategy=abandon) — re-submit rather than continuing to poll.
     """
-    entry = job_store.get(job_id)
-    if entry is None:
-        raise ValidationError(
-            message=(f"Unknown or expired job_id '{job_id}'. Re-submit with vo_tap_query."),
-            retry_strategy="abandon",
-        )
-    job = _get_tap().load_job(entry.job_url)
-    return _status_payload(job_id=job_id, job=job, endpoint=entry.endpoint)
+    ensure_safe_url(job_url, param="job_url")
+    job = _get_tap().load_job(job_url)
+    return _status_payload(job=job, job_url=job_url)
 
 
 vo_tap_status.__doc__ = (vo_tap_status.__doc__ or "") + _ERROR_DOCSTRING
 
 
 @wrap_tool_errors
-def vo_tap_results(
-    job_id: Annotated[
-        str,
-        Field(
-            description="Opaque 12-character job_id from vo_tap_query (async).",
-            min_length=12,
-            max_length=12,
-        ),
-    ],
-) -> dict:
+def vo_tap_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     """Return access info for a COMPLETED async TAP job.
 
     The server does NOT fetch the result bytes. It returns the upstream
@@ -308,16 +291,11 @@ def vo_tap_results(
 
     If the job is not yet COMPLETED, raises job_not_ready (retry_strategy=poll).
     If the job ended in ERROR, raises tap_query_error with the upstream
-    message.
+    message. If the archive no longer has the job, raises job_gone
+    (retry_strategy=abandon).
     """
-    entry = job_store.get(job_id)
-    if entry is None:
-        raise ValidationError(
-            message=(f"Unknown or expired job_id '{job_id}'. Re-submit with vo_tap_query."),
-            retry_strategy="abandon",
-        )
-
-    job = _get_tap().load_job(entry.job_url)
+    ensure_safe_url(job_url, param="job_url")
+    job = _get_tap().load_job(job_url)
     phase = job.phase
 
     if phase == "ERROR":
@@ -326,7 +304,7 @@ def vo_tap_results(
         raise DalQueryError(message=msg or "Async TAP job ended in ERROR.")
     if phase == "ABORTED":
         raise ValidationError(
-            message=f"Job {job_id} was aborted; re-submit if you still want results.",
+            message="This job was aborted; re-submit if you still want results.",
             retry_strategy="abandon",
         )
     if phase != "COMPLETED":
@@ -345,9 +323,9 @@ def vo_tap_results(
     # phase is necessarily "COMPLETED" here — every other phase returned or
     # raised above — so shape_result_url uses its "COMPLETED" default.
     return shape_result_url(
-        job_url=entry.job_url,
+        job_url=job_url,
         result_url=result_url,
-        archive=archive_label(entry.endpoint),
+        archive=archive_label(job_url),
     )
 
 
@@ -355,35 +333,19 @@ vo_tap_results.__doc__ = (vo_tap_results.__doc__ or "") + _ERROR_DOCSTRING
 
 
 @wrap_tool_errors
-def vo_tap_abort(
-    job_id: Annotated[
-        str,
-        Field(
-            description="Opaque 12-character job_id from vo_tap_query (async).",
-            min_length=12,
-            max_length=12,
-        ),
-    ],
-) -> dict:
+def vo_tap_abort(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     """Cancel a running async TAP job.
 
-    Sends UWS DELETE upstream and evicts the local JobStore entry.
-    Idempotent: aborting an already-deleted or expired job returns the
-    same {job_id, phase=ABORTED} shape rather than raising.
+    Sends UWS DELETE upstream. Idempotent: aborting an already-deleted or
+    expired job returns the same {job_url, phase=ABORTED} shape rather than
+    raising (abort_job swallows the 4xx).
     """
-    entry = job_store.get(job_id)
-    if entry is None:
-        return {
-            "job_id": job_id,
-            "phase": "ABORTED",
-            "archive": None,
-        }
-    _get_tap().abort_job(entry.job_url)
-    job_store.evict(job_id)
+    ensure_safe_url(job_url, param="job_url")
+    _get_tap().abort_job(job_url)
     return {
-        "job_id": job_id,
+        "job_url": job_url,
         "phase": "ABORTED",
-        "archive": archive_label(entry.endpoint),
+        "archive": archive_label(job_url),
     }
 
 

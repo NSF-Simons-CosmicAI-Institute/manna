@@ -26,6 +26,7 @@ from manna.errors import (
     ArchiveError,
     DalQueryError,
     InternalError,
+    JobGoneError,
     JobNotReadyError,
     RetryStrategy,
     TimeoutArchiveError,
@@ -43,6 +44,7 @@ ALL_ERROR_SUBCLASSES = (
     ArchiveError,
     DalQueryError,
     JobNotReadyError,
+    JobGoneError,
     InternalError,
     TimeoutArchiveError,
 )

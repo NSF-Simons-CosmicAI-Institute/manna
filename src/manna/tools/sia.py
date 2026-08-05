@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from manna._archive_label import archive_label
+from manna._url_guard import ensure_safe_url
 from manna.archives._endpoints import (
     sia_endpoint_description,
     sia_endpoint_urls,
@@ -83,6 +84,7 @@ def vo_sia_search(
     For all-sky discovery first, see vo_registry_search with
     servicetype='sia'.
     """
+    ensure_safe_url(endpoint, param="endpoint")
     table = _get_sia().search(
         endpoint=endpoint,
         ra=ra,

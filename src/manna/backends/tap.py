@@ -12,9 +12,26 @@ from astropy.table import Table
 from pyvo.dal import AsyncTAPJob
 from pyvo.dal.exceptions import DALFormatError, DALQueryError, DALServiceError
 
-from manna.errors import ArchiveError, DalQueryError, TimeoutArchiveError
+from manna.errors import ArchiveError, DalQueryError, JobGoneError, TimeoutArchiveError
 
 log = logging.getLogger(__name__)
+
+
+_JOB_GONE_STATUSES = frozenset({404, 410})
+
+
+def _http_status(e: Exception) -> int | None:
+    """HTTP status carried by a pyvo exception, if any.
+
+    Mirrors _is_timeout's traversal: pyvo attaches the original exception to
+    `.cause`, and we also walk the standard chain for versions that use
+    `raise ... from`.
+    """
+    for candidate in (getattr(e, "cause", None), e.__cause__, e.__context__):
+        status = getattr(getattr(candidate, "response", None), "status_code", None)
+        if status is not None:
+            return status
+    return None
 
 
 def _is_timeout(e: DALFormatError) -> bool:
@@ -137,6 +154,14 @@ class TapClient:
         try:
             return AsyncTAPJob(job_url, session=self._session(), delete=False)
         except DALServiceError as e:
+            if _http_status(e) in _JOB_GONE_STATUSES:
+                raise JobGoneError(
+                    message=(
+                        "The archive no longer has this job — it was deleted or "
+                        "aged out of its job store. Re-submit the query with "
+                        "vo_tap_query if you still need the result."
+                    )
+                ) from e
             raise ArchiveError(message=str(e)) from e
 
     def abort_job(self, job_url: str) -> None:
