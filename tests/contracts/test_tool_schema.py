@@ -23,10 +23,14 @@ from manna.tools import __all__ as REGISTERED_TOOL_NAMES
 from manna.tools import (
     vo_archive_list,
     vo_cone_search,
+    vo_count_observations,
+    vo_find_observations,
+    vo_inspect_table,
     vo_registry_describe,
     vo_registry_search,
     vo_schema_describe,
     vo_sia_search,
+    vo_survey_target,
     vo_tap_abort,
     vo_tap_query,
     vo_tap_results,
@@ -37,10 +41,14 @@ from manna.tools import (
 ALL_TOOLS = (
     vo_archive_list,
     vo_cone_search,
+    vo_count_observations,
+    vo_find_observations,
+    vo_inspect_table,
     vo_registry_describe,
     vo_registry_search,
     vo_schema_describe,
     vo_sia_search,
+    vo_survey_target,
     vo_tap_abort,
     vo_tap_query,
     vo_tap_results,
@@ -89,6 +97,13 @@ def test_every_tool_in_dunder_all_is_registered_in_build_mcp():
         f"Tools declared in tools/__init__.__all__ but not registered "
         f"in build_mcp(): {sorted(missing)}"
     )
+
+
+def test_all_tools_tuple_matches_dunder_all():
+    """ALL_TOOLS (used to parametrize the contract tests below) must cover
+    exactly the tools declared in tools/__init__.__all__ — otherwise a newly
+    added tool silently skips every contract check in this file."""
+    assert {t.__name__ for t in ALL_TOOLS} == set(REGISTERED_TOOL_NAMES)
 
 
 def test_all_registered_tools_use_vo_prefix():

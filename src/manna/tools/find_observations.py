@@ -25,26 +25,17 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from manna.archives._endpoints import active_archives
 from manna.archives._model import note_texts
 from manna.backends.cone import ConeSearchClient
-from manna.backends.resolver import ResolverClient
 from manna.backends.sia import SiaClient
 from manna.errors import ValidationError, wrap_tool_errors
 from manna.shaper import shape_table
+from manna.tools import _select
 from manna.tools._constants import _ERROR_DOCSTRING
+from manna.tools._select import coerce_or_resolve as _coerce_or_resolve
 
-_resolver: ResolverClient | None = None
 _sia: SiaClient | None = None
 _cone: ConeSearchClient | None = None
-
-
-def _get_resolver() -> ResolverClient:
-    """Lazy accessor so tests can patch the resolver without import-time I/O."""
-    global _resolver
-    if _resolver is None:
-        _resolver = ResolverClient()
-    return _resolver
 
 
 def _get_sia() -> SiaClient:
@@ -63,61 +54,27 @@ def _get_cone() -> ConeSearchClient:
     return _cone
 
 
-def _coerce_or_resolve(target: str) -> tuple[float | None, float | None]:
-    """``'187.7 12.4'`` / ``'187.7, 12.4'`` -> parsed floats; else Sesame-resolve.
-
-    Returns ``(None, None)`` on a resolver miss so the caller can soft-fail.
-    A two-token all-float string is treated as literal ICRS coordinates and
-    the resolver is never called (object names never parse as two floats).
-    """
-    tokens = target.replace(",", " ").split()
-    if len(tokens) == 2:
-        try:
-            return float(tokens[0]), float(tokens[1])
-        except ValueError:
-            pass
-    hit = _get_resolver().resolve(target)
-    return hit if hit is not None else (None, None)
-
-
 def _rank_candidates(*, service: str, waveband: str | None, override: str | None):
     """Active archives that offer ``service``, filtered by waveband / override.
 
     Returns them in registry order (already sorted by ``(priority, short_name)``),
     so element 0 is the archive we steer toward.
     """
-    url_attr = "sia_url" if service == "image" else "scs_url"
-    candidates = [a for a in active_archives() if getattr(a, url_attr)]
-    if override is not None:
-        ov = override.strip().lower()
-        candidates = [a for a in candidates if a.short_name.lower() == ov]
-    if waveband is not None:
-        wb = waveband.strip().lower()
-        candidates = [a for a in candidates if (a.waveband or "").lower() == wb]
-    return candidates
+    attr = "sia_url" if service == "image" else "scs_url"
+    return _select.rank_by_attr(attr=attr, waveband=waveband, override=override)
 
 
 def _no_candidate_payload(*, service: str, waveband: str | None, override: str | None) -> dict:
     """Recovery hint when no active archive matches — never a hard failure."""
-    url_attr = "sia_url" if service == "image" else "scs_url"
+    attr = "sia_url" if service == "image" else "scs_url"
     servicetype = "sia" if service == "image" else "scs"
-    capable = [a for a in active_archives() if getattr(a, url_attr)]
-    known = ", ".join(f"{a.short_name} ({a.waveband})" for a in capable) or "none"
-    filt = []
-    if waveband is not None:
-        filt.append(f"waveband={waveband!r}")
-    if override is not None:
-        filt.append(f"archive={override!r}")
-    filt_text = " and ".join(filt) if filt else "the given filter"
-    return {
-        "count": 0,
-        "hint": (
-            f"No known archive offers a {service} service matching {filt_text}. "
-            f"Archives with a {service} endpoint: {known}. Relax the filter, pass an "
-            f"explicit `archive`, or discover more via "
-            f"vo_registry_search(servicetype='{servicetype}')."
-        ),
-    }
+    return _select.no_candidate_payload(
+        attr=attr,
+        service_label=f"a {service} service",
+        waveband=waveband,
+        override=override,
+        servicetype=servicetype,
+    )
 
 
 @wrap_tool_errors

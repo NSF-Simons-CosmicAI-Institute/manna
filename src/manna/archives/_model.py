@@ -15,6 +15,7 @@ form accepted.
 from dataclasses import dataclass, field
 
 from manna.archives._audit import Audit
+from manna.archives._count import CountTarget
 
 
 @dataclass(frozen=True)
@@ -139,6 +140,10 @@ class Archive:
       quirks, target-name conventions). Surfaced via `vo_archive_list`.
     - `schemas` — curated per-table `Schema` facts for this archive. Surfaced
       via `vo_schema_describe`; not echoed by `vo_archive_list`.
+    - `count_target` — optional CountTarget: how to build a positional COUNT
+      for this archive's primary table (used by vo_count_observations /
+      vo_survey_target). None ⇒ not directly countable (still reachable via
+      the atomic tools).
     - `priority` — ascending sort key (ties broken by short_name). The explicit
       replacement for the old "declaration order is load-bearing" convention:
       the first TAP-having archives become the endpoint examples shown to the
@@ -162,6 +167,7 @@ class Archive:
     notable_tables: tuple[str, ...] = field(default_factory=tuple)
     usage_notes: tuple[Note, ...] = field(default_factory=tuple)
     schemas: tuple[Schema, ...] = field(default_factory=tuple)
+    count_target: CountTarget | None = None
     priority: int = 100
 
     def __post_init__(self) -> None:

@@ -202,6 +202,55 @@ def strip_cheatsheet(description: str) -> str:
 # descriptions or the model's own priors — the clean test for experiment (a).
 _DISCOVERY_TOOLS = {"vo_archive_list", "vo_schema_describe"}
 
+# Env-driven tool-ablation seam: EVAL_EXCLUDE_TOOLS is a comma-separated list of
+# tool names withheld from the agent's tool surface for a with/without value-add
+# A/B (e.g. the purpose-built facades vo_count_observations,vo_survey_target,
+# vo_inspect_table). Read per call so a single process picks up the current env;
+# unset/empty => nothing excluded (default = the full shipped tool set).
+_EXCLUDE_TOOLS_ENV = "EVAL_EXCLUDE_TOOLS"
+
+
+def _excluded_tools() -> set[str]:
+    raw = os.getenv(_EXCLUDE_TOOLS_ENV, "")
+    return {name.strip() for name in raw.split(",") if name.strip()}
+
+
+# Markers of a TRANSIENT endpoint failure (shared vLLM connection blip / timeout)
+# — distinct from a real model/tool error. Matched on the exception's class name +
+# message so we don't depend on a specific SDK's exception classes. A run that hits
+# one of these is retried rather than scored as a task failure, which otherwise
+# silently biases an ablation arm that happens to run during a flaky window.
+_TRANSIENT_MARKERS = (
+    "APIConnectionError",
+    "APITimeoutError",
+    "Connection error",
+    "timed out",
+    "Timeout",
+    "Overloaded",
+)
+
+
+def _is_transient(exc: BaseException) -> bool:
+    s = f"{type(exc).__name__}: {exc}"
+    return any(m in s for m in _TRANSIENT_MARKERS)
+
+
+async def _complete_with_retry(
+    model, system, convo, tools, *, attempts: int = 3, backoff: float = 2.0
+):
+    """`model.complete`, retried on transient endpoint errors with linear backoff.
+
+    Non-transient exceptions propagate immediately; the last attempt re-raises so a
+    persistent outage still surfaces as the run's error (never silently swallowed).
+    """
+    for i in range(attempts):
+        try:
+            return await model.complete(system, convo, tools)
+        except Exception as exc:  # noqa: BLE001 — re-raised unless transient + attempts left
+            if i == attempts - 1 or not _is_transient(exc):
+                raise
+            await asyncio.sleep(backoff * (i + 1))
+
 
 def _anthropic_tools(
     mcp_tools, inject_notes: bool = True, no_discovery: bool = False
@@ -213,10 +262,15 @@ def _anthropic_tools(
       False STRIPS it, which is how experiment (a) isolates the injection's value.
     - ``no_discovery``: withhold the curated-knowledge tools (vo_archive_list,
       vo_schema_describe) so the model can't consult them.
+    - ``EVAL_EXCLUDE_TOOLS`` (env): additionally withhold any named tools — the
+      seam for the purpose-built-tools value-add A/B (with vs without).
     """
+    excluded = _excluded_tools()
     out = []
     for t in mcp_tools:
         if no_discovery and t.name in _DISCOVERY_TOOLS:
+            continue
+        if t.name in excluded:
             continue
         desc = t.description or ""
         if not inject_notes and t.name == "vo_tap_query":
@@ -308,7 +362,7 @@ async def run_task(
                 convo: list[dict[str, Any]] = [{"role": "user", "text": task["prompt"]}]
                 for step in range(max_steps):
                     run.steps = step + 1
-                    comp = await model.complete(SYSTEM_PROMPT, convo, tools)
+                    comp = await _complete_with_retry(model, SYSTEM_PROMPT, convo, tools)
                     run.input_tokens += comp.input_tokens
                     run.output_tokens += comp.output_tokens
                     convo.append(

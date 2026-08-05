@@ -1,6 +1,7 @@
 """ALMA Science Archive."""
 
 from manna.archives._audit import Audit
+from manna.archives._count import CountTarget, IntersectsRegion
 from manna.archives._model import Archive, Note, Schema, Trap
 
 ARCHIVE = Archive(
@@ -441,6 +442,12 @@ ARCHIVE = Archive(
             ),
             cross_refs=(("alma", "ivoa.obscore"),),
         ),
+    ),
+    count_target=CountTarget(
+        table="ivoa.obscore",
+        geometry=IntersectsRegion("s_region"),
+        count_expr="COUNT(DISTINCT member_ous_uid)",
+        mode="sync",
     ),
     priority=20,
 )

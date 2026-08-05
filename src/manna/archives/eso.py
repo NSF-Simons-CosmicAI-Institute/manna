@@ -1,6 +1,7 @@
 """ESO Science Archive."""
 
 from manna.archives._audit import Audit
+from manna.archives._count import ContainsPoint, CountTarget
 from manna.archives._model import Archive, Note
 
 ARCHIVE = Archive(
@@ -34,6 +35,12 @@ ARCHIVE = Archive(
             ),
             audit=Audit.manual("Advisory about curation coverage — not a single-probe check."),
         ),
+    ),
+    count_target=CountTarget(
+        table="ivoa.ObsCore",
+        geometry=ContainsPoint("s_ra", "s_dec"),
+        count_expr="COUNT(*)",
+        mode="auto",
     ),
     priority=40,
 )

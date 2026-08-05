@@ -21,3 +21,14 @@ def test_obscore_note_audit():
     # The probe deliberately uses the lowercase spelling: it verifies the
     # note's claim that table-name case does NOT matter here.
     assert "ivoa.obscore" in note.audit.adql
+
+
+def test_eso_count_target():
+    from manna.archives._count import ContainsPoint, CountTarget
+
+    ct = ARCHIVE.count_target
+    assert isinstance(ct, CountTarget)
+    assert ct.table == "ivoa.ObsCore"
+    assert ct.geometry == ContainsPoint("s_ra", "s_dec")
+    assert ct.count_expr == "COUNT(*)"
+    assert ct.mode == "auto"

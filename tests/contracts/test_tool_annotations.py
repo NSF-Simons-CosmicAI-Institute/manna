@@ -13,7 +13,7 @@ _LOCAL_TOOLS = {"vo_archive_list"}
 async def test_all_tools_are_annotated_read_only():
     async with Client(build_mcp()) as client:
         tools = await client.list_tools()
-        assert len(tools) == 12
+        assert len(tools) == 15
         for t in tools:
             ann = t.annotations
             assert ann is not None, f"{t.name} missing annotations"

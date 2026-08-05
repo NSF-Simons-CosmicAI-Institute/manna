@@ -1,6 +1,7 @@
 """ESA Gaia Archive."""
 
 from manna.archives._audit import Audit
+from manna.archives._count import ContainsPoint, CountTarget
 from manna.archives._model import Archive, Note
 
 ARCHIVE = Archive(
@@ -51,6 +52,12 @@ ARCHIVE = Archive(
                 "the data model, not a single falsifiable probe."
             ),
         ),
+    ),
+    count_target=CountTarget(
+        table="gaiadr3.gaia_source",
+        geometry=ContainsPoint("ra", "dec"),
+        count_expr="COUNT(*)",
+        mode="sync",
     ),
     priority=60,
 )

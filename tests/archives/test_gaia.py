@@ -25,3 +25,14 @@ def test_gaia_ari_is_scs_only():
     assert GAIA_ARI.short_name == "gaia_ari"
     assert GAIA_ARI.scs_url == "https://gaia.ari.uni-heidelberg.de/cone/gaiadr2?"
     assert GAIA_ARI.tap_url is None and GAIA_ARI.sia_url is None
+
+
+def test_gaia_count_target():
+    from manna.archives._count import ContainsPoint, CountTarget
+
+    ct = GAIA.count_target
+    assert isinstance(ct, CountTarget)
+    assert ct.table == "gaiadr3.gaia_source"
+    assert ct.geometry == ContainsPoint("ra", "dec")
+    assert ct.count_expr == "COUNT(*)"
+    assert ct.mode == "sync"

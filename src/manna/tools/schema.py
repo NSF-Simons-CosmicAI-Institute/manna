@@ -59,7 +59,7 @@ def _column_recipe(table: str) -> str:
     return f"SELECT column_name, datatype FROM tap_schema.columns WHERE table_name = '{table}'"
 
 
-def _fetch_columns(endpoint: str, table: str) -> list[dict] | None:
+def _fetch_columns(endpoint: str, table: str, *, tap: TapClient | None = None) -> list[dict] | None:
     """Live column list for one table, or None if the archive could not answer.
 
     None means "we could not look" — the caller degrades to the recipe. An empty
@@ -70,11 +70,16 @@ def _fetch_columns(endpoint: str, table: str) -> list[dict] | None:
     'adql:DOUBLE', alma 'int', nrao 'votable:char' — different TAP_SCHEMA
     versions) and an LLM reads all three fine, so normalizing would buy nothing
     while adding a mapping to maintain and a way to be wrong about a type.
+
+    `tap` lets a caller in another module (tools/inspect.py) inject its own
+    (patchable) TapClient instead of going through this module's private
+    `_get_tap()` singleton — otherwise a test that monkeypatches the caller's
+    `_get_tap` would silently miss this call, since the imported function
+    closes over *this* module's globals, not the importer's.
     """
+    client = tap if tap is not None else _get_tap()
     try:
-        rows = _get_tap().query(
-            endpoint=endpoint, adql=_column_recipe(table), maxrec=_COLUMN_MAXREC
-        )
+        rows = client.query(endpoint=endpoint, adql=_column_recipe(table), maxrec=_COLUMN_MAXREC)
     except Exception:  # noqa: BLE001 - any failure degrades to the recipe
         return None
     return [{"name": str(row[0]), "datatype": str(row[1])} for row in rows]

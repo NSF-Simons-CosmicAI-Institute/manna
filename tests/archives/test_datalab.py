@@ -42,3 +42,14 @@ def test_geometry_note_audits_expect_error():
     notes = {n.id: n for n in ARCHIVE.usage_notes}
     assert notes["geometry-contains-untranslated"].audit.expect == "error"
     assert notes["geometry-q3c-literal-ok"].audit.expect == "ok"
+
+
+def test_datalab_count_target():
+    from manna.archives._count import CountTarget, Q3CRadial
+
+    ct = ARCHIVE.count_target
+    assert isinstance(ct, CountTarget)
+    assert ct.table == "nsc_dr2.object"
+    assert ct.geometry == Q3CRadial("ra", "dec")
+    assert ct.count_expr == "COUNT(*)"
+    assert ct.mode == "sync"

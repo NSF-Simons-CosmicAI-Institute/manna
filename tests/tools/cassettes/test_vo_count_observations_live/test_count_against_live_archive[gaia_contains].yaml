@@ -1,0 +1,198 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Connection:
+      - close
+      Host:
+      - cds.unistra.fr
+      User-Agent:
+      - astropy
+    method: GET
+    uri: https://cds.unistra.fr/cgi-bin/nph-sesame/SNV?NGC%20253
+  response:
+    body:
+      string: "# NGC 253\t#Q689814\n#=Sc=Simbad (CDS, via client/server):    1     0ms
+        (from cache)\n%@ @1259816\n%C.0 SyG\n%J 11.88805833 -25.28880000 = 00 47 33.134
+        \ -25 17 19.68 \n%J.E [~ ~ ] C 2006AJ....131.1163S\n%V v 258.8 C [~] 2004MNRAS.350.1195M\n%T
+        SAB(s)c D 2015MNRAS.446..943V\n%M.B 8.03 [0.03]  C 2014MNRAS.445..881C\n%M.R
+        6.94 [0.03]  C 2014MNRAS.445..881C\n%M.I 8.1 [~]  D 2005MNRAS.361...34D\n%M.J
+        4.814 [0.016]  C 2006AJ....131.1163S\n%M.H 4.088 [0.016]  C 2006AJ....131.1163S\n%M.K
+        3.772 [0.017]  C 2006AJ....131.1163S\n%I.0 NGC   253\n#B 3612\n\n\n\n#====Done
+        (2026-Jul-21,15:14:01z)====\n"
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - close
+      Content-Length:
+      - '572'
+      Content-Type:
+      - text/plain
+      Date:
+      - Tue, 21 Jul 2026 15:14:01 GMT
+      Server:
+      - Apache/2.4.66 (Unix)
+    status:
+      code: 200
+      message: OK
+- request:
+    body: REQUEST=doQuery&LANG=ADQL&MAXREC=1&QUERY=SELECT+COUNT%28%2A%29+AS+n+FROM+gaiadr3.gaia_source+WHERE+CONTAINS%28POINT%28%27ICRS%27%2C+ra%2C+dec%29%2C+CIRCLE%28%27ICRS%27%2C+11.88805833%2C+-25.2888%2C+0.05%29%29+%3D+1
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '214'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - python-requests/2.34.2
+    method: POST
+    uri: https://gea.esac.esa.int/tap-server/tap/sync
+  response:
+    body:
+      string: '<?xml version="1.0" encoding="UTF-8"?>
+
+        <VOTABLE version="1.4" xmlns="http://www.ivoa.net/xml/VOTable/v1.3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/votable-1.4.xsd">
+
+        <RESOURCE type="results">
+
+
+        <INFO name="JOBID" value="ce71e31b-8516-11f1-982e-bc97e148b76b-O" ucd="meta.id;meta.query"/>
+
+        <INFO name="JOBNAME" value=""/>
+
+        <INFO name="QUERY_STATUS" value="OK"/>
+
+        <INFO name="QUERY" value="SELECT COUNT(*) AS n FROM gaiadr3.gaia_source WHERE
+        CONTAINS(POINT(&#039;ICRS&#039;, ra, dec), CIRCLE(&#039;ICRS&#039;, 11.88805833,
+        -25.2888, 0.05)) = 1" ucd="meta.query"/>
+
+
+        <PARAM name="CITATION" ucd="meta.bib" datatype="char" arraysize="*" value="https://www.cosmos.esa.int/web/gaia-users/credits">
+
+        <DESCRIPTION>How to cite and acknowledge Gaia:</DESCRIPTION>
+
+        </PARAM>
+
+        <PARAM name="RELEASE" ucd="meta.version" datatype="char" arraysize="*" value="Gaia
+        DR3">
+
+        <DESCRIPTION>Gaia data release</DESCRIPTION>
+
+        </PARAM>
+
+        <PARAM name="HELP" ucd="meta.ref.url" datatype="char" arraysize="*" value="https://www.cosmos.esa.int/web/gaia-users/archive">
+
+        <DESCRIPTION>Tutorials, documentation, and help:</DESCRIPTION>
+
+        </PARAM>
+
+        <PARAM name="ISSUES" ucd="meta.ref.url" datatype="char" arraysize="*" value="https://www.cosmos.esa.int/web/gaia-users/known-issues">
+
+        <DESCRIPTION>Known issues in the data:</DESCRIPTION>
+
+        </PARAM>
+
+        <PARAM name="DATA" ucd="meta.ref.url" datatype="char" arraysize="*" value="https://www.cosmos.esa.int/web/gaia/data-access">
+
+        <DESCRIPTION>Gaia data:</DESCRIPTION>
+
+        </PARAM>
+
+        <PARAM name="TERMS" ucd="meta.ref.url" datatype="char" arraysize="*" value="https://www.cosmos.esa.int/web/esdc/terms-and-conditions">
+
+        <DESCRIPTION>Terms and conditions for use of Gaia data:</DESCRIPTION>
+
+        </PARAM>
+
+        <PARAM name="HOME" ucd="meta.ref.url" datatype="char" arraysize="*" value="https://www.cosmos.esa.int/web/gaia">
+
+        <DESCRIPTION>Gaia mission home:</DESCRIPTION>
+
+        </PARAM>
+
+        <PARAM name="PUBLISHER" ucd="meta.id;meta.curation" datatype="char" arraysize="*"
+        value="ESA/Gaia/DPAC">
+
+        <DESCRIPTION>Dataset publisher</DESCRIPTION>
+
+        </PARAM>
+
+        <PARAM name="CREATOR" ucd="meta.ref" datatype="char" arraysize="*" value="Gaia
+        Collaboration">
+
+        <DESCRIPTION>Dataset creator</DESCRIPTION>
+
+        </PARAM>
+
+
+
+        <TABLE>
+
+        <FIELD datatype="long" name="n"/>
+
+        <DATA>
+
+        <BINARY2>
+
+        <STREAM encoding=''base64''>
+
+        AAAAAAAAAAJk
+
+        </STREAM>
+
+        </BINARY2>
+
+        </DATA>
+
+        </TABLE>
+
+        <INFO name="QUERY_STATUS" value="OVERFLOW"/>
+
+
+        </RESOURCE>
+
+        </VOTABLE>
+
+        '
+    headers:
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Connection:
+      - Keep-Alive
+      Content-Disposition:
+      - attachment;filename="ce71e31b-8516-11f1-982e-bc97e148b76b-O-result.vot"
+      Content-Type:
+      - application/x-votable+xml
+      Date:
+      - Tue, 21 Jul 2026 15:14:02 GMT
+      Expires:
+      - '0'
+      Keep-Alive:
+      - timeout=5, max=100
+      Pragma:
+      - no-cache
+      Server:
+      - Apache/2.4.62 (Red Hat Enterprise Linux) OpenSSL/3.5.5 mod_jk/1.2.50
+      Set-Cookie:
+      - JSESSIONID=9AF659BE927F02B9F29DD4AAE5DC4D58; Path=/tap-server; Secure; HttpOnly
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: '200'
+version: 1

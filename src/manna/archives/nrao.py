@@ -1,6 +1,7 @@
 """NRAO Science Data Archive."""
 
 from manna.archives._audit import Audit
+from manna.archives._count import ContainsPoint, CountTarget
 from manna.archives._model import Archive, Note, Schema, Trap
 
 ARCHIVE = Archive(
@@ -310,6 +311,12 @@ ARCHIVE = Archive(
                 ),
             ),
         ),
+    ),
+    count_target=CountTarget(
+        table="tap_schema.obscore",
+        geometry=ContainsPoint("s_ra", "s_dec"),
+        count_expr="COUNT(*)",
+        mode="async",
     ),
     priority=30,
 )

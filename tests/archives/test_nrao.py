@@ -74,3 +74,14 @@ def test_load_dependent_claims_are_manual_not_probed():
 def test_lower_upper_note_is_probeable():
     notes = {n.id: n for n in ARCHIVE.usage_notes}
     assert notes["lower-upper-fail"].audit.expect == "error"
+
+
+def test_nrao_count_target():
+    from manna.archives._count import ContainsPoint, CountTarget
+
+    ct = ARCHIVE.count_target
+    assert isinstance(ct, CountTarget)
+    assert ct.table == "tap_schema.obscore"
+    assert ct.geometry == ContainsPoint("s_ra", "s_dec")
+    assert ct.count_expr == "COUNT(*)"
+    assert ct.mode == "async"

@@ -1,6 +1,7 @@
 """NOIRLab Astro Data Lab archive."""
 
 from manna.archives._audit import Audit
+from manna.archives._count import CountTarget, Q3CRadial
 from manna.archives._model import Archive, Note, Schema, Trap
 
 ARCHIVE = Archive(
@@ -262,6 +263,12 @@ ARCHIVE = Archive(
                 ),
             ),
         ),
+    ),
+    count_target=CountTarget(
+        table="nsc_dr2.object",
+        geometry=Q3CRadial("ra", "dec"),
+        count_expr="COUNT(*)",
+        mode="sync",
     ),
     priority=10,
 )
