@@ -1,0 +1,39 @@
+name: release
+
+on:
+  release:
+    types: [released]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  RELEASE_TAG: ${{ github.ref_name }}
+
+jobs:
+  release-docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Generate short hash
+        run: echo "BUILD_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Log into ${{ env.REGISTRY }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the packaged image for this commit
+        run: docker pull "$REGISTRY/$IMAGE_NAME:$BUILD_SHA"
+
+      - name: Retag + push release and latest
+        run: |
+          docker tag "$REGISTRY/$IMAGE_NAME:$BUILD_SHA" "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
+          docker push "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
+          docker tag "$REGISTRY/$IMAGE_NAME:$BUILD_SHA" "$REGISTRY/$IMAGE_NAME:latest"
+          docker push "$REGISTRY/$IMAGE_NAME:latest"

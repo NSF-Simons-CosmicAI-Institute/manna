@@ -1,0 +1,68 @@
+name: package
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}   # ghcr.io/<owner>/manna after any rename/transfer
+
+on:
+  push:
+    branches:
+      - main
+      - 'hotfix-*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  package-docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate short hash + image tag
+        run: |
+          echo "SHA_SHORT=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Log into ${{ env.REGISTRY }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        run: docker build --file Dockerfile --tag "$IMAGE_TAG" .
+
+      - name: Start server
+        run: docker run -d --rm -p 8000:8000 --name manna "$IMAGE_TAG"
+
+      - name: Health check
+        id: healthcheck
+        run: |
+          # shellcheck disable=SC2034
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://localhost:8000/health
+
+      - name: Inspector smoke
+        run: |
+          npx -y @modelcontextprotocol/inspector \
+            --cli http://localhost:8000/mcp --method tools/list | tee inspector.json
+          grep -q '"name": "vo_tap_query"' inspector.json
+
+      - name: Container logs (always)
+        if: always()
+        run: docker logs manna || true
+
+      - name: Push pre-release tag
+        if: steps.healthcheck.outcome == 'success'
+        run: docker push "$IMAGE_TAG"
+
+      - name: Stop container
+        if: always()
+        run: docker stop manna || true
