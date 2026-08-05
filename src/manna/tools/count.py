@@ -17,7 +17,7 @@ from manna.archives._model import note_texts
 from manna.backends.tap import TapClient
 from manna.config import get_settings
 from manna.errors import (
-    ArchiveError,
+    DalQueryError,
     TimeoutArchiveError,
     ValidationError,
     wrap_tool_errors,
@@ -74,10 +74,21 @@ def _run_count_async(*, endpoint: str, adql: str) -> dict:
             job.raise_if_error()
             table = job.fetch_result().to_table()
             return {"status": "ok", "count": _extract_count(table), "job_url": None}
-        if phase in ("ERROR", "ABORTED"):
-            raise ArchiveError(
-                message=f"async count job ended in phase {phase}",
-                retry_strategy="wait_and_retry",
+        if phase == "ERROR":
+            # Mirror vo_tap_results' mapping in tools/tap.py: ERROR is a query
+            # the archive understood and rejected, so it's tap_query_error /
+            # fix_and_retry, not a generic archive_error that tells the model
+            # to sleep and re-issue a doomed query. error_summary is accessed
+            # via getattr (no pyvo import here — see backends/tap.py).
+            es = getattr(job, "error_summary", None)
+            msg = getattr(es, "message", None) if es is not None else None
+            raise DalQueryError(message=msg or f"async count job ended in phase {phase}")
+        if phase == "ABORTED":
+            # The job is dead and will never complete; wait_and_retry would
+            # loop the model forever polling it.
+            raise ValidationError(
+                message="Async count job was aborted; re-submit if you still want results.",
+                retry_strategy="abandon",
             )
         _sleep(interval)
         waited += interval

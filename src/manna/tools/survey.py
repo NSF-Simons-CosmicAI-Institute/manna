@@ -104,6 +104,11 @@ def vo_survey_target(
                 row.update(status="ok", count=res["count"])
         except ToolExecutionError as err:
             row.update(status="error", count=None, error=err.message)
+        except Exception as err:  # noqa: BLE001 — per-archive isolation: a raw
+            # exception from one archive's count (e.g. a live pyvo error
+            # escaping count.py's async poll loop) must not take down the
+            # whole multi-archive survey; see module docstring.
+            row.update(status="error", count=None, error=str(err))
         rows.append(row)
 
     with_data = sum(1 for r in rows if r.get("status") == "ok" and (r.get("count") or 0) > 0)

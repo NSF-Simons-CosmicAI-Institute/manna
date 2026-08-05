@@ -138,6 +138,61 @@ def test_async_completes_within_budget(monkeypatch):
     assert tap.submitted  # went async
 
 
+class _FakeErrorSummary:
+    def __init__(self, message):
+        self.message = message
+
+
+def test_async_error_phase_maps_to_tap_query_error(monkeypatch):
+    """ERROR must surface as tap_query_error/fix_and_retry carrying the
+    upstream job.error_summary.message — mirroring vo_tap_results' mapping
+    in tools/tap.py — not a generic archive_error/wait_and_retry that tells
+    the model to sleep and re-issue a doomed query.
+    """
+    archives = (
+        _archive("nrao", waveband="radio", mode="async", geom=ContainsPoint("s_ra", "s_dec")),
+    )
+    monkeypatch.setattr(sel, "active_archives", lambda: archives)
+    monkeypatch.setattr(
+        sel, "get_resolver", lambda: type("R", (), {"resolve": lambda s, n: (200.0, 20.0)})()
+    )
+    tap = _FakeTap()
+    job = _FakeJob(["ERROR"])
+    job.error_summary = _FakeErrorSummary("unknown column obs_id in obscore")
+    tap._job = job
+    monkeypatch.setattr(count_mod, "_get_tap", lambda: tap)
+    monkeypatch.setattr(count_mod, "_sleep", lambda s: None)
+
+    out = count_mod.vo_count_observations(target="200.0 20.0", waveband="radio")
+
+    assert out["error_class"] == "tap_query_error"
+    assert out["retry_strategy"] == "fix_and_retry"
+    assert "unknown column obs_id in obscore" in out["message"]
+
+
+def test_async_aborted_phase_maps_to_validation_error(monkeypatch):
+    """ABORTED must surface as validation_error/abandon — the job is dead,
+    telling the model to wait_and_retry (the pre-fix behavior) would loop
+    it forever polling a job that will never complete.
+    """
+    archives = (
+        _archive("nrao", waveband="radio", mode="async", geom=ContainsPoint("s_ra", "s_dec")),
+    )
+    monkeypatch.setattr(sel, "active_archives", lambda: archives)
+    monkeypatch.setattr(
+        sel, "get_resolver", lambda: type("R", (), {"resolve": lambda s, n: (200.0, 20.0)})()
+    )
+    tap = _FakeTap()
+    tap._job = _FakeJob(["ABORTED"])
+    monkeypatch.setattr(count_mod, "_get_tap", lambda: tap)
+    monkeypatch.setattr(count_mod, "_sleep", lambda s: None)
+
+    out = count_mod.vo_count_observations(target="200.0 20.0", waveband="radio")
+
+    assert out["error_class"] == "validation_error"
+    assert out["retry_strategy"] == "abandon"
+
+
 def test_async_budget_exhausted_returns_pending(monkeypatch):
     archives = (
         _archive("nrao", waveband="radio", mode="async", geom=ContainsPoint("s_ra", "s_dec")),
