@@ -1,0 +1,5 @@
+{
+  "permissions": {
+    "allow": ["mcp__manna", "mcp__Jupyter_MCP_Server"]
+  }
+}

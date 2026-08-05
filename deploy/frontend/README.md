@@ -36,12 +36,17 @@ docker compose --profile hub up --build
 
 ## Configuration (`.env`)
 
-- **Model backend:** point `ANTHROPIC_BASE_URL` at the **datalab nginx proxy**
-  (`https://datalab.noirlab.edu/astro-archives-mcp`) and put the Basic-auth
-  credential in `ANTHROPIC_CUSTOM_HEADERS` (`Authorization: Basic <base64>`).
-  **Do NOT set `ANTHROPIC_AUTH_TOKEN`** — it injects a `Bearer` header that
-  collides with the Basic header and nginx 401s (see `.env.example` for the full
-  note). Leave `ANTHROPIC_BASE_URL` blank to fall back to **hosted Claude**.
+- **Model backend:** depends on where you are relative to the Astro Data Lab network.
+  - *Off-network* (laptop, CI): `ANTHROPIC_BASE_URL` at the **datalab nginx proxy**
+    (`https://datalab.noirlab.edu/astro-archives-mcp`), Basic-auth credential in
+    `ANTHROPIC_CUSTOM_HEADERS` (`Authorization: Basic <base64>`). **Do NOT set
+    `ANTHROPIC_AUTH_TOKEN`** — it injects a `Bearer` header that collides with the
+    Basic header and nginx 401s (see `.env.example`).
+  - *On the ADL network* (gp12): point straight at vLLM,
+    `http://dlai01.csdc.noirlab.edu:8002` — no proxy, no Basic auth, and so no header
+    collision. See `../gp12-runbook.md`.
+  - Either way `ANTHROPIC_API_KEY=dummy` is required (Claude Code's own login-state
+    check). Leave `ANTHROPIC_BASE_URL` blank to fall back to **hosted Claude**.
 - `ANTHROPIC_DEFAULT_*_MODEL` must match vLLM's served model name (local backend
   only; comment out for hosted Claude).
 - `CLAUDE_CODE_MAX_OUTPUT_TOKENS` caps output to fit the served window (runbook Gotcha 4).
@@ -52,9 +57,8 @@ docker compose --profile hub up --build
 ## How it maps to the tools
 
 - **MCP** is a shared service at `http://mcp:8000/mcp/` (see `mcp_settings.json`, baked
-  into the frontend image at `~/.jupyter/`). Simple for local dev (Topology B).
-  gp12 may instead **colocate** MCP inside each user image (Topology A,
-  `../../docs/examples/gp12/`) — the persona config is otherwise identical.
+  into the frontend image at `~/.jupyter/`). One deployment serves every user
+  container — the same topology gp12 uses (`../gp12-runbook.md`).
 - **Persona** = `claude-agent-acp` wrapping the `claude` CLI; reads the model endpoint
   from the injected `ANTHROPIC_*` env. The image **rebrands it as `@CosmicCoder`**
   (CosmicAI) by patching the pinned persona's display name/avatar in place — behavior is
@@ -63,10 +67,18 @@ docker compose --profile hub up --build
 
 ## Lifting to gp12
 
-Same images. On gp12, ADL ops point their JupyterHub's single-user image at this
-frontend image (or the colocated `docs/examples/gp12/` variant) and inject the same
-`ANTHROPIC_*` env for the model + the MCP `mcp_settings.json`. The `chat` mode is a
-faithful stand-in for a single spawned user session.
+**This stack does not lift to gp12 as-is** — only the `mcp` service does. gp12 runs its
+own JupyterHub (bare metal, `LocalProcessSpawner`, Data Lab auth) with jupyter-ai
+already installed, so there is no single-user image to point at and no hub of ours to
+deploy. There, MANNA runs as a container on host loopback, the persona is configured
+through a system-level `jupyter_server_config.py`, and `CLAUDE.md` / tool pre-approval
+ship via Claude Code's managed-policy directory — not files baked into an image.
+
+`CLAUDE.md` here and `../gp12/claude-code/CLAUDE.md` are the same content by two delivery
+routes; keep them in step.
+
+So treat this directory as **local development** plus the source of the `mcp` container.
+The real deployment is in `../gp12-runbook.md`, validated end-to-end on gp12 2026-07-30.
 
 ## Status / caveats
 

@@ -1,0 +1,35 @@
+# MANNA MCP server on gp12 — systemd unit.
+#
+#   sudo cp manna.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now manna
+#   curl -fsS http://127.0.0.1:8000/health
+#
+# Replace the image tag below with the one actually built. No release tag exists
+# yet, so pin to a commit:
+#   cd /data0/sw/manna && SHA=$(git rev-parse --short HEAD)
+#   docker build -t manna:0.5.0-$SHA .
+#
+# Loopback-only is deliberate: gp12 uses LocalProcessSpawner, so every user server
+# is a process on this host and shares its loopback. Binding wider would expose the
+# tools off-host for no benefit.
+#
+# See ../gp12-runbook.md.
+
+[Unit]
+Description=MANNA MCP server (IVOA archive tools for Jupyter AI)
+Documentation=https://github.com/dangause/manna
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+RestartSec=5
+ExecStartPre=-/usr/bin/docker rm -f manna
+ExecStart=/usr/bin/docker run --rm --name manna \
+  -p 127.0.0.1:8000:8000 \
+  -e MANNA_HOST=0.0.0.0 -e MANNA_PORT=8000 -e MANNA_DEPLOYMENT=adl \
+  manna:0.5.0-4f891d9
+ExecStop=/usr/bin/docker stop manna
+
+[Install]
+WantedBy=multi-user.target
