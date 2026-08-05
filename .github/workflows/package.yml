@@ -36,10 +36,9 @@ jobs:
         run: docker build --file Dockerfile --tag "$IMAGE_TAG" .
 
       - name: Start server
-        run: docker run -d --rm -p 8000:8000 --name manna "$IMAGE_TAG"
+        run: docker run -d -p 8000:8000 --name manna "$IMAGE_TAG"
 
       - name: Health check
-        id: healthcheck
         run: |
           # shellcheck disable=SC2034
           for i in $(seq 1 30); do

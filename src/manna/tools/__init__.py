@@ -1,13 +1,19 @@
 """IVOA tools (sync, inline tier).
 
 One tool per IVOA standard, split by protocol:
-* TAP: tools.tap (vo_tap_query)
+* TAP: tools.tap (vo_tap_query, vo_tap_status, vo_tap_results, vo_tap_abort)
 * Cone Search: tools.cone (vo_cone_search)
 * Simple Image Access: tools.sia (vo_sia_search)
 * Registry: tools.registry (vo_registry_search, vo_registry_describe)
 * Archive directory: tools.archives (vo_archive_list)
 * Schema KB: tools.schema (vo_schema_describe)
 * Target resolver: tools.resolver (vo_target_resolve)
+
+Facade tools (combine multiple protocols for single-call workflows):
+* tools.count (vo_count_observations)
+* tools.survey (vo_survey_target)
+* tools.inspect (vo_inspect_table)
+* tools.find_observations (vo_find_observations)
 """
 
 # Re-exports so `from manna.tools import vo_tap_query` still works.

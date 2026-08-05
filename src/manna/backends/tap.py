@@ -114,14 +114,14 @@ class TapClient:
     ) -> str:
         """Submit a TAP query as an async UWS job and start execution.
 
-        Returns the absolute job_url. The caller is responsible for
-        storing it (e.g. in JobStore) — this method holds no state.
+        Returns the absolute job_url. The caller (the LLM client holding
+        the returned job_url) is the job's lifetime owner; this method
+        records no server-side state.
 
         IMPORTANT: pyvo's AsyncTAPJob defaults to delete=True, which
         registers an atexit-style cleanup that DELETEs the upstream job
         when the Python object is garbage-collected. We MUST disable
-        that — our JobStore is the lifetime owner, not the in-memory
-        object. Setting `_delete_on_exit = False` before the local
+        that. Setting `_delete_on_exit = False` before the local
         reference falls out of scope prevents the upstream job from
         being silently destroyed between tool calls.
         """

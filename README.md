@@ -37,7 +37,7 @@ The recommended LLM workflow for a positional query:
 
 ```bash
 uv sync
-uv run pytest --record-mode=none        # 651 tests, offline replay
+uv run pytest --record-mode=none        # 657 tests, offline replay
 uv run python -m manna                  # server on http://localhost:8000
 ```
 
