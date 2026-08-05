@@ -5,16 +5,13 @@ def test_settings_defaults():
     s = Settings(_env_file=None)
     assert s.host == "0.0.0.0"
     assert s.port == 8000
-    assert s.deployment == "local"
     assert s.log_level == "INFO"
 
 
 def test_settings_env_override(monkeypatch):
     monkeypatch.setenv("MANNA_PORT", "9001")
-    monkeypatch.setenv("MANNA_DEPLOYMENT", "adl")
     s = Settings(_env_file=None)
     assert s.port == 9001
-    assert s.deployment == "adl"
 
 
 def test_settings_has_tap_sync_timeout_default_20s():

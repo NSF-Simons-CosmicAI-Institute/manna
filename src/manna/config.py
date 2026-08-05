@@ -15,7 +15,6 @@ class Settings(BaseSettings):
 
     host: str = "0.0.0.0"
     port: int = 8000
-    deployment: Literal["local", "adl", "tacc"] = "local"
     # Optional comma-separated allow-list of archive short_names
     # (e.g. "datalab,alma"). Unset/empty => every archive physically present in
     # the `archives/` package is active. See archives/__init__.py and

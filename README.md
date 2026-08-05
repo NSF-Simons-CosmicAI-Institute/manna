@@ -73,7 +73,6 @@ All settings are optional — defaults work for local dev. Set via environment v
 |---|---|---|
 | `MANNA_PORT` | `8000` | HTTP listen port |
 | `MANNA_HOST` | `0.0.0.0` | Bind address |
-| `MANNA_DEPLOYMENT` | `local` | `local` / `adl` / `tacc` |
 | `MANNA_LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 | `MANNA_TAP_SYNC_TIMEOUT_SECONDS` | `20.0` | Timeout for sync TAP queries |
 | `MANNA_ALLOWED_HOSTS` | *(unset)* | Comma-separated hostnames the server may fetch (exact or subdomain match). Unset ⇒ any **public** host; private/loopback/link-local targets are refused regardless |

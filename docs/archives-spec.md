@@ -182,10 +182,6 @@ honor a mid-process re-selection. Consumers of the derived helpers:
    MANNA_ARCHIVES=                  # unset/empty => all discovered
    ```
 
-Optional sugar (future, **not built**): map `MANNA_DEPLOYMENT`
-(`local|adl|tacc`) to preset allow-sets when `MANNA_ARCHIVES` is unset —
-deliberately deferred until a deployment needs it (a small dict + one branch in
-`archives/__init__.py`).
 
 Behavior on odd input (never crash the server): unknown name → logged warning,
 ignored; empty result → prominent warning, still boots; duplicate `short_name`
