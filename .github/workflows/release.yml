@@ -10,16 +10,19 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
   RELEASE_TAG: ${{ github.ref_name }}
 
 jobs:
   release-docker:
+    # Note: release must be cut AFTER package.yml completes on this commit.
+    # This job pulls the :sha7 image that package.yml pushed; premature release fails with "manifest unknown".
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Generate short hash
-        run: echo "BUILD_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - name: Lowercase image name + generate short hash
+        run: |
+          echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+          echo "BUILD_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
       - name: Log into ${{ env.REGISTRY }}
         uses: docker/login-action@v3
