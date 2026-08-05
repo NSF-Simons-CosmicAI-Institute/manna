@@ -1,6 +1,6 @@
 """Content assertions for the Sloan Digital Sky Survey."""
 
-from astro_archives_mcp.archives.sdss import ARCHIVE
+from manna.archives.sdss import ARCHIVE
 
 
 def test_identity():

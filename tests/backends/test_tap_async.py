@@ -10,7 +10,7 @@ To re-record: uv run pytest tests/backends/test_tap_async.py -k <name>
 
 import pytest
 
-from astro_archives_mcp.backends.tap import TapClient
+from manna.backends.tap import TapClient
 
 ESO_TAP = "https://archive.eso.org/tap_obs"
 SHORT_ADQL = (

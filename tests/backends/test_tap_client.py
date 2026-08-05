@@ -1,7 +1,7 @@
 import pytest
 
-from astro_archives_mcp.backends.tap import TapClient
-from astro_archives_mcp.errors import DalQueryError
+from manna.backends.tap import TapClient
+from manna.errors import DalQueryError
 
 SMASH_TAP = "https://datalab.noirlab.edu/tap"
 SAFE_ADQL = "SELECT TOP 3 ra, dec FROM smash_dr2.object WHERE ra BETWEEN 185 AND 185.01 ORDER BY ra"

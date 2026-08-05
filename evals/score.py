@@ -241,7 +241,7 @@ _JUDGE_SYSTEM = (
 def _extract_verdict(text: str) -> dict | None:
     """Pull the JSON verdict out of a judge reply, tolerating preamble/reasoning.
 
-    Reasoning models (e.g. Qwen3.5) often emit a "Thinking Process:" preamble
+    Some reasoning models often emit a "Thinking Process:" preamble
     before the JSON. Scan for balanced {...} objects and return the last one that
     parses and carries a "pass" key.
     """

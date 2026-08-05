@@ -4,9 +4,8 @@ import pytest
 from astropy.table import Table
 from fastmcp import Client
 
-from astro_archives_mcp import job_store
-from astro_archives_mcp.errors import ArchiveError, TimeoutArchiveError
-from astro_archives_mcp.tools import tap as tap_tools
+from manna.errors import ArchiveError, TimeoutArchiveError
+from manna.tools import tap as tap_tools
 
 
 class _FakeTapClient:
@@ -38,15 +37,6 @@ class _FakeTapClient:
         pass
 
 
-@pytest.fixture(autouse=True)
-def _clear_jobs():
-    with job_store._LOCK:
-        job_store._STORE.clear()
-    yield
-    with job_store._LOCK:
-        job_store._STORE.clear()
-
-
 @pytest.fixture
 def fake_tap(monkeypatch):
     client = _FakeTapClient()
@@ -70,7 +60,6 @@ async def test_mode_sync_returns_inline_envelope(mcp_server, fake_tap):
         assert payload["row_count"] == 1
         assert payload["rows"] == [[1.0, 2.0]]
 
-    assert job_store.size_estimate()["entries"] == 0
     assert fake_tap.submit_calls == 0
 
 
@@ -89,7 +78,7 @@ async def test_mode_auto_fast_returns_inline_no_promotion(mcp_server, fake_tap):
         assert "mode" not in payload
         assert payload["row_count"] == 1
 
-    assert job_store.size_estimate()["entries"] == 0
+    assert fake_tap.submit_calls == 0
 
 
 @pytest.mark.asyncio
@@ -109,15 +98,14 @@ async def test_mode_auto_promotes_on_timeout(mcp_server, fake_tap):
         assert payload["mode"] == "async"
         assert payload["archive"] == "datalab"
         assert payload["phase"] == "EXECUTING"
-        assert len(payload["job_id"]) == 12
+        assert payload["job_url"].endswith("/async/auto-promoted")
 
-    assert job_store.size_estimate()["entries"] == 1
     assert fake_tap.submit_calls == 1
 
 
 @pytest.mark.asyncio
 async def test_mode_auto_does_not_promote_on_syntax_error(mcp_server, fake_tap):
-    from astro_archives_mcp.errors import DalQueryError
+    from manna.errors import DalQueryError
 
     fake_tap.query_raises = DalQueryError(message="Bad ADQL syntax.")
 
@@ -158,7 +146,6 @@ async def test_mode_auto_does_not_promote_on_generic_archive_error(mcp_server, f
         assert "mode" not in payload
 
     assert fake_tap.submit_calls == 0
-    assert job_store.size_estimate()["entries"] == 0
 
 
 @pytest.mark.asyncio
@@ -178,13 +165,12 @@ async def test_mode_sync_propagates_timeout_as_archive_error(mcp_server, fake_ta
         assert payload["error_class"] == "archive_error"
         assert payload["retry_strategy"] == "wait_and_retry"
 
-    assert job_store.size_estimate()["entries"] == 0
     assert fake_tap.submit_calls == 0
 
 
 def _oversize_table() -> Table:
     """A table guaranteed to exceed the inline row cap."""
-    from astro_archives_mcp.config import get_settings
+    from manna.config import get_settings
 
     n = get_settings().inline_row_limit + 1
     return Table({"ra": list(range(n)), "dec": list(range(n))})
@@ -211,7 +197,6 @@ async def test_mode_sync_oversize_raises_validation_error(mcp_server, fake_tap):
         assert "async" in payload["message"]
 
     assert fake_tap.submit_calls == 0
-    assert job_store.size_estimate()["entries"] == 0
 
 
 @pytest.mark.asyncio
@@ -235,7 +220,6 @@ async def test_mode_auto_oversize_promotes_to_async(mcp_server, fake_tap):
         assert payload["job_url"] in payload["fetch_recipe"]["code"]
 
     assert fake_tap.submit_calls == 1
-    assert job_store.size_estimate()["entries"] == 1
 
 
 @pytest.mark.asyncio
@@ -256,4 +240,4 @@ async def test_mode_async_skips_sync_and_returns_promotion(mcp_server, fake_tap)
         assert payload["archive"] == "alma"
         assert payload["phase"] == "EXECUTING"
 
-    assert job_store.size_estimate()["entries"] == 1
+    assert fake_tap.submit_calls == 1

@@ -1,0 +1,120 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Connection:
+      - close
+      Host:
+      - cds.unistra.fr
+      User-Agent:
+      - astropy
+    method: GET
+    uri: https://cds.unistra.fr/cgi-bin/nph-sesame/SNV?NGC%20253
+  response:
+    body:
+      string: "# NGC 253\t#Q681344\n#=Sc=Simbad (CDS, via client/server):    1     0ms
+        (from cache)\n%@ @1259816\n%C.0 SyG\n%J 11.88805833 -25.28880000 = 00 47 33.134
+        \ -25 17 19.68 \n%J.E [~ ~ ] C 2006AJ....131.1163S\n%V v 258.8 C [~] 2004MNRAS.350.1195M\n%T
+        SAB(s)c D 2015MNRAS.446..943V\n%M.B 8.03 [0.03]  C 2014MNRAS.445..881C\n%M.R
+        6.94 [0.03]  C 2014MNRAS.445..881C\n%M.I 8.1 [~]  D 2005MNRAS.361...34D\n%M.J
+        4.814 [0.016]  C 2006AJ....131.1163S\n%M.H 4.088 [0.016]  C 2006AJ....131.1163S\n%M.K
+        3.772 [0.017]  C 2006AJ....131.1163S\n%I.0 NGC   253\n#B 3611\n\n\n\n#====Done
+        (2026-Jul-21,12:44:14z)====\n"
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - close
+      Content-Length:
+      - '572'
+      Content-Type:
+      - text/plain
+      Date:
+      - Tue, 21 Jul 2026 12:44:14 GMT
+      Server:
+      - Apache/2.4.66 (Unix)
+    status:
+      code: 200
+      message: OK
+- request:
+    body: REQUEST=doQuery&LANG=ADQL&MAXREC=1&QUERY=SELECT+COUNT%28DISTINCT+member_ous_uid%29+AS+n+FROM+ivoa.obscore+WHERE+INTERSECTS%28CIRCLE%28%27ICRS%27%2C+11.88805833%2C+-25.2888%2C+0.1%29%2C+s_region%29+%3D+1
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '202'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - python-requests/2.34.2
+    method: POST
+    uri: https://almascience.nrao.edu/tap/sync
+  response:
+    body:
+      string: ''
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Length:
+      - '0'
+      Date:
+      - Tue, 21 Jul 2026 12:44:14 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Location:
+      - https://almascience.nrao.edu/tap/sync/kby4b52fb38b38vg/run
+      Server:
+      - OpenCADC/cadc-rest
+    status:
+      code: 303
+      message: ''
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.34.2
+    method: GET
+    uri: https://almascience.nrao.edu/tap/sync/kby4b52fb38b38vg/run
+  response:
+    body:
+      string: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<VOTABLE xmlns=\"http://www.ivoa.net/xml/VOTable/v1.3\"
+        xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.4\">\r\n
+        \ <RESOURCE type=\"results\">\r\n    <INFO name=\"QUERY_STATUS\" value=\"OK\"
+        />\r\n    <INFO name=\"QUERY_TIMESTAMP\" value=\"2026-07-21T12:44:14.411\"
+        />\r\n    <INFO name=\"QUERY\" value=\"SELECT COUNT(DISTINCT member_ous_uid)
+        AS n FROM ivoa.obscore WHERE INTERSECTS(CIRCLE('ICRS', 11.88805833, -25.2888,
+        0.1), s_region) = 1\" />\r\n    <TABLE>\r\n      <FIELD name=\"n\" datatype=\"long\"
+        />\r\n      <DATA>\r\n        <TABLEDATA>\r\n          <TR>\r\n            <TD>260</TD>\r\n
+        \         </TR>\r\n        </TABLEDATA>\r\n      </DATA>\r\n    </TABLE>\r\n
+        \   <INFO name=\"placeholder\" value=\"ignore\" />\r\n  </RESOURCE>\r\n</VOTABLE>\r\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Disposition:
+      - inline; filename="result_kby4b52fb38b38vg.xml"
+      Content-Type:
+      - application/x-votable+xml
+      Date:
+      - Tue, 21 Jul 2026 12:44:14 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - OpenCADC/cadc-rest
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: ''
+version: 1

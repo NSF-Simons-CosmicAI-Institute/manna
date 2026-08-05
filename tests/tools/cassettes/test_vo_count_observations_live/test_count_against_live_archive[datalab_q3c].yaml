@@ -1,0 +1,122 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Connection:
+      - close
+      Host:
+      - cds.unistra.fr
+      User-Agent:
+      - astropy
+    method: GET
+    uri: https://cds.unistra.fr/cgi-bin/nph-sesame/SNV?M87
+  response:
+    body:
+      string: "# M87\t#Q681098\n#=Sc=Simbad (CDS, via client/server):    1   202ms\n%@
+        @1937204\n%C.0 AGN\n%J 187.70593077 +12.39112325 = 12 30 49.423  +12 23 28.04
+        \n%J.E [0.0304732 0.0308 0] A 2020A&A...644A.159C\n%P -8.029 10.734 [1.178
+        0.932 90] A 2018yCat.1345....0G\n%V z 0.00420 E [0.00012] 2009ApJS..182..543A\n%T
+        E-E/S0 C 2014A&A...569A.124V\n%M.U 10.16 [0.04]  D 2007ApJS..173..185G\n%M.B
+        9.59 [0.04]  D 2007ApJS..173..185G\n%M.V 8.63 [0.04]  D 2007ApJS..173..185G\n%M.G
+        15.7940 [0.0117]  C 2018yCat.1345....0G\n%M.I 7.49 [~]  D 2012A&A...538A..69L\n%M.J
+        6.719 [0.017]  C 2006AJ....131.1163S\n%M.H 6.074 [0.018]  C 2006AJ....131.1163S\n%M.K
+        5.812 [0.019]  C 2006AJ....131.1163S\n%M.u 13.480 [0.003]  C 2009ApJS..182..543A\n%M.g
+        9.5571 [0.0002]  B 2023ApJS..269....3M\n%M.r 8.7223 [0.0002]  B 2023ApJS..269....3M\n%M.i
+        10.272 [0.002]  C 2009ApJS..182..543A\n%M.z 8.0504 [0.0003]  B 2023ApJS..269....3M\n%I.0
+        M  87\n#B 7898\n\n#****Total of 1 crashes\n<!-- Configuration tested: /run/sesame.conf
+        -->\n"
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - close
+      Content-Length:
+      - '966'
+      Content-Type:
+      - text/plain
+      Date:
+      - Tue, 21 Jul 2026 12:40:08 GMT
+      Server:
+      - Apache/2.4.66 (Unix)
+    status:
+      code: 200
+      message: OK
+- request:
+    body: REQUEST=doQuery&LANG=ADQL&MAXREC=1&QUERY=SELECT+COUNT%28%2A%29+AS+n+FROM+nsc_dr2.object+WHERE+q3c_radial_query%28ra%2C+dec%2C+187.70593077%2C+12.39112325%2C+0.05%29+%3D+%27t%27
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '176'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - python-requests/2.34.2
+    method: POST
+    uri: https://datalab.noirlab.edu/tap/sync
+  response:
+    body:
+      string: '<?xml version="1.0" encoding="UTF-8"?>
+
+        <VOTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+
+        xsi:noNamespaceSchemaLocation="xmlns:http://www.ivoa.net/xml/VOTable-1.2.xsd"
+        version="1.2">
+
+        <RESOURCE type="results">
+
+        <DESCRIPTION>DALServer TAP Query</DESCRIPTION>
+
+        <INFO name="QUERY_STATUS" value="OK"/>
+
+        <INFO name="QUERY" value="SELECT COUNT(*) AS n FROM nsc_dr2.object WHERE q3c_radial_query(ra,
+        dec, 187.70593077, 12.39112325, 0.05) = ''t''"/>
+
+        <INFO name="TableRows" value="1"/>
+
+        <TABLE>
+
+        <FIELD ID="n" name="n" datatype="long"/>
+
+        <DATA>
+
+        <TABLEDATA>
+
+        <TR><TD>1580</TD></TR>
+
+        </TABLEDATA>
+
+        </DATA>
+
+        </TABLE>
+
+        </RESOURCE>
+
+        </VOTABLE>
+
+        '
+    headers:
+      Connection:
+      - keep-alive
+      Content-Disposition:
+      - attachment; filename="result_hardwxmtw053kmh5.xml"
+      Content-Type:
+      - application/x-votable+xml
+      Date:
+      - Tue, 21 Jul 2026 12:40:10 GMT
+      Server:
+      - nginx/1.31.3
+      Strict-Transport-Security:
+      - max-age=31536000
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -3,7 +3,7 @@
 import pytest
 from fastmcp import Client
 
-import astro_archives_mcp.tools.resolver as resolver_mod
+import manna.tools.resolver as resolver_mod
 
 
 class _FakeResolver:

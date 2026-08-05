@@ -68,7 +68,7 @@ def test_accuracy_none_treated_as_zero():
 # --------------------------------------------------------------------------- #
 def test_entries_mcp_quality_splits_by_arm():
     data = {
-        "model": "qwen3.5",
+        "model": "model-a",
         "per_arm": {"mcp": {"accuracy_rate": 0.9}, "raw_tap": {"accuracy_rate": 0.3}},
         "runs": [
             {"arm": "mcp", "trace": [], "task_id": "a"},
@@ -77,10 +77,10 @@ def test_entries_mcp_quality_splits_by_arm():
     }
     entries = _entries(data)
     labels = {lbl for lbl, _, _ in entries}
-    assert labels == {"mcp·qwen3.5", "raw_tap·qwen3.5"}
+    assert labels == {"mcp·model-a", "raw_tap·model-a"}
     by_label = {lbl: (acc, runs) for lbl, acc, runs in entries}
-    assert by_label["mcp·qwen3.5"][0] == 0.9
-    assert len(by_label["mcp·qwen3.5"][1]) == 1  # only the mcp run
+    assert by_label["mcp·model-a"][0] == 0.9
+    assert len(by_label["mcp·model-a"][1]) == 1  # only the mcp run
 
 
 def test_entries_persona_single_cell():

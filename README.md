@@ -1,6 +1,13 @@
-# astro-archives-mcp
+# MANNA
 
-MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab, NRAO/ALMA, CADC, ESO, Gaia, …) to LLM clients.
+**MANNA** — *MCP Architecture for NOIRLab and NRAO Archives.*
+
+An MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab,
+NRAO/ALMA, CADC, ESO, Gaia, …) to LLM clients.
+
+> **Naming:** *MANNA* in prose (it's an acronym); lowercase `manna` for every
+> identifier — the Python package, `python -m manna`, the `manna:dev` image tag,
+> and the MCP client alias (`mcp__manna__*`).
 
 ## Tools
 
@@ -17,6 +24,7 @@ MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab
 | `vo_registry_describe` | RegTAP | Describe a specific registry resource (columns, capabilities) |
 | `vo_cone_search` | SCS | Simple Cone Search for legacy SCS-only archives |
 | `vo_sia_search` | SIA 2.0 | Search for images by position and waveband (returns access URLs to fetch client-side) |
+| `vo_find_observations` | SIA 2.0 / SCS | One-call facade: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `vo_target_resolve` + `vo_archive_list` + `vo_sia_search`/`vo_cone_search` so the model doesn't have to |
 
 The recommended LLM workflow for a positional query:
 1. `vo_target_resolve` — get RA/Dec for a named object
@@ -29,8 +37,8 @@ The recommended LLM workflow for a positional query:
 
 ```bash
 uv sync
-uv run pytest --record-mode=none        # 285 tests, offline replay
-uv run python -m astro_archives_mcp     # server on http://localhost:8000
+uv run pytest --record-mode=none        # 657 tests, offline replay
+uv run python -m manna                  # server on http://localhost:8000
 ```
 
 Smoke test with MCP Inspector:
@@ -59,32 +67,35 @@ is protected — it only advances through PRs with passing CI.
 
 ## Configuration
 
-All settings are optional — defaults work for local dev. Set via environment variables prefixed `STABLE_` or in a `.env` file:
+All settings are optional — defaults work for local dev. Set via environment variables prefixed `MANNA_` or in a `.env` file:
 
 | Variable | Default | Description |
 |---|---|---|
-| `STABLE_PORT` | `8000` | HTTP listen port |
-| `STABLE_HOST` | `0.0.0.0` | Bind address |
-| `STABLE_DEPLOYMENT` | `local` | `local` / `adl` / `tacc` |
-| `STABLE_LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
-| `STABLE_TAP_SYNC_TIMEOUT_SECONDS` | `20.0` | Timeout for sync TAP queries |
-| `STABLE_JOB_TTL_SECONDS` | `3600` | Async job result retention |
+| `MANNA_PORT` | `8000` | HTTP listen port |
+| `MANNA_HOST` | `0.0.0.0` | Bind address |
+| `MANNA_LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
+| `MANNA_TAP_SYNC_TIMEOUT_SECONDS` | `20.0` | Timeout for sync TAP queries |
+| `MANNA_ALLOWED_HOSTS` | *(unset)* | Comma-separated hostnames the server may fetch (exact or subdomain match). Unset ⇒ any **public** host; private/loopback/link-local targets are refused regardless |
+| `MANNA_ARCHIVES` | *(unset)* | Comma-separated archive short_names to activate. Unset/empty ⇒ all archives physically present in `archives/` |
+| `MANNA_INLINE_ROW_LIMIT` | `200` | Max rows in an inline result before it's routed to an async job (TAP) or truncated (cone/SIA) |
+| `MANNA_INLINE_BYTE_LIMIT` | `49152` | Max bytes in an inline result before the same promotion/truncation applies (48 KiB) |
+| `MANNA_REGISTRY_DESCRIBE_BYTE_LIMIT` | `49152` | Above this, `vo_registry_describe` degrades from per-column detail to a table catalog (names + descriptions + column counts) |
 
 See `.env.example` for a template.
 
 ## Docker
 
 ```bash
-docker build -t astro-archives-mcp:dev .
-docker run -p 8000:8000 astro-archives-mcp:dev
+docker build -t manna:dev .
+docker run -p 8000:8000 manna:dev
 ```
 
 ## Forking for a specific deployment
 
-This repo is the multi-archive base. Each archive is one self-contained file — its endpoints, usage notes, and per-table schemas all live in `src/astro_archives_mcp/archives/<short_name>.py`. Shape which archives make curated claims two ways:
+This repo is the multi-archive base. Each archive is one self-contained file — its endpoints, usage notes, and per-table schemas all live in `src/manna/archives/<short_name>.py`. Shape which archives make curated claims two ways:
 
-- **Physical** — delete the unwanted `src/astro_archives_mcp/archives/<short_name>.py` files. Discovery picks up whatever remains; no other file needs touching.
-- **Runtime** — set `STABLE_ARCHIVES=datalab,alma` (comma-separated short_names) to narrow a shared image without deleting files. Unset/empty ⇒ every archive active.
+- **Physical** — delete the unwanted `src/manna/archives/<short_name>.py` files. Discovery picks up whatever remains; no other file needs touching.
+- **Runtime** — set `MANNA_ARCHIVES=datalab,alma` (comma-separated short_names) to narrow a shared image without deleting files. Unset/empty ⇒ every archive active.
 
 A dropped or deselected archive loses only the server's *curated claims* about it — never its reachability. It's still reachable via `vo_registry_search`.
 
@@ -99,3 +110,9 @@ uv run pytest tests/<area>/<test_module>.py::<test_name> --record-mode=once
 ```
 
 Inspect the cassette diff before committing — large changes in the VOTable namespace URI or response headers may indicate an upstream breaking change.
+
+## Docs
+
+- [`docs/archives-spec.md`](docs/archives-spec.md) — how per-archive knowledge modules work, and how to author one
+
+Deployment configurations are maintained in a separate repository.

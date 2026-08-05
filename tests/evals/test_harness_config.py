@@ -45,11 +45,11 @@ def test_parse_custom_headers():
 
 def test_from_env_model_reads_own_vars(monkeypatch):
     _clear(monkeypatch)
-    monkeypatch.setenv("EVAL_MODEL_NAME", "Qwen/Qwen3.5")
+    monkeypatch.setenv("EVAL_MODEL_NAME", "example/model-a")
     monkeypatch.setenv("EVAL_MODEL_BASE_URL", "https://proxy/mcp")
     monkeypatch.setenv("EVAL_MODEL_BACKEND", "openai")
     cfg = ModelConfig.from_env()
-    assert cfg.model == "Qwen/Qwen3.5"
+    assert cfg.model == "example/model-a"
     assert cfg.base_url == "https://proxy/mcp"
     assert cfg.backend == "openai"
 
@@ -90,7 +90,7 @@ def test_env_knobs(monkeypatch):
 
 
 def test_taskrun_num_tool_calls_and_to_dict():
-    r = TaskRun("mq-x", 2, "full", "qwen", arm="mcp")
+    r = TaskRun("mq-x", 2, "full", "model-a", arm="mcp")
     r.trace = [ToolCall("vo_a", {"k": 1}, {"ok": True}, False), ToolCall("vo_b", {}, None, True)]
     r.final_answer = "done"
     r.input_tokens, r.output_tokens = 10, 3

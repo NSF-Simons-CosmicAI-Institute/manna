@@ -10,9 +10,10 @@ import pytest
 from astropy.table import Table
 from fastmcp import Client
 
-import astro_archives_mcp.tools.find_observations as find_mod
-from astro_archives_mcp.archives._audit import Audit
-from astro_archives_mcp.archives._model import Archive, Note
+import manna.tools._select as sel
+import manna.tools.find_observations as find_mod
+from manna.archives._audit import Audit
+from manna.archives._model import Archive, Note
 
 # ---------- fakes ----------
 
@@ -77,7 +78,7 @@ def two_radio_and_optical(monkeypatch):
         _archive("radio_b", waveband="radio", sia_url="http://radio-b/sia", priority=2),
         _archive("opt", waveband="optical", scs_url="http://opt/scs", priority=3),
     )
-    monkeypatch.setattr(find_mod, "active_archives", lambda: archives)
+    monkeypatch.setattr(sel, "active_archives", lambda: archives)
     return archives
 
 
@@ -87,7 +88,7 @@ def two_radio_and_optical(monkeypatch):
 def test_explicit_coords_skip_the_resolver(two_radio_and_optical, monkeypatch):
     resolver = _FakeResolver(result=None)  # would fail if called
     sia = _FakeSearch()
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: resolver)
+    monkeypatch.setattr(sel, "get_resolver", lambda: resolver)
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
     out = find_mod.vo_find_observations(target="187.7 12.4", service="image")
@@ -99,7 +100,7 @@ def test_explicit_coords_skip_the_resolver(two_radio_and_optical, monkeypatch):
 
 
 def test_comma_separated_coords_are_accepted(two_radio_and_optical, monkeypatch):
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver(result=None))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver(result=None))
     sia = _FakeSearch()
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
@@ -112,7 +113,7 @@ def test_comma_separated_coords_are_accepted(two_radio_and_optical, monkeypatch)
 def test_name_is_resolved_via_sesame(two_radio_and_optical, monkeypatch):
     resolver = _FakeResolver(result=(187.70593, 12.39112))
     sia = _FakeSearch()
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: resolver)
+    monkeypatch.setattr(sel, "get_resolver", lambda: resolver)
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
     out = find_mod.vo_find_observations(target="M87", service="image")
@@ -123,7 +124,7 @@ def test_name_is_resolved_via_sesame(two_radio_and_optical, monkeypatch):
 
 
 def test_unresolvable_name_soft_fails(two_radio_and_optical, monkeypatch):
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver(result=None))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver(result=None))
     # search backend must never be reached
     monkeypatch.setattr(find_mod, "_get_sia", lambda: _FakeSearch())
 
@@ -145,7 +146,7 @@ def test_empty_target_is_a_validation_error(two_radio_and_optical):
 
 def test_waveband_picks_the_highest_priority_matching_archive(two_radio_and_optical, monkeypatch):
     sia = _FakeSearch()
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver((1.0, 2.0)))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
     out = find_mod.vo_find_observations(target="Src", service="image", waveband="radio")
@@ -157,7 +158,7 @@ def test_waveband_picks_the_highest_priority_matching_archive(two_radio_and_opti
 
 def test_archive_override_wins_over_waveband(two_radio_and_optical, monkeypatch):
     sia = _FakeSearch()
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver((1.0, 2.0)))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
     out = find_mod.vo_find_observations(target="Src", service="image", archive="radio_b")
@@ -168,7 +169,7 @@ def test_archive_override_wins_over_waveband(two_radio_and_optical, monkeypatch)
 
 def test_catalog_service_uses_the_cone_backend_and_scs_url(two_radio_and_optical, monkeypatch):
     cone = _FakeSearch(table=Table({"ra": [1.0], "dec": [2.0]}))
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver((1.0, 2.0)))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_cone", lambda: cone)
 
     out = find_mod.vo_find_observations(target="Src", service="catalog", waveband="optical")
@@ -179,7 +180,7 @@ def test_catalog_service_uses_the_cone_backend_and_scs_url(two_radio_and_optical
 
 
 def test_no_matching_archive_returns_a_recovery_hint(two_radio_and_optical, monkeypatch):
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver((1.0, 2.0)))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     # image service + a waveband that only has a catalog archive => no candidate
     out = find_mod.vo_find_observations(target="Src", service="image", waveband="optical")
 
@@ -191,7 +192,7 @@ def test_no_matching_archive_returns_a_recovery_hint(two_radio_and_optical, monk
 
 
 def test_plan_block_surfaces_chosen_archive_usage_notes(two_radio_and_optical, monkeypatch):
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver((1.0, 2.0)))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: _FakeSearch())
 
     out = find_mod.vo_find_observations(target="Src", service="image", waveband="radio")
@@ -201,7 +202,7 @@ def test_plan_block_surfaces_chosen_archive_usage_notes(two_radio_and_optical, m
 
 
 def test_result_uses_shape_table_envelope(two_radio_and_optical, monkeypatch):
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver((1.0, 2.0)))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: _FakeSearch())
 
     out = find_mod.vo_find_observations(target="Src", service="image", waveband="radio")
@@ -215,7 +216,7 @@ def test_result_uses_shape_table_envelope(two_radio_and_optical, monkeypatch):
 
 def test_radius_and_maxrec_are_threaded_to_the_backend(two_radio_and_optical, monkeypatch):
     sia = _FakeSearch()
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver((1.0, 2.0)))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
     find_mod.vo_find_observations(
@@ -231,10 +232,10 @@ def test_radius_and_maxrec_are_threaded_to_the_backend(two_radio_and_optical, mo
 
 @pytest.mark.asyncio
 async def test_tool_is_registered_and_callable(mcp_server, monkeypatch):
-    monkeypatch.setattr(find_mod, "_get_resolver", lambda: _FakeResolver((1.0, 2.0)))
+    monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: _FakeSearch())
     monkeypatch.setattr(
-        find_mod,
+        sel,
         "active_archives",
         lambda: (_archive("radio_a", waveband="radio", sia_url="http://radio-a/sia", priority=1),),
     )

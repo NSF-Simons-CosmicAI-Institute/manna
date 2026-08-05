@@ -1,6 +1,6 @@
 """Content assertions for the ALMA Science Archive."""
 
-from astro_archives_mcp.archives.alma import ARCHIVE
+from manna.archives.alma import ARCHIVE
 
 SCHEMAS = {s.table: s for s in ARCHIVE.schemas}
 
@@ -72,3 +72,14 @@ def test_converted_probeable_audits():
     sourcecat = SCHEMAS["sourcecatalogue.source_cone_search"]
     schema_notes = {n.id: n for n in sourcecat.notes}
     assert schema_notes["sourcecat-non-alma-band"].audit.expect == "nonempty"
+
+
+def test_alma_count_target_uses_distinct_ous():
+    from manna.archives._count import CountTarget, IntersectsRegion
+
+    ct = ARCHIVE.count_target
+    assert isinstance(ct, CountTarget)
+    assert ct.table == "ivoa.obscore"
+    assert ct.geometry == IntersectsRegion("s_region")
+    assert ct.count_expr == "COUNT(DISTINCT member_ous_uid)"
+    assert ct.mode == "sync"

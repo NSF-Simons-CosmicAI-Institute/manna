@@ -4,7 +4,7 @@ Examples:
     # validate the task suite without calling any model
     uv run python -m evals.run --dry-run
 
-    # run tiers 1-2 against the dlai01 Qwen3.5 (reads ANTHROPIC_* / EVAL_MODEL_* env)
+    # run tiers 1-2 against the configured model (reads ANTHROPIC_* / EVAL_MODEL_* env)
     uv run python -m evals.run --tier 1 --tier 2
 
     # run the tier-3 ablation (each trap task runs with AND without curated context)
@@ -25,6 +25,7 @@ from typing import Any
 
 from evals._common import judge_from_env, write_results
 from evals.harness import ModelConfig, TaskRun, run_task
+from evals.model_backends import verify_model_available
 from evals.score import TaskScore, load_tasks, score_task
 
 
@@ -143,6 +144,21 @@ async def _main_async(args: argparse.Namespace) -> int:
     judge = judge_from_env()
     print(f"Model under test : {cfg.label}  (base_url={cfg.base_url or 'hosted'})")
     print(f"Judge            : {judge.label if judge else 'none (rubric tasks unscored)'}")
+
+    # Preflight the configured model names against what the endpoint actually
+    # serves. Without this a stale EVAL_*_NAME fails every task with an opaque
+    # NotFoundError partway through the run, which reads like a MANNA
+    # regression. Only a *positive* absence blocks; an endpoint we cannot
+    # interrogate (hosted, offline) passes through untouched.
+    problems = [p for p in (verify_model_available(cfg),) if p]
+    if judge is not None:
+        problems += [p for p in (verify_model_available(judge, env_var="EVAL_JUDGE_NAME"),) if p]
+    if problems:
+        print("\nPreflight failed — no tasks were run:")
+        for p in problems:
+            print(f"  {p}")
+        return 2
+
     print(f"Running {len(tasks)} task(s), concurrency={args.concurrency}\n")
 
     if args.no_inject_notes:
@@ -187,7 +203,7 @@ def main() -> int:
     from evals._env import load_env
 
     load_env()
-    p = argparse.ArgumentParser(description="Run the astro-archives-mcp agentic eval.")
+    p = argparse.ArgumentParser(description="Run the MANNA agentic eval.")
     p.add_argument(
         "--tier",
         type=int,

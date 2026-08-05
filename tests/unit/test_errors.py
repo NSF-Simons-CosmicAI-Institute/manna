@@ -1,4 +1,4 @@
-from astro_archives_mcp.errors import (
+from manna.errors import (
     ArchiveError,
     DalQueryError,
     InternalError,

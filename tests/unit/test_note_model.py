@@ -1,7 +1,7 @@
 import pytest
 
-from astro_archives_mcp.archives._audit import Audit
-from astro_archives_mcp.archives._model import Note, _normalize_notes, note_texts
+from manna.archives._audit import Audit
+from manna.archives._model import Note, _normalize_notes, note_texts
 
 
 def test_note_requires_id_text_audit():

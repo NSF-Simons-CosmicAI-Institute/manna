@@ -2,7 +2,7 @@
 
 from fastmcp import Client
 
-from astro_archives_mcp.app import build_mcp
+from manna.app import build_mcp
 
 # Tools that only read the in-process KB (closed world); everything else
 # hits live archive services (open world). vo_schema_describe left this set
@@ -13,7 +13,7 @@ _LOCAL_TOOLS = {"vo_archive_list"}
 async def test_all_tools_are_annotated_read_only():
     async with Client(build_mcp()) as client:
         tools = await client.list_tools()
-        assert len(tools) == 12
+        assert len(tools) == 15
         for t in tools:
             ann = t.annotations
             assert ann is not None, f"{t.name} missing annotations"

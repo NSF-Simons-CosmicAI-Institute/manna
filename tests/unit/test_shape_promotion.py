@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from astro_archives_mcp.shaper import shape_promotion
+from manna.shaper import shape_promotion
 
 _JOB_URL = "https://datalab.noirlab.edu/tap/async/42"
 
@@ -8,15 +8,15 @@ _JOB_URL = "https://datalab.noirlab.edu/tap/async/42"
 def test_shape_promotion_basic_envelope():
     submitted = datetime(2026, 6, 8, 14, 30, 0, tzinfo=UTC)
     env = shape_promotion(
-        job_id="0abc123def45",
         job_url=_JOB_URL,
         archive="alma",
         phase="EXECUTING",
         submitted_at=submitted,
     )
     assert env["mode"] == "async"
-    assert env["job_id"] == "0abc123def45"
     assert env["job_url"] == _JOB_URL
+    # No server-side handle: the upstream job_url is the only one.
+    assert "job_id" not in env
     assert env["phase"] == "EXECUTING"
     assert env["archive"] == "alma"
     assert env["submitted_at"] == "2026-06-08T14:30:00+00:00"
@@ -24,7 +24,6 @@ def test_shape_promotion_basic_envelope():
 
 def test_shape_promotion_carries_pyvo_fetch_recipe():
     env = shape_promotion(
-        job_id="0abc",
         job_url=_JOB_URL,
         archive="datalab",
         phase="QUEUED",
@@ -41,7 +40,6 @@ def test_shape_promotion_carries_pyvo_fetch_recipe():
 
 def test_shape_promotion_next_steps_reference_lifecycle_and_fetch():
     env = shape_promotion(
-        job_id="0abc",
         job_url=_JOB_URL,
         archive="datalab",
         phase="QUEUED",
@@ -50,6 +48,9 @@ def test_shape_promotion_next_steps_reference_lifecycle_and_fetch():
     joined = " ".join(env["next_steps"])
     assert "vo_tap_status" in joined
     assert "vo_tap_results" in joined or "fetch_recipe" in joined
+    # The lifecycle tools take a job_url now; the prose must say so.
+    assert "job_url" in joined
+    assert "job_id" not in joined
 
 
 def test_shape_promotion_next_steps_forbid_abandoning_the_job():
@@ -58,7 +59,6 @@ def test_shape_promotion_next_steps_forbid_abandoning_the_job():
     # anti-abandon instruction, small models drop completed jobs and
     # re-submit the query from scratch.
     env = shape_promotion(
-        job_id="0abc",
         job_url=_JOB_URL,
         archive="datalab",
         phase="QUEUED",
@@ -73,7 +73,6 @@ def test_shape_promotion_next_steps_forbid_abandoning_the_job():
 def test_shape_promotion_omits_tabular_keys():
     # Disjoint shape: no rows / columns / resource fields.
     env = shape_promotion(
-        job_id="0abc",
         job_url=_JOB_URL,
         archive="alma",
         phase="EXECUTING",

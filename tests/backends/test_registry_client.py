@@ -1,7 +1,7 @@
 import pytest
 
-from astro_archives_mcp.backends.registry import RegistryClient
-from astro_archives_mcp.errors import ValidationError
+from manna.backends.registry import RegistryClient
+from manna.errors import ValidationError
 
 # Use ESO TAP_obs for describe-by-IVOID and describe-by-URL: ~58 tables,
 # cassette stays small. The DataLab TAP has 4027 tables and produced
@@ -71,7 +71,7 @@ def test_describe_by_url_falls_back_to_direct_tap_when_not_registered(
     `https://data-query.nrao.edu/tap` works, but RegTAP only has the
     ALMA mirror at almascience.nrao.edu listed under the nrao.edu domain.
     """
-    from astro_archives_mcp.backends import registry as registry_module
+    from manna.backends import registry as registry_module
 
     # Make RegTAP claim no services exist for this URL.
     monkeypatch.setattr(
@@ -124,8 +124,8 @@ def test_describe_by_url_propagates_direct_introspection_failure(monkeypatch):
     knows to abandon or retry — not the misleading 'No such service'."""
     from pyvo.dal.exceptions import DALServiceError
 
-    from astro_archives_mcp.backends import registry as registry_module
-    from astro_archives_mcp.errors import ArchiveError
+    from manna.backends import registry as registry_module
+    from manna.errors import ArchiveError
 
     monkeypatch.setattr(
         registry_module.pyvo.registry,

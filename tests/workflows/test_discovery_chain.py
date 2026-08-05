@@ -19,8 +19,7 @@ import pytest
 from astropy.table import Table
 from fastmcp import Client
 
-from astro_archives_mcp import job_store
-from astro_archives_mcp.tools import tap as tap_tools
+from manna.tools import tap as tap_tools
 
 
 class _FakeTapClient:
@@ -50,15 +49,6 @@ class _FakeTapClient:
 
     def abort_job(self, job_url):
         pass
-
-
-@pytest.fixture(autouse=True)
-def _clear_jobs():
-    with job_store._LOCK:
-        job_store._STORE.clear()
-    yield
-    with job_store._LOCK:
-        job_store._STORE.clear()
 
 
 @pytest.fixture

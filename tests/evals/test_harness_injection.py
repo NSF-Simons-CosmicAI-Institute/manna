@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from astro_archives_mcp.archives._traps import loud_trap_guidance, silent_trap_cheatsheet
 from evals.context import ablated_context
 from evals.harness import _anthropic_tools
+from manna.archives._traps import loud_trap_guidance, silent_trap_cheatsheet
 
 
 @dataclass
@@ -61,6 +61,21 @@ def test_no_discovery_withholds_the_curated_tools():
     names = {t["name"] for t in _anthropic_tools(_tools(), no_discovery=True)}
     assert "vo_archive_list" not in names
     assert "vo_tap_query" in names
+
+
+def test_exclude_tools_env_withholds_named_tools(monkeypatch):
+    """EVAL_EXCLUDE_TOOLS is the with/without value-add A/B seam: named tools
+    are withheld from the agent's surface; everything else survives."""
+    monkeypatch.setenv("EVAL_EXCLUDE_TOOLS", "vo_archive_list, vo_missing_tool")
+    names = {t["name"] for t in _anthropic_tools(_tools())}
+    assert "vo_archive_list" not in names  # excluded
+    assert "vo_tap_query" in names  # untouched
+
+
+def test_exclude_tools_unset_keeps_everything(monkeypatch):
+    monkeypatch.delenv("EVAL_EXCLUDE_TOOLS", raising=False)
+    names = {t["name"] for t in _anthropic_tools(_tools())}
+    assert names == {"vo_tap_query", "vo_archive_list"}
 
 
 # ---------- tier-3 ablation must strip BOTH channels ----------

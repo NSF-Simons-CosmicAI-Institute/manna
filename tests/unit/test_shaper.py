@@ -4,7 +4,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import Table
 
-from astro_archives_mcp.shaper import shape_inline_table
+from manna.shaper import shape_inline_table
 
 
 def _astropy_table_basic() -> Table:
@@ -148,7 +148,7 @@ def test_no_unit_no_description_no_ucd_all_none():
 
 
 def test_shape_registry_search_result_basic():
-    from astro_archives_mcp.shaper import shape_registry_search_result
+    from manna.shaper import shape_registry_search_result
 
     services = [
         {
@@ -172,7 +172,7 @@ def test_shape_registry_search_result_basic():
 
 
 def test_shape_registry_search_result_truncates():
-    from astro_archives_mcp.shaper import shape_registry_search_result
+    from manna.shaper import shape_registry_search_result
 
     services = [
         {
@@ -195,7 +195,7 @@ def test_shape_registry_search_result_truncates():
 
 
 def test_shape_registry_describe_result_passes_through():
-    from astro_archives_mcp.shaper import shape_registry_describe_result
+    from manna.shaper import shape_registry_describe_result
 
     described = {
         "ivoid": "ivo://datalab/smash_dr2",
@@ -230,7 +230,7 @@ def test_shape_registry_describe_result_passes_through():
 
 
 def test_shape_registry_describe_result_degrades_when_oversize():
-    from astro_archives_mcp.shaper import (
+    from manna.shaper import (
         TRUNCATION_REASON_DESCRIBE_OVERSIZE,
         shape_registry_describe_result,
     )
@@ -279,8 +279,8 @@ def test_shape_registry_describe_result_degrades_when_oversize():
     assert out["hints"]
     assert "tap_schema.columns" in out["hints"][0]["text"]
     # And the degraded payload actually fits the budget.
-    from astro_archives_mcp.config import get_settings
-    from astro_archives_mcp.shaper import _estimate_payload_bytes
+    from manna.config import get_settings
+    from manna.shaper import _estimate_payload_bytes
 
     assert _estimate_payload_bytes(out) <= get_settings().registry_describe_byte_limit
 
@@ -288,8 +288,8 @@ def test_shape_registry_describe_result_degrades_when_oversize():
 def test_shape_registry_describe_result_trims_table_count_when_catalog_alone_oversize():
     """Data Lab has ~4000 tables — even a name-only catalog busts the budget, so
     the table count itself must be trimmed and the omission disclosed."""
-    from astro_archives_mcp.config import get_settings
-    from astro_archives_mcp.shaper import (
+    from manna.config import get_settings
+    from manna.shaper import (
         _estimate_payload_bytes,
         shape_registry_describe_result,
     )
@@ -353,7 +353,7 @@ def _big_described(n_tables: int, n_cols: int) -> dict:
 
 def test_shape_registry_describe_filter_returns_matching_tables_with_columns():
     """A narrow filter yields a small set, so full column detail fits inline."""
-    from astro_archives_mcp.shaper import shape_registry_describe_result
+    from manna.shaper import shape_registry_describe_result
 
     described = _big_described(n_tables=200, n_cols=40)
     # Give one table a distinctive name to match on.
@@ -371,7 +371,7 @@ def test_shape_registry_describe_filter_returns_matching_tables_with_columns():
 
 
 def test_shape_registry_describe_filter_matches_name_case_insensitively():
-    from astro_archives_mcp.shaper import shape_registry_describe_result
+    from manna.shaper import shape_registry_describe_result
 
     described = _big_described(n_tables=200, n_cols=10)
     # names look like "schema{0,1,2}.dataset_{t}"; match a schema prefix.
@@ -384,7 +384,7 @@ def test_shape_registry_describe_filter_matches_name_case_insensitively():
 
 
 def test_shape_registry_describe_filter_no_match_is_disclosed():
-    from astro_archives_mcp.shaper import shape_registry_describe_result
+    from manna.shaper import shape_registry_describe_result
 
     described = _big_described(n_tables=50, n_cols=10)
     out = shape_registry_describe_result(described, table_filter="no_such_table_xyz")

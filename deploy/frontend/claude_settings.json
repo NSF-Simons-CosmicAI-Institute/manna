@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__astro-archives",
-      "mcp__Jupyter_MCP_Server"
-    ]
-  }
-}

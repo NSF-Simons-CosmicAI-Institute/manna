@@ -222,6 +222,54 @@ class OpenAIBackend(ModelBackend):
         )
 
 
+def _fetch_models(url: str, headers: dict[str, str], timeout: float) -> Any:
+    """GET a /v1/models listing and return the decoded JSON.
+
+    Module-level so the preflight can be tested without a network.
+    """
+    import httpx
+
+    return httpx.get(url, headers=headers, timeout=timeout).json()
+
+
+def served_models(cfg: ModelConfig, *, timeout: float = 10.0) -> list[str] | None:
+    """Model ids the configured endpoint advertises.
+
+    Returns None whenever availability is *unknowable* — a hosted endpoint (no
+    base_url), an unreachable host, or a payload we don't recognise. None means
+    "no evidence", which callers must not treat as "absent".
+    """
+    if not cfg.base_url:
+        return None
+
+    headers = {"Authorization": f"Bearer {cfg.api_key}", **(cfg.extra_headers or {})}
+    url = f"{cfg.base_url.rstrip('/')}/v1/models"
+    try:
+        payload = _fetch_models(url, headers, timeout)
+        return [m["id"] for m in payload["data"]]
+    except Exception:  # noqa: BLE001 — any failure means "cannot tell", never "absent"
+        return None
+
+
+def verify_model_available(cfg: ModelConfig, *, env_var: str = "EVAL_MODEL_NAME") -> str | None:
+    """An actionable message if ``cfg.model`` is definitively not served, else None.
+
+    Exists because a stale model name is otherwise indistinguishable from a
+    product regression: every task fails with `NotFoundError: The model ... does
+    not exist`, long after the run started. `evals.selftest` cannot catch it —
+    it is offline by contract and never contacts the model.
+    """
+    available = served_models(cfg)
+    if available is None or cfg.model in available:
+        return None
+    listed = "\n".join(f"    - {m}" for m in available) or "    (none)"
+    return (
+        f"{env_var}={cfg.model!r} is not served by {cfg.base_url}.\n"
+        f"  Available there:\n{listed}\n"
+        f"  Update {env_var} in evals/.env before re-running."
+    )
+
+
 def make_backend(cfg: ModelConfig) -> ModelBackend:
     kind = (cfg.backend or "anthropic").lower()
     if kind == "anthropic":

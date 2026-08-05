@@ -20,7 +20,7 @@ the SUBMITTED adql — set EVAL_MAX_STEPS/EVAL_ASYNC_POLL_SLEEP low to run fast:
     EVAL_MAX_STEPS=8 EVAL_ASYNC_POLL_SLEEP=1 \\
       uv run python -m evals.exp_a_matrix        # (with model creds sourced)
 
-Reference result, pre-#57 (Qwen3.5, N=3): A=15/15, C=0/15, D=12/15. The 3 misses were
+Reference result, pre-#57 (Qwen3.5, N=3) (historical, Qwen3.5-era): A=15/15, C=0/15, D=12/15. The 3 misses were
 all t3-nrao-lowerupper — a LOUD trap deliberately NOT in the cheatsheet. #57 gave that
 trap the OTHER channel (the error `hint`), which this matrix does not isolate: the hint
 fires on a live rejection in every cell. Judge it from the tier-3 run instead.

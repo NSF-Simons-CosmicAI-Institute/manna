@@ -1,0 +1,981 @@
+interactions:
+- request:
+    body: REQUEST=doQuery&LANG=ADQL&MAXREC=1000&QUERY=SELECT+column_name%2C+datatype+FROM+tap_schema.columns+WHERE+table_name+%3D+%27nsc_dr2.object%27
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '140'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - python-requests/2.34.2
+    method: POST
+    uri: https://datalab.noirlab.edu/tap/sync
+  response:
+    body:
+      string: '<?xml version="1.0" encoding="UTF-8"?>
+
+        <VOTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+
+        xsi:noNamespaceSchemaLocation="xmlns:http://www.ivoa.net/xml/VOTable-1.2.xsd"
+        version="1.2">
+
+        <RESOURCE type="results">
+
+        <DESCRIPTION>DALServer TAP Query</DESCRIPTION>
+
+        <INFO name="QUERY_STATUS" value="OK"/>
+
+        <INFO name="QUERY" value="SELECT column_name, datatype FROM tap_schema.columns
+        WHERE table_name = ''nsc_dr2.object''"/>
+
+        <INFO name="TableRows" value="99"/>
+
+        <TABLE>
+
+        <FIELD ID="column_name" name="column_name" datatype="char" arraysize="64">
+
+        <DESCRIPTION>Column Name</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="datatype" name="datatype" datatype="char" arraysize="64">
+
+        <DESCRIPTION>Column data type (ADQL)</DESCRIPTION>
+
+        </FIELD>
+
+        <DATA>
+
+        <TABLEDATA>
+
+        <TR><TD>ndetr</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>ra</TD><TD>adql:DOUBLE</TD></TR>
+
+        <TR><TD>dec</TD><TD>adql:DOUBLE</TD></TR>
+
+        <TR><TD>glon</TD><TD>adql:DOUBLE</TD></TR>
+
+        <TR><TD>glat</TD><TD>adql:DOUBLE</TD></TR>
+
+        <TR><TD>elon</TD><TD>adql:DOUBLE</TD></TR>
+
+        <TR><TD>elat</TD><TD>adql:DOUBLE</TD></TR>
+
+        <TR><TD>raerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>decerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>pmra</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>pmdec</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>pmraerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>pmdecerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>mjd</TD><TD>adql:DOUBLE</TD></TR>
+
+        <TR><TD>deltamjd</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>umag</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>urms</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>uerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>uasemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>ubsemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>utheta</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>gmag</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>grms</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>gerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>gasemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>gbsemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>gtheta</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>rmag</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>rrms</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>rerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>rasemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>rbsemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>rtheta</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>imag</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>irms</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>ierr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>iasemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>ibsemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>itheta</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>zmag</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>zrms</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>zerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>zasemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>zbsemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>ztheta</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>ymag</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>yrms</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>yerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>yasemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>ybsemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>ytheta</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>vrmag</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>vrrms</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>vrerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>vrasemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>vrbsemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>vrtheta</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>asemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>asemierr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>bsemi</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>bsemierr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>theta</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>thetaerr</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>fwhm</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>class_star</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>ebv</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>random_id</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>pix</TD><TD>adql:BIGINT</TD></TR>
+
+        <TR><TD>ndet</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>nphot</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>htm9</TD><TD>adql:INTEGER</TD></TR>
+
+        <TR><TD>ring256</TD><TD>adql:INTEGER</TD></TR>
+
+        <TR><TD>nest4096</TD><TD>adql:INTEGER</TD></TR>
+
+        <TR><TD>ndetu</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>nphotu</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>ndetg</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>nphotg</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>nphotr</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>ndeti</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>nphoti</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>ndetz</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>nphotz</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>ndety</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>nphoty</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>ndetvr</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>nphotvr</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>flags</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>id</TD><TD>adql:CHAR</TD></TR>
+
+        <TR><TD>rmsvar</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>madvar</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>iqrvar</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>etavar</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>jvar</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>kvar</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>chivar</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>romsvar</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>nsigvar</TD><TD>adql:REAL</TD></TR>
+
+        <TR><TD>variable10sig</TD><TD>adql:SMALLINT</TD></TR>
+
+        <TR><TD>parent</TD><TD>adql:SMALLINT</TD></TR>
+
+        </TABLEDATA>
+
+        </DATA>
+
+        </TABLE>
+
+        </RESOURCE>
+
+        </VOTABLE>
+
+        '
+    headers:
+      Connection:
+      - keep-alive
+      Content-Disposition:
+      - attachment; filename="result_bosgcmaj6c7zpjmw.xml"
+      Content-Type:
+      - application/x-votable+xml
+      Date:
+      - Tue, 21 Jul 2026 12:45:46 GMT
+      Server:
+      - nginx/1.31.3
+      Strict-Transport-Security:
+      - max-age=31536000
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: OK
+- request:
+    body: REQUEST=doQuery&LANG=ADQL&MAXREC=3&QUERY=SELECT+TOP+3+%2A+FROM+nsc_dr2.object
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '77'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - python-requests/2.34.2
+    method: POST
+    uri: https://datalab.noirlab.edu/tap/sync
+  response:
+    body:
+      string: '<?xml version="1.0" encoding="UTF-8"?>
+
+        <VOTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+
+        xsi:noNamespaceSchemaLocation="xmlns:http://www.ivoa.net/xml/VOTable-1.2.xsd"
+        version="1.2">
+
+        <RESOURCE type="results">
+
+        <DESCRIPTION>DALServer TAP Query</DESCRIPTION>
+
+        <INFO name="QUERY_STATUS" value="OK"/>
+
+        <INFO name="QUERY" value="SELECT TOP 3 * FROM nsc_dr2.object"/>
+
+        <INFO name="TableRows" value="3"/>
+
+        <TABLE>
+
+        <FIELD ID="ndetr" name="ndetr" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of detections in r</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ra" name="ra" datatype="double" ucd="pos.eq.ra;meta.main" unit="Degrees">
+
+        <DESCRIPTION>Right ascension (J2000.0) of object, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="dec" name="dec" datatype="double" ucd="pos.eq.dec;meta.main" unit="Degrees">
+
+        <DESCRIPTION>Declination (J2000.0) of object, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="glon" name="glon" datatype="double" ucd="pos.gal.lon" unit="Degrees">
+
+        <DESCRIPTION>Galactic Longitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="glat" name="glat" datatype="double" ucd="pos.gal.lat" unit="Degrees">
+
+        <DESCRIPTION>Galactic Latitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="elon" name="elon" datatype="double" ucd="pos.ecliptic.lon" unit="Degrees">
+
+        <DESCRIPTION>Ecliptic Longitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="elat" name="elat" datatype="double" ucd="pos.ecliptic.lat" unit="Degrees">
+
+        <DESCRIPTION>Ecliptic Latitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="raerr" name="raerr" datatype="float" ucd="stat.error" unit="Arcseconds">
+
+        <DESCRIPTION>Uncertainty of RA</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="decerr" name="decerr" datatype="float" ucd="stat.error" unit="Arcseconds">
+
+        <DESCRIPTION>Uncertainty in DEC</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="pmra" name="pmra" datatype="float" ucd="pos.pm;pos.eq.ra" unit="Milliarcseconds/year">
+
+        <DESCRIPTION>Proper motion in RA*cos(DEC)</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="pmdec" name="pmdec" datatype="float" ucd="pos.pm;pos.eq.dec" unit="Milliarcseconds/year">
+
+        <DESCRIPTION>Proper motion in DEC</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="pmraerr" name="pmraerr" datatype="float" ucd="stat.error;pos.pm;pos.eq.ra"
+        unit="Milliarcseconds/year">
+
+        <DESCRIPTION>Uncertainty in PMRA</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="pmdecerr" name="pmdecerr" datatype="float" ucd="stat.error;pos.pm;pos.eq.dec"
+        unit="Milliarcseconds/year">
+
+        <DESCRIPTION>Uncertainty in PMDEC</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="mjd" name="mjd" datatype="double" ucd="time.epoch" unit="Days">
+
+        <DESCRIPTION>Mean Modified Julian Date</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="deltamjd" name="deltamjd" datatype="float" ucd="time.duration"
+        unit="Days">
+
+        <DESCRIPTION>Range of Modified Julian Date</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="umag" name="umag" datatype="float" ucd="phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Weighted-average u-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="urms" name="urms" datatype="float" ucd="stat.stdev;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>RMS scatter in u from multiple measurements of this object</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="uerr" name="uerr" datatype="float" ucd="stat.error;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Uncertainty in mean u-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="uasemi" name="uasemi" datatype="float" ucd="phys.angSize.smajAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>u-band profile RMS along major axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ubsemi" name="ubsemi" datatype="float" ucd="phys.angSize.sminAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>u-band profile RMS along minor axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="utheta" name="utheta" datatype="float" ucd="pos.posAng" unit="Degrees">
+
+        <DESCRIPTION>u-band position-angle measured CCW East of North, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="gmag" name="gmag" datatype="float" ucd="phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Weighted-average g-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="grms" name="grms" datatype="float" ucd="stat.stdev;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>RMS scatter in g from multiple measurements of this object</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="gerr" name="gerr" datatype="float" ucd="stat.error;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Uncertainty in mean g-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="gasemi" name="gasemi" datatype="float" ucd="phys.angSize.smajAxis"
+        unit="Degrees">
+
+        <DESCRIPTION>g-band profile RMS along major axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="gbsemi" name="gbsemi" datatype="float" ucd="phys.angSize.sminAxis"
+        unit="Degrees">
+
+        <DESCRIPTION>g-band profile RMS along minor axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="gtheta" name="gtheta" datatype="float" ucd="pos.posAng" unit="Degrees">
+
+        <DESCRIPTION>g-band position-angle measured CCW East of North, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="rmag" name="rmag" datatype="float" ucd="phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Weighted-average r-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="rrms" name="rrms" datatype="float" ucd="stat.stdev;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>RMS scatter in r from multiple measurements of this object</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="rerr" name="rerr" datatype="float" ucd="stat.error;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Uncertainty in mean r-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="rasemi" name="rasemi" datatype="float" ucd="phys.angSize.smajAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>r-band profile RMS along major axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="rbsemi" name="rbsemi" datatype="float" ucd="phys.angSize.sminAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>r-band profile RMS along minor axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="rtheta" name="rtheta" datatype="float" ucd="pos.posAng" unit="Degrees">
+
+        <DESCRIPTION>r-band position-angle measured CCW East of North, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="imag" name="imag" datatype="float" ucd="phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Weighted-average i-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="irms" name="irms" datatype="float" ucd="stat.stdev;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>RMS scatter in i from multiple measurements of this object</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ierr" name="ierr" datatype="float" ucd="stat.error;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Uncertainty in mean i-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="iasemi" name="iasemi" datatype="float" ucd="phys.angSize.smajAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>i-band profile RMS along major axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ibsemi" name="ibsemi" datatype="float" ucd="phys.angSize.sminAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>i-band profile RMS along minor axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="itheta" name="itheta" datatype="float" ucd="pos.posAng" unit="Degrees">
+
+        <DESCRIPTION>i-band position-angle measured CCW East of North, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="zmag" name="zmag" datatype="float" ucd="phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Weighted-average z-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="zrms" name="zrms" datatype="float" ucd="stat.stdev;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>RMS scatter in z from multiple measurements of this object</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="zerr" name="zerr" datatype="float" ucd="stat.error;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Uncertainty in mean z-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="zasemi" name="zasemi" datatype="float" ucd="phys.angSize.smajAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>z-band profile RMS along major axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="zbsemi" name="zbsemi" datatype="float" ucd="phys.angSize.sminAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>z-band profile RMS along minor axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ztheta" name="ztheta" datatype="float" ucd="pos.posAng" unit="Degrees">
+
+        <DESCRIPTION>z-band position-angle measured CCW East of North, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ymag" name="ymag" datatype="float" ucd="phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Weighted-average Y-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="yrms" name="yrms" datatype="float" ucd="stat.stdev;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>RMS scatter in Y from multiple measurements of this object</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="yerr" name="yerr" datatype="float" ucd="stat.error;phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Uncertainty in mean Y-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="yasemi" name="yasemi" datatype="float" ucd="phys.angSize.smajAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>Y-band profile RMS along major axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ybsemi" name="ybsemi" datatype="float" ucd="phys.angSize.sminAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>Y-band profile RMS along minor axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ytheta" name="ytheta" datatype="float" ucd="pos.posAng" unit="Degrees">
+
+        <DESCRIPTION>Y-band position-angle measured CCW East of North, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="vrmag" name="vrmag" datatype="float" ucd="phot.mag" unit="Magnitude">
+
+        <DESCRIPTION>Weighted-average VR-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="vrrms" name="vrrms" datatype="float" ucd="stat.stdev;phot.mag"
+        unit="Magnitude">
+
+        <DESCRIPTION>RMS scatter in VR from multiple measurements of this object</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="vrerr" name="vrerr" datatype="float" ucd="stat.error;phot.mag"
+        unit="Magnitude">
+
+        <DESCRIPTION>Uncertainty in mean VR-band magnitude</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="vrasemi" name="vrasemi" datatype="float" ucd="phys.angSize.smajAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>VR-band profile RMS along major axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="vrbsemi" name="vrbsemi" datatype="float" ucd="phys.angSize.sminAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>VR-band profile RMS along minor axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="vrtheta" name="vrtheta" datatype="float" ucd="pos.posAng" unit="Degrees">
+
+        <DESCRIPTION>VR-band position-angle measured CCW East of North, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="asemi" name="asemi" datatype="float" ucd="phys.angSize.smajAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>Mean profile RMS along major axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="asemierr" name="asemierr" datatype="float" ucd="stat.error;phys.angSize.smajAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>Uncertainty in mean RMS along major axis</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="bsemi" name="bsemi" datatype="float" ucd="phys.angSize.sminAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>Mean profile RMS along minor axis, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="bsemierr" name="bsemierr" datatype="float" ucd="stat.error;phys.angSize.sminAxis"
+        unit="Arcseconds">
+
+        <DESCRIPTION>Uncertainty in mean RMS along minor axis</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="theta" name="theta" datatype="float" ucd="pos.posAng" unit="Degrees">
+
+        <DESCRIPTION>Position angle measured CCW East of North, in degrees</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="thetaerr" name="thetaerr" datatype="float" ucd="stat.error;pos.posAng"
+        unit="Degrees">
+
+        <DESCRIPTION>Uncertainty in THETA</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="fwhm" name="fwhm" datatype="float" ucd="phys.angSize" unit="Arcseconds">
+
+        <DESCRIPTION>FWHM assuming a gaussian core, in arcseconds</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="class_star" name="class_star" datatype="float" ucd="stat.probability"
+        unit="None">
+
+        <DESCRIPTION>Star/Galaxy classifier</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ebv" name="ebv" datatype="float" ucd="phys.absorption" unit="Magnitude">
+
+        <DESCRIPTION>SFD E(B-V) reddening</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="random_id" name="random_id" datatype="float">
+
+        <DESCRIPTION>Random ID in the range 0.0 =&gt; 100.0</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="pix" name="pix" datatype="long" ucd="meta.id;meta.main" unit="None">
+
+        <DESCRIPTION>Healpix nside=128 pixel number</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ndet" name="ndet" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of detections in all bands</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nphot" name="nphot" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of photometric detections in all bands</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="htm9" name="htm9" datatype="int" ucd="meta.code">
+
+        <DESCRIPTION>HTM index (order 9 =&gt; ~10 arcmin size)</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ring256" name="ring256" datatype="int" ucd="meta.code">
+
+        <DESCRIPTION>HEALPIX index (Nsides 256, Ring scheme =&gt; ~14 arcmin size)</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nest4096" name="nest4096" datatype="int" ucd="meta.code">
+
+        <DESCRIPTION>HEALPIX index (Nsides 4096, Nest scheme =&gt; ~52 arcsec size</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ndetu" name="ndetu" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of detections in u</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nphotu" name="nphotu" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of photometric detections in u</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ndetg" name="ndetg" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of detections in g</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nphotg" name="nphotg" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of photometric detections in g</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nphotr" name="nphotr" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of photometric detections in r</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ndeti" name="ndeti" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of detections in i</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nphoti" name="nphoti" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of photometric detections in i</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ndetz" name="ndetz" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of detections in z</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nphotz" name="nphotz" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of photometric detections in z</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ndety" name="ndety" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of detections in Y</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nphoty" name="nphoty" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of photometric detections in Y</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="ndetvr" name="ndetvr" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of detections in VR</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nphotvr" name="nphotvr" datatype="short" ucd="meta.number" unit="None">
+
+        <DESCRIPTION>Number of photometric detections in VR</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="flags" name="flags" datatype="short" ucd="meta.code" unit="None">
+
+        <DESCRIPTION>OR-combined SExtractor FLAG value</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="id" name="id" datatype="char" ucd="meta.id;meta.main" arraysize="16"
+        unit="None">
+
+        <DESCRIPTION>Unique object ID</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="rmsvar" name="rmsvar" datatype="float" unit="Magnitude">
+
+        <DESCRIPTION>Root-mean-square photometric variability metric</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="madvar" name="madvar" datatype="float" ucd="phot.mag;src.var" unit="Magnitude">
+
+        <DESCRIPTION>Median absolute deviation photometric variability metric</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="iqrvar" name="iqrvar" datatype="float" ucd="phot.mag;src.var" unit="Magnitude">
+
+        <DESCRIPTION>Interquartile range photometric variability metric</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="etavar" name="etavar" datatype="float" ucd="phot.mag;src.var" unit="Magnitude">
+
+        <DESCRIPTION>von Neumann ratio eta photometric variability metric</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="jvar" name="jvar" datatype="float" ucd="src.var">
+
+        <DESCRIPTION>Stetson J photometric variability metric</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="kvar" name="kvar" datatype="float" ucd="src.var">
+
+        <DESCRIPTION>Stetson K photometric variability metric</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="chivar" name="chivar" datatype="float" ucd="src.var">
+
+        <DESCRIPTION>Chi-squared photometric variability metric</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="romsvar" name="romsvar" datatype="float" ucd="src.var">
+
+        <DESCRIPTION>Robust median statistic photometric variability metric</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="nsigvar" name="nsigvar" datatype="float" ucd="src.var;meta.number">
+
+        <DESCRIPTION>Number of standard deviations of MADVAR above the median</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="variable10sig" name="variable10sig" datatype="short" ucd="src.var;meta.number">
+
+        <DESCRIPTION>MADVAR variability metric is 10 sigma above the median value</DESCRIPTION>
+
+        </FIELD>
+
+        <FIELD ID="parent" name="parent" datatype="short" ucd="meta.code">
+
+        <DESCRIPTION>Object contains other object centers inside its ellipse footprint</DESCRIPTION>
+
+        </FIELD>
+
+        <DATA>
+
+        <TABLEDATA>
+
+        <TR><TD>0</TD><TD>324.4056125480407</TD><TD>57.2020002255535</TD><TD>98.96396179957577</TD><TD>3.6442779088941273</TD><TD>5.846377460870681</TD><TD>63.719028738545006</TD><TD>0.085266</TD><TD>0.085144</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>57677.12038194481</TD><TD>0</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>20.515625</TD><TD>NaN</TD><TD>0.094788</TD><TD>0.397705</TD><TD>0.372314</TD><TD>83.125</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>0.397705</TD><TD>0.04895</TD><TD>0.372314</TD><TD>0.045837</TD><TD>83.125</TD><TD>7.074219</TD><TD>1.207031</TD><TD>0.629395</TD><TD>1.427607</TD><TD>26.680677</TD><TD>15984</TD><TD>1</TD><TD>1</TD><TD>3252923</TD><TD>63653</TD><TD>63398399</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>1</TD><TD>1</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>15984_2898</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>0</TD><TD>0</TD></TR>
+
+        <TR><TD>0</TD><TD>324.40771413323307</TD><TD>57.20163780763728</TD><TD>98.96456887281893</TD><TD>3.643248234757386</TD><TD>5.847535247532613</TD><TD>63.717949631809006</TD><TD>0.101929</TD><TD>0.101807</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>57677.12038194481</TD><TD>0</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>20.703125</TD><TD>NaN</TD><TD>0.116943</TD><TD>0.41748</TD><TD>0.376709</TD><TD>48.65625</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>0.41748</TD><TD>0.050354</TD><TD>0.376709</TD><TD>0.045654</TD><TD>48.65625</TD><TD>44.71875</TD><TD>2.242188</TD><TD>0.844727</TD><TD>1.428044</TD><TD>68.616295</TD><TD>15984</TD><TD>1</TD><TD>1</TD><TD>3252923</TD><TD>63653</TD><TD>63398399</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>1</TD><TD>1</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>15984_2895</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>0</TD><TD>0</TD></TR>
+
+        <TR><TD>0</TD><TD>324.41078876506293</TD><TD>57.202072211534556</TD><TD>98.9661021688643</TD><TD>3.642460205617855</TD><TD>5.850820455145865</TD><TD>63.71702963355723</TD><TD>0.152466</TD><TD>0.152344</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>57677.12038194481</TD><TD>0</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>20.859375</TD><TD>NaN</TD><TD>0.118958</TD><TD>0.432861</TD><TD>0.275635</TD><TD>166.375</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>99.99</TD><TD>NaN</TD><TD>9.99</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>0.432861</TD><TD>0.079041</TD><TD>0.275635</TD><TD>0.050293</TD><TD>166.375</TD><TD>75.875</TD><TD>1.927734</TD><TD>0.416748</TD><TD>1.42795</TD><TD>45.798717</TD><TD>15984</TD><TD>1</TD><TD>1</TD><TD>3252923</TD><TD>63653</TD><TD>63398399</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>1</TD><TD>1</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>0</TD><TD>15984_2892</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>NaN</TD><TD>0</TD><TD>0</TD></TR>
+
+        </TABLEDATA>
+
+        </DATA>
+
+        </TABLE>
+
+        </RESOURCE>
+
+        </VOTABLE>
+
+        '
+    headers:
+      Connection:
+      - keep-alive
+      Content-Disposition:
+      - attachment; filename="result_lfiqcwyiekx08bov.xml"
+      Content-Type:
+      - application/x-votable+xml
+      Date:
+      - Tue, 21 Jul 2026 12:45:47 GMT
+      Server:
+      - nginx/1.31.3
+      Strict-Transport-Security:
+      - max-age=31536000
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: OK
+version: 1

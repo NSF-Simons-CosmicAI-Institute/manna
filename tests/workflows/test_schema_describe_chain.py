@@ -13,8 +13,7 @@ through correctly. TapClient is faked; no network.
 import pytest
 from fastmcp import Client
 
-from astro_archives_mcp import job_store
-from astro_archives_mcp.tools import tap as tap_tools
+from manna.tools import tap as tap_tools
 
 
 class _FakeTapClient:
@@ -41,15 +40,6 @@ class _FakeTapClient:
 
     def query(self, *, endpoint, adql, maxrec):
         raise NotImplementedError("workflow test uses async only")
-
-
-@pytest.fixture(autouse=True)
-def _clear_jobs():
-    with job_store._LOCK:
-        job_store._STORE.clear()
-    yield
-    with job_store._LOCK:
-        job_store._STORE.clear()
 
 
 @pytest.fixture

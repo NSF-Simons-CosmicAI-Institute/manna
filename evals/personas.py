@@ -3,7 +3,7 @@
 Instead of our custom agent loop (harness.run_task), a persona driver runs a REAL agent
 framework end-to-end against the MCP server and parses its transcript into the same
 `TaskRun`, so the exact same scoring (ground-truth / rubric / judge) applies. This is the
-scored generalization of deploy/frontend/.../smoke-test.sh.
+scored generalization of a persona harness's own smoke-test script.
 
 First driver: **Claude Code** (`claude -p --output-format stream-json`). The MCP server is
 passed inline via --mcp-config (+ --strict-mcp-config to ignore any global/project config),
@@ -22,7 +22,7 @@ from typing import Any, Protocol
 
 from evals.harness import TaskRun, ToolCall
 
-_MCP_SERVER_NAME = "astro-archives"
+_MCP_SERVER_NAME = "manna"
 _MCP_PREFIX = f"mcp__{_MCP_SERVER_NAME}__"
 
 
@@ -30,7 +30,7 @@ _MCP_PREFIX = f"mcp__{_MCP_SERVER_NAME}__"
 class PersonaConfig:
     label: str = "claude-code"
     model: str | None = None  # --model override (else the persona's default)
-    env: dict[str, str] = field(default_factory=dict)  # extra env (e.g. point at Qwen)
+    env: dict[str, str] = field(default_factory=dict)  # extra env (e.g. point at a different model)
     cwd: str | None = None  # neutral working dir so it doesn't inherit a repo's CLAUDE.md
 
 

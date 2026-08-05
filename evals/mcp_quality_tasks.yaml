@@ -155,3 +155,100 @@
   rubric: >-
     Passes if the assistant ran a positional Gaia DR3 query around the given coordinates
     and reported an integer count with at least one example source_id.
+
+# --- purpose-built-tool coverage (2026-07): exercise count/survey/inspect ----------
+# The pre-existing suite is coords/find-URL heavy and never probes multi-archive
+# survey or table sampling, so it understates the facades' value. These tasks target
+# the orchestration the facades encapsulate: the q3c-vs-CONTAINS geometry trap, ALMA's
+# distinct-OUS granularity, NRAO async, cross-archive availability, and live sampling.
+# Still arm-agnostic (no vo_* references) and outcome-scored.
+
+# count-shaped ----------------------------------------------------------------------
+- id: mq-count-datalab-q3c
+  tier: 5
+  prompt: >-
+    Using the NOIRLab Astro Data Lab NSC DR2 catalogue (nsc_dr2.object), how many
+    sources lie within 0.02 degrees of RA=60.0, Dec=-30.0?
+  rubric: >-
+    Passes if the assistant queried Data Lab nsc_dr2.object with a VALID positional
+    filter (q3c_radial_query or a ra/dec bounding box — NOT an untranslated
+    CONTAINS/CIRCLE/POINT, which errors on Data Lab) and reported an integer count.
+
+- id: mq-count-alma-distinct-m83
+  tier: 5
+  prompt: >-
+    How many DISTINCT ALMA observations (downloadable Member OUS datasets) are within
+    0.1 degrees of the galaxy M83? ALMA rows are finer-grained than observations, so
+    count distinct datasets, not raw rows.
+  rubric: >-
+    Passes if the assistant queried the ALMA archive near M83 (~204.25 / -29.87) and
+    reported a distinct-observation count via COUNT(DISTINCT member_ous_uid) — or
+    clearly accounted for ALMA's spectral-window row granularity rather than a raw
+    COUNT(*).
+
+- id: mq-count-nrao-cena
+  tier: 5
+  prompt: >-
+    How many observations does the NRAO archive have within 0.05 degrees of the radio
+    galaxy Centaurus A (NGC 5128)?
+  rubric: >-
+    Passes if the assistant queried NRAO obscore (tap_schema.obscore) with a spatial
+    predicate near Centaurus A (~201.37 / -43.02), coped with the async requirement,
+    and reported an integer count (or clearly reported that the async job was still
+    running).
+
+# survey-shaped (multi-archive availability) ----------------------------------------
+- id: mq-survey-cena
+  tier: 5
+  prompt: >-
+    Give a cross-archive summary of what data is available within 0.1 degrees of the
+    radio galaxy Centaurus A (NGC 5128): for each archive you can reach, report whether
+    it has data there and roughly how many observations or sources.
+  rubric: >-
+    Passes if the assistant reports a PER-ARCHIVE availability summary near Centaurus A
+    covering at least two distinct archives spanning at least two wavebands (e.g. an
+    optical catalog and a radio or millimeter archive), each with a count or a clear
+    has-data / no-data verdict.
+
+- id: mq-survey-wavebands-m83
+  tier: 5
+  prompt: >-
+    Near the galaxy M83, which wavebands (optical, radio, millimeter, ...) are
+    represented across the archives available to you? Name at least one archive per
+    waveband you find data in.
+  rubric: >-
+    Passes if the assistant identifies at least two DISTINCT wavebands with data near
+    M83 (~204.25 / -29.87) and names a corresponding archive for each (e.g. optical ->
+    Data Lab, millimeter -> ALMA, radio -> NRAO).
+
+- id: mq-survey-fornax
+  tier: 5
+  prompt: >-
+    How many of the archives available to you have observations or catalog sources
+    within 0.1 degrees of the galaxy NGC 1316 (Fornax A), and which archive has the
+    most?
+  rubric: >-
+    Passes if the assistant checked multiple archives near NGC 1316 (~50.67 / -37.21),
+    reported how many have data, and identified which archive has the most (or gave a
+    clear per-archive count comparison).
+
+# inspect-shaped (columns / enums / live sample) ------------------------------------
+- id: mq-inspect-alma-obscore-cols
+  tier: 5
+  prompt: >-
+    In the ALMA archive's ObsCore table, which column uniquely identifies a distinct
+    downloadable dataset (the Member OUS), and name two other real columns in that
+    table.
+  ground_truth:
+    type: contains
+    values: [member_ous_uid, s_ra]
+
+- id: mq-inspect-nsc-sample
+  tier: 5
+  prompt: >-
+    Show two example source rows from the NOIRLab Data Lab NSC DR2 object catalogue
+    (nsc_dr2.object), including each source's RA and Dec.
+  rubric: >-
+    Passes if the assistant returned TWO actual sample rows with concrete numeric RA
+    and Dec values drawn from nsc_dr2.object (a real data sample) — NOT merely a
+    description of the table's columns/schema.

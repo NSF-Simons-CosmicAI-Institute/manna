@@ -1,0 +1,63 @@
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="MANNA_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    host: str = "0.0.0.0"
+    port: int = 8000
+    # Optional comma-separated allow-list of archive short_names
+    # (e.g. "datalab,alma"). Unset/empty => every archive physically present in
+    # the `archives/` package is active. See archives/__init__.py and
+    # docs/archives-spec.md.
+    archives: str | None = None
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    # Optional comma-separated allow-list of hostnames the server may fetch
+    # (e.g. "almascience.eso.org,eso.org"). Matches exactly or as a subdomain.
+    # Unset => any *public* host is reachable, which keeps vo_registry_search
+    # discovery working; private/loopback/link-local space is refused either
+    # way. See _url_guard.py.
+    allowed_hosts: str | None = None
+    # Slice 5: async TAP family.
+    tap_sync_timeout_seconds: float = 20.0
+    # vo_count_observations: bounded budget for polling an async count job
+    # (NRAO obscore). A COUNT returns one row and completes fast once scheduled;
+    # on budget exhaustion the tool returns a pending envelope with the job_url.
+    count_async_budget_seconds: float = Field(default=15.0, gt=0)
+    count_async_poll_interval_seconds: float = Field(default=1.0, gt=0)
+    # Inline response caps (shaper.py). A TAP result larger than EITHER limit
+    # is routed to an async job whose result the client fetches itself (the
+    # server never holds the bytes); discovery tools (cone / SIA search)
+    # truncate inline instead. Defaults are sized for small-context backends
+    # (e.g. a 64K-token local vLLM), where a single fat inline result can
+    # overflow the model window. Raise them for frontier models with large
+    # context windows.
+    inline_row_limit: int = 200
+    inline_byte_limit: int = 48 * 1024
+    # vo_registry_describe degrades from full per-column detail to a table
+    # catalog (names + descriptions + column counts) once the full introspection
+    # payload would exceed this many bytes. Prevents a large service (e.g. Gaia,
+    # ~127k tokens of tables × columns) from overflowing the model context. See
+    # shape_registry_describe_result.
+    registry_describe_byte_limit: int = 48 * 1024
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Process-wide Settings singleton.
+
+    Cached so runtime consumers (the lazy backend accessors, the URL
+    guard) read environment / .env once rather than re-parsing per call.
+    Tests that mutate the environment must call ``get_settings.cache_clear()``
+    to force a re-read.
+    """
+    return Settings()
