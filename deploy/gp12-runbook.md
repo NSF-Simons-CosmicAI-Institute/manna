@@ -4,9 +4,9 @@ MANNA's VO tools in Astro Data Lab notebooks, via the Jupyter AI persona. MANNA 
 **one container on host loopback**; every user's notebook server reaches it at
 `http://127.0.0.1:8000/mcp/`.
 
-**Status:** validated end-to-end on gp12, including from a **jailed Data Lab account**
-(2026-08-03). Persona branded `@datalab`, harness in the shared env, config from
-system paths — nothing depends on any one user's home.
+**Status:** in use on gp12. Validated end-to-end including from a **jailed Data Lab
+account** — persona branded `@datalab`, harness in the shared env, all config from
+system paths, nothing dependent on any one user's home.
 
 > **Proof.** Chat → `resolve galaxy m51 using MANNA mcp tools` →
 > `✓ mcp__manna__vo_target_resolve` → RA 202.469575°, Dec +47.19525833° (ICRS), with a

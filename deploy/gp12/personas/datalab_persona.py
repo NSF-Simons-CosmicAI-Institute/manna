@@ -41,6 +41,6 @@ class DatalabPersona(ClaudeAcpPersona):
         return PersonaDefaults(
             name="datalab",
             description=("NOIRLab Astro Data Lab assistant — archive tools for notebooks."),
-            avatar_path="/data0/sw/manna/deploy/frontend/CosmicCoder.png",
+            avatar_path="/data0/sw/manna/deploy/gp12/datalab.png",
             system_prompt="unused",
         )
