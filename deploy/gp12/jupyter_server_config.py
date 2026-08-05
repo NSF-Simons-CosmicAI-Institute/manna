@@ -30,9 +30,14 @@ c.MCPServer.host = "127.0.0.1"
 # login-state check, which otherwise reports "Not logged in · Please run /login".
 os.environ.setdefault("ANTHROPIC_BASE_URL", "http://dlai01.csdc.noirlab.edu:8002")
 os.environ.setdefault("ANTHROPIC_API_KEY", "dummy")
-os.environ.setdefault("ANTHROPIC_DEFAULT_OPUS_MODEL", "openai/gpt-oss-120b")
-os.environ.setdefault("ANTHROPIC_DEFAULT_SONNET_MODEL", "openai/gpt-oss-120b")
-os.environ.setdefault("ANTHROPIC_DEFAULT_HAIKU_MODEL", "openai/gpt-oss-120b")
+# MUST match what dlai01 currently serves — check with:
+#   curl -s http://dlai01.csdc.noirlab.edu:8002/v1/models
+# Swapping the model there without changing it here breaks the assistant for every
+# user with "model may not exist". The two are a pair; change them together.
+_MODEL = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8"
+os.environ.setdefault("ANTHROPIC_DEFAULT_OPUS_MODEL", _MODEL)
+os.environ.setdefault("ANTHROPIC_DEFAULT_SONNET_MODEL", _MODEL)
+os.environ.setdefault("ANTHROPIC_DEFAULT_HAIKU_MODEL", _MODEL)
 
 # Output cap + early auto-compaction. Behind ANTHROPIC_BASE_URL Claude Code can't
 # detect the real context window and assumes ~200K, so it never compacts before the

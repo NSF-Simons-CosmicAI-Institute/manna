@@ -55,6 +55,7 @@ cd /data0/sw/manna/deploy/gp12
 | Changed | Reinstall | Takes effect |
 |---|---|---|
 | MANNA server | rebuild image, `systemctl restart manna` | immediately |
+| **model served on dlai01** | `_MODEL` in §3, then §3 | next server spawn |
 | `jupyter_server_config.py` | §3 | next server spawn |
 | `claude-code/*` | §4 | next server spawn |
 | persona name/avatar | §5 (`./rebrand-persona.sh`) | next server spawn |
@@ -141,6 +142,10 @@ sudo cp jupyter_server_config.py /data0/sw/anaconda3/etc/jupyter/
 
 It sets `c.MCPServer.host` (IPv6 fix), the `ANTHROPIC_*` model env, a `PATH` putting
 node 22 ahead of the env's node 18, and `c.PersonaManager.builtin_mcp_servers`.
+
+- **`_MODEL` must match what dlai01 serves** (`curl .../v1/models`). Swapping the model
+  there without changing it here breaks the assistant for every user with "model may not
+  exist" — a per-user override in one home hides it from whoever made the swap.
 
 - **`builtin_mcp_servers` is the delivery mechanism.** Confirmed by removing the user's
   own config entirely and seeing the tools survive — so nothing needs writing into NFS
