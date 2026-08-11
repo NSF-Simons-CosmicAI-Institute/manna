@@ -1,6 +1,6 @@
 [project]
 name = "manna"
-version = "0.5.0"
+version = "0.6.0"
 description = "MANNA — MCP Architecture for NOIRLab and NRAO Archives"
 requires-python = ">=3.12"
 readme = "README.md"
