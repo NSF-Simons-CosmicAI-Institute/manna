@@ -5,6 +5,7 @@ from typing import Annotated
 from pydantic import Field
 
 from manna._archive_label import archive_label
+from manna._fingerprint import query_fingerprint
 from manna._url_guard import ensure_safe_url
 from manna.archives._endpoints import (
     scs_endpoint_description,
@@ -12,7 +13,7 @@ from manna.archives._endpoints import (
 )
 from manna.backends.cone import ConeSearchClient
 from manna.errors import wrap_tool_errors
-from manna.shaper import shape_table
+from manna.shaper import attach_cache_fields, shape_table
 from manna.tools._constants import _ERROR_DOCSTRING
 
 _cone: ConeSearchClient | None = None
@@ -50,6 +51,9 @@ def vo_cone_search(
     Returns the inline tabular envelope, same shape as vo_tap_query.
     For most uses, prefer vo_tap_query — SCS is here for catalogs that
     only expose the legacy protocol.
+
+    Successful envelopes carry `query_fingerprint` + `save_recipe`; execute
+    save_recipe.code client-side to persist the result and its catalog row.
     """
     ensure_safe_url(endpoint, param="endpoint")
     table = _get_cone().search(
@@ -59,7 +63,15 @@ def vo_cone_search(
         radius_deg=radius_deg,
         maxrec=maxrec,
     )
-    return shape_table(table, archive=archive_label(endpoint), maxrec=maxrec)
+    identity = f"ra={ra:.6f} dec={dec:.6f} radius={radius_deg:.6f}"
+    return attach_cache_fields(
+        shape_table(table, archive=archive_label(endpoint), maxrec=maxrec),
+        fingerprint=query_fingerprint("cone", endpoint, identity),
+        tool="cone",
+        endpoint=endpoint,
+        query=identity,
+        maxrec=maxrec,
+    )
 
 
 vo_cone_search.__doc__ = (vo_cone_search.__doc__ or "") + _ERROR_DOCSTRING

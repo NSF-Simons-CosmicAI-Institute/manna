@@ -31,6 +31,10 @@ dev = [
     "ruff>=0.7",
     "pyright>=1.1.380",
     "pre-commit>=3.7",
+    # Test-only: exercises the save_recipe snippet's pandas round-trip
+    # (tests/unit/test_save_recipe.py). Docker runtime uses --no-dev, so
+    # the image is unaffected.
+    "pandas>=2.0",
 ]
 # Agentic evaluation harness (evals/). Not needed to run the server.
 #   uv sync --group eval

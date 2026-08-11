@@ -163,6 +163,128 @@ def build_fetch_recipe(job_url: str, result_url: str | None = None) -> dict[str,
     return recipe
 
 
+def build_save_recipe(
+    *,
+    fingerprint: str,
+    tool: str,
+    endpoint: str,
+    archive: str,
+    query: str,
+    truncated: bool,
+    maxrec: int | None = None,
+) -> dict[str, Any]:
+    """Client-side recipe for persisting a query result as a CSV + catalog row.
+
+    Same philosophy as build_fetch_recipe: the server never touches the
+    user's filesystem — it hands the LLM a self-contained snippet to run in
+    the user's own Python environment. The snippet assumes the result is in
+    a pandas DataFrame named `df` (built from the inline `rows` or loaded
+    via fetch_recipe), writes manna_cache/<fingerprint>.csv, and appends a
+    metadata row to manna_cache/catalog.csv.
+
+    Catalog appends go through csv.QUOTE_ALL — ADQL is full of commas and
+    quotes, and a hand-concatenated row would corrupt the catalog. The
+    `target` column is left empty for the agent to fill when it resolved a
+    target name this conversation; `saved_at` is stamped client-side at
+    execution time. The embedded values use !r so the generated snippet
+    stays valid Python for any query text. `maxrec` records the upstream
+    row cap that was in effect (or '' when unknown, e.g. from
+    vo_tap_results) — without it, a result capped upstream catalogs as
+    truncated=False with no record of the cap, and a capped CSV can be
+    mistaken for the full result. The catalog append is idempotent per
+    fingerprint — rerunning the save cell, or refreshing the same query
+    later, replaces that row in place instead of duplicating it (duplicate
+    rows observed live 2026-08-11).
+    """
+    csv_path = f"manna_cache/{fingerprint}.csv"
+    maxrec_value = maxrec if maxrec is not None else ""
+    code = (
+        "import csv, os\n"
+        "from datetime import datetime, timezone\n"
+        "os.makedirs('manna_cache', exist_ok=True)\n"
+        f"df.to_csv({csv_path!r}, index=False)\n"
+        "_kept = []\n"
+        "if os.path.exists('manna_cache/catalog.csv'):\n"
+        "    with open('manna_cache/catalog.csv', newline='') as _f:\n"
+        "        _existing = list(csv.reader(_f))\n"
+        f"    _kept = [_r for _r in _existing[1:] if _r and _r[0] != {fingerprint!r}]\n"
+        "with open('manna_cache/catalog.csv', 'w', newline='') as _f:\n"
+        "    _w = csv.writer(_f, quoting=csv.QUOTE_ALL)\n"
+        "    _w.writerow(['fingerprint', 'tool', 'endpoint', 'archive', 'query',\n"
+        "                 'target', 'n_rows', 'truncated', 'maxrec', 'csv_path',\n"
+        "                 'saved_at'])\n"
+        "    _w.writerows(_kept)\n"
+        f"    _w.writerow([{fingerprint!r}, {tool!r}, {endpoint!r}, {archive!r}, {query!r},\n"
+        f"                 '', len(df), {truncated!r}, {maxrec_value!r}, {csv_path!r},\n"
+        "                 datetime.now(timezone.utc).isoformat()])"
+    )
+    return {
+        "path": csv_path,
+        "instructions": (
+            "After the result is in a pandas DataFrame named `df` (build it "
+            "from the inline rows, or via fetch_recipe for async results), "
+            "execute save_recipe.code with your code-execution tool. It saves "
+            "the result CSV and updates manna_cache/catalog.csv so this query "
+            "is not re-run later. Do NOT re-run the query just to save it."
+        ),
+        "code": code,
+    }
+
+
+def attach_cache_fields(
+    envelope: dict[str, Any],
+    *,
+    fingerprint: str,
+    tool: str,
+    endpoint: str,
+    query: str,
+    maxrec: int | None = None,
+) -> dict[str, Any]:
+    """Add query_fingerprint + save_recipe to a success envelope (mutates).
+
+    Called by the primitive query tools (TAP/cone/SIA) after shaping.
+    `archive` and `truncated` are read off the envelope so the recipe's
+    catalog row always matches what the envelope claims — a truncated
+    inline result is recorded as truncated and never mistaken for the
+    full result by the client-side cache. `maxrec` is the upstream row
+    cap in effect for this query (None when unknown, e.g. vo_tap_results,
+    where the original maxrec isn't recoverable from the job). Error
+    payloads never pass through here (wrap_tool_errors short-circuits
+    before shaping).
+
+    Also appends an imperative save instruction to the envelope's
+    top-level `next_steps` — nested fields like `save_recipe.instructions`
+    get ignored by weak models (the PR-#64 lesson, observed live with
+    Nemotron 2026-08-10), so the save action must live where those
+    models reliably read it.
+    """
+    envelope["query_fingerprint"] = fingerprint
+    envelope["save_recipe"] = build_save_recipe(
+        fingerprint=fingerprint,
+        tool=tool,
+        endpoint=endpoint,
+        archive=str(envelope.get("archive") or ""),
+        query=query,
+        truncated=bool(envelope.get("truncated", False)),
+        maxrec=maxrec,
+    )
+    save_instruction = (
+        "Save this result now: put it in a pandas DataFrame named df "
+        "(inline results: df = pd.DataFrame(rows, columns=[c['name'] for c "
+        "in columns]); async results: run fetch_recipe first, then df = "
+        "table.to_pandas()), then execute save_recipe.code with your "
+        "code-execution tool. It writes "
+        f"manna_cache/{fingerprint}.csv and a catalog row so this query is "
+        "never re-run. Do NOT re-run the query to save it."
+    )
+    next_steps = envelope.get("next_steps")
+    if next_steps is None:
+        envelope["next_steps"] = [save_instruction]
+    else:
+        next_steps.append(save_instruction)
+    return envelope
+
+
 def shape_result_url(
     *,
     job_url: str,

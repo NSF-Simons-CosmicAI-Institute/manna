@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from manna._archive_label import archive_label
+from manna._fingerprint import query_fingerprint
 from manna._url_guard import ensure_safe_url
 from manna.archives._endpoints import (
     sia_endpoint_description,
@@ -12,7 +13,7 @@ from manna.archives._endpoints import (
 )
 from manna.backends.sia import SiaClient
 from manna.errors import wrap_tool_errors
-from manna.shaper import shape_table
+from manna.shaper import attach_cache_fields, shape_table
 from manna.tools._constants import _ERROR_DOCSTRING
 
 _sia: SiaClient | None = None
@@ -83,6 +84,9 @@ def vo_sia_search(
 
     For all-sky discovery first, see vo_registry_search with
     servicetype='sia'.
+
+    Successful envelopes carry `query_fingerprint` + `save_recipe`; execute
+    save_recipe.code client-side to persist the result and its catalog row.
     """
     ensure_safe_url(endpoint, param="endpoint")
     table = _get_sia().search(
@@ -95,7 +99,15 @@ def vo_sia_search(
         maxrec=maxrec,
         version=version,
     )
-    return shape_table(table, archive=archive_label(endpoint), maxrec=maxrec)
+    identity = f"ra={ra:.6f} dec={dec:.6f} size={size_deg:.6f} band={band or ''} fmt={fmt or ''}"
+    return attach_cache_fields(
+        shape_table(table, archive=archive_label(endpoint), maxrec=maxrec),
+        fingerprint=query_fingerprint("sia", endpoint, identity),
+        tool="sia",
+        endpoint=endpoint,
+        query=identity,
+        maxrec=maxrec,
+    )
 
 
 vo_sia_search.__doc__ = (vo_sia_search.__doc__ or "") + _ERROR_DOCSTRING
