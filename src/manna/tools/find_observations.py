@@ -137,7 +137,10 @@ def vo_find_observations(
     explicit `archive`.
 
     Returns the standard inline tabular envelope (same shape as vo_sia_search /
-    vo_cone_search — typed `columns`, `rows`, explicit `truncated` bool) plus:
+    vo_cone_search — typed `columns`, `rows`, explicit `truncated` bool; note
+    this facade envelope does NOT carry the `query_fingerprint` / `save_recipe`
+    cache fields the primitive tools attach — call the underlying vo_sia_search
+    / vo_cone_search directly if you need those) plus:
 
       - `resolved`: {target, ra, dec, frame} — the coordinates actually used.
       - `plan`: {service, chosen_archive, endpoint, alternatives, usage_notes}

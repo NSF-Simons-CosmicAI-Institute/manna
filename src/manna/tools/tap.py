@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from manna._archive_label import archive_label
+from manna._fingerprint import query_fingerprint
 from manna._url_guard import ensure_safe_url
 from manna.archives._endpoints import (
     tap_endpoint_description,
@@ -25,6 +26,7 @@ from manna.errors import (
     wrap_tool_errors,
 )
 from manna.shaper import (
+    attach_cache_fields,
     is_oversize,
     shape_inline_table,
     shape_promotion,
@@ -184,6 +186,11 @@ def vo_tap_query(
     COMPLETED, then call vo_tap_results(job_url) — or fetch client-side
     with the pyvo fetch_recipe carried on the promotion envelope. Pass the
     job_url back verbatim; it is the job's only handle.
+
+    Successful result envelopes also carry `query_fingerprint` and a
+    `save_recipe` — after loading the result, execute save_recipe.code
+    client-side to persist a CSV + manna_cache/catalog.csv row so the
+    query need not be re-run later.
     """
     ensure_safe_url(endpoint, param="endpoint")
     # Every path that can surface a DalQueryError runs inside _trap_hint, so a
@@ -203,7 +210,14 @@ def vo_tap_query(
                     ),
                     retry_strategy="fix_and_retry",
                 )
-            return shape_inline_table(table, archive=archive_label(endpoint), maxrec=maxrec)
+            return attach_cache_fields(
+                shape_inline_table(table, archive=archive_label(endpoint), maxrec=maxrec),
+                fingerprint=query_fingerprint("tap", endpoint, adql),
+                tool="tap",
+                endpoint=endpoint,
+                query=adql,
+                maxrec=maxrec,
+            )
 
         # mode == "auto": try sync, promote to async on a sync timeout OR when the
         # sync result is too large to inline. The timeout discriminator is the
@@ -218,7 +232,14 @@ def vo_tap_query(
             # archive holds the bytes and we can hand back a fetch URL. The first
             # (discarded) execution is the cost of not knowing the size upfront.
             return _auto_promote(endpoint=endpoint, adql=adql, maxrec=maxrec)
-        return shape_inline_table(table, archive=archive_label(endpoint), maxrec=maxrec)
+        return attach_cache_fields(
+            shape_inline_table(table, archive=archive_label(endpoint), maxrec=maxrec),
+            fingerprint=query_fingerprint("tap", endpoint, adql),
+            tool="tap",
+            endpoint=endpoint,
+            query=adql,
+            maxrec=maxrec,
+        )
 
 
 vo_tap_query.__doc__ = (vo_tap_query.__doc__ or "") + _ERROR_DOCSTRING
@@ -232,6 +253,17 @@ _JOB_URL_FIELD = Field(
     ),
     examples=["https://almascience.eso.org/tap/async/1234567"],
 )
+
+
+def _endpoint_from_job_url(job_url: str) -> str:
+    """Recover the TAP base endpoint from a UWS job URL.
+
+    Standard UWS layout is <endpoint>/async/<id>; splitting keeps the
+    vo_tap_results fingerprint identical to the one vo_tap_query computed
+    at submission, so a promoted query dedupes against its inline twin.
+    Non-standard URLs fall back to the job_url itself — still stable.
+    """
+    return job_url.split("/async/")[0] if "/async/" in job_url else job_url
 
 
 def _status_payload(*, job, job_url: str) -> dict:
@@ -322,10 +354,25 @@ def vo_tap_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
         result_url = None
     # phase is necessarily "COMPLETED" here — every other phase returned or
     # raised above — so shape_result_url uses its "COMPLETED" default.
-    return shape_result_url(
-        job_url=job_url,
-        result_url=result_url,
-        archive=archive_label(job_url),
+    # Fingerprint continuity: prefer the job's own ADQL (pyvo exposes it on
+    # AsyncTAPJob); a job that doesn't expose it falls back to the job_url,
+    # stable for the life of the job — exactly the re-fetch window.
+    try:
+        job_adql = getattr(job, "query", None)
+    except Exception:  # noqa: BLE001 — pyvo attribute access is best-effort
+        job_adql = None
+    identity = job_adql or job_url
+    endpoint = _endpoint_from_job_url(job_url)
+    return attach_cache_fields(
+        shape_result_url(
+            job_url=job_url,
+            result_url=result_url,
+            archive=archive_label(job_url),
+        ),
+        fingerprint=query_fingerprint("tap", endpoint, identity),
+        tool="tap",
+        endpoint=endpoint,
+        query=identity,
     )
 
 
