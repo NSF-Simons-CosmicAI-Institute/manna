@@ -6,7 +6,7 @@ import csv
 
 import pytest
 
-from manna.shaper import attach_cache_fields, build_save_recipe
+from manna.shaper import attach_cache_fields, build_load_recipe, build_save_recipe
 
 NASTY_QUERY = "SELECT ra, dec FROM t WHERE name = 'M87, \"the big one\"'\n  AND x > 1"
 
@@ -44,7 +44,7 @@ def test_recipe_executes_and_catalog_roundtrips(tmp_path, monkeypatch):
     code = _recipe(maxrec=5000)["code"]
 
     exec(code, {"df": df})  # first save: creates dir, CSV, catalog with header
-    exec(code, {"df": df})  # second save: same fingerprint replaces the row
+    exec(code, {"df": df})  # second save: append-only -> a second row, same fingerprint
 
     saved = pd.read_csv(tmp_path / "manna_cache" / "abc123def456.csv")
     assert len(saved) == 2
@@ -64,19 +64,25 @@ def test_recipe_executes_and_catalog_roundtrips(tmp_path, monkeypatch):
         "csv_path",
         "saved_at",
     ]
-    assert len(rows) == 2  # header + one row — rerun replaced, not duplicated
-    assert rows[1][4] == NASTY_QUERY  # quoting round-trips the ADQL intact
-    assert rows[1][6] == "2"  # n_rows == len(df)
-    assert rows[1][7] == "False"  # truncated flag
-    assert rows[1][8] == "5000"  # maxrec recorded when provided
-    assert rows[1][9] == "manna_cache/abc123def456.csv"
+    assert len(rows) == 3  # header + 2 rows — append-only, header written exactly once
+    for row in rows[1:]:
+        assert row[0] == "abc123def456"
+        assert row[4] == NASTY_QUERY  # quoting round-trips the ADQL intact
+        assert row[6] == "2"  # n_rows == len(df)
+        assert row[7] == "False"  # truncated flag
+        assert row[8] == "5000"  # maxrec recorded when provided
+        assert row[9] == "manna_cache/abc123def456.csv"
 
 
-def test_recipe_rerun_replaces_row_across_other_fingerprints(tmp_path, monkeypatch):
-    """Saving A, then B (different fingerprint), then A again must leave
-    exactly one row per fingerprint — B's row untouched, A's row refreshed
-    (not appended a second time) and positioned after B's since it was
-    rewritten last."""
+def test_recipe_append_only_reader_dedupes_by_newest_row_per_fingerprint(tmp_path, monkeypatch):
+    """Append-only means rerunning a save cell duplicates its fingerprint's
+    row rather than replacing it in place — that's the deliberate trade for
+    a snippet short enough to survive being retyped by hand. Saving A, then
+    B (different fingerprint), then A again yields 3 rows: two for A, one
+    for B. Readers are expected to dedupe client-side by taking the LAST
+    row per fingerprint (documented in build_save_recipe's docstring and in
+    the deployment persona) — this test demonstrates that reader pattern
+    lands on A's newest row and B's only row."""
     pd = pytest.importorskip("pandas")
     monkeypatch.chdir(tmp_path)
     df = pd.DataFrame({"ra": [187.7], "dec": [12.39]})
@@ -86,19 +92,23 @@ def test_recipe_rerun_replaces_row_across_other_fingerprints(tmp_path, monkeypat
 
     exec(code_a, {"df": df})
     exec(code_b, {"df": df})
-    exec(code_a, {"df": df})  # rerun/refresh of A
+    exec(code_a, {"df": df})  # rerun of A: appends a duplicate row, doesn't replace
 
     with open(tmp_path / "manna_cache" / "catalog.csv", newline="") as f:
         rows = list(csv.reader(f))
 
-    assert len(rows) == 3  # header + one row per fingerprint
+    assert len(rows) == 4  # header + 3 rows (A, B, A)
     body = rows[1:]
     fingerprints = [r[0] for r in body]
-    assert sorted(fingerprints) == ["aaa111", "bbb222"]
-    assert fingerprints.count("aaa111") == 1
-    assert fingerprints.count("bbb222") == 1
-    # A's surviving row is the one rewritten last (appended after B's kept row).
-    assert body[-1][0] == "aaa111"
+    assert fingerprints == ["aaa111", "bbb222", "aaa111"]
+
+    # Reader-side dedupe: last row per fingerprint wins.
+    deduped: dict[str, list[str]] = {}
+    for row in body:
+        deduped[row[0]] = row
+    assert set(deduped) == {"aaa111", "bbb222"}
+    assert deduped["aaa111"] is body[2]  # A's newest (last) row, not its first
+    assert deduped["bbb222"] is body[1]
 
 
 def test_recipe_catalog_records_empty_maxrec_when_unknown(tmp_path, monkeypatch):
@@ -145,6 +155,78 @@ def test_attach_cache_fields_sets_next_steps_when_none():
     last = out["next_steps"][-1]
     assert "save_recipe.code" in last
     assert "abc123def456" in last
+
+
+NASTY_ADQL = "SELECT ra, dec FROM t WHERE name = 'M87, \"the big one\"'\n  AND x > 1"
+
+
+def test_build_load_recipe_code_compiles():
+    r = build_load_recipe(endpoint="https://example.org/tap", adql=NASTY_ADQL)
+    compile(r["code"], "<load_recipe>", "exec")
+
+
+def test_build_load_recipe_shape_and_content():
+    r = build_load_recipe(endpoint="https://example.org/tap", adql=NASTY_ADQL)
+    assert r["module"] == "pyvo"
+    assert repr("https://example.org/tap") in r["code"]
+    assert repr(NASTY_ADQL) in r["code"]
+    assert "run_sync" in r["code"]
+    assert "to_pandas" in r["code"]
+
+
+def test_attach_cache_fields_fuses_save_into_load_recipe_code():
+    """Live runs showed models running load_recipe + plotting but skipping the
+    standalone save cell entirely (~50% observed). Fix: saving is folded into
+    load_recipe.code as a side effect of the transport cell the model must
+    run anyway, rather than a separate cell it can drop."""
+    envelope = {"archive": "alma", "truncated": False, "rows": [], "next_steps": None}
+    load_recipe = build_load_recipe(endpoint="https://example.org/tap", adql="SELECT 1")
+    original_load_code = load_recipe["code"]
+    out = attach_cache_fields(
+        envelope,
+        fingerprint="abc123def456",
+        tool="tap",
+        endpoint="https://example.org/tap",
+        query="SELECT 1",
+        load_recipe=load_recipe,
+    )
+    # Composition: load lines, then the exact save_recipe code, joined by \n —
+    # reused verbatim from save_recipe, not a re-derived duplicate string.
+    assert out["load_recipe"]["code"] == original_load_code + "\n" + out["save_recipe"]["code"]
+    assert out["load_recipe"]["module"] == load_recipe["module"]
+    compile(out["load_recipe"]["code"], "<fused load+save recipe>", "exec")
+    assert "run_sync" in out["load_recipe"]["code"]
+    assert "to_pandas" in out["load_recipe"]["code"]
+    assert "manna_cache/catalog.csv" in out["load_recipe"]["code"]
+    assert "csv.QUOTE_ALL" in out["load_recipe"]["code"]
+
+    # The passed-in load_recipe dict itself must be untouched (still just the
+    # load lines) — attach must not mutate the caller's dict in place.
+    assert load_recipe["code"] == original_load_code
+
+    # save_recipe stays attached standalone too (async / cache-only re-save).
+    assert out["save_recipe"]["code"] != out["load_recipe"]["code"]
+
+    last = out["next_steps"][-1]
+    assert "load_recipe.code" in last
+    assert "ONE notebook cell" in last
+    assert "fetch_recipe.code" in last
+    assert "save_recipe.code" in last
+
+
+def test_attach_cache_fields_without_load_recipe_has_no_key_and_old_wording():
+    envelope = {"archive": "alma", "truncated": False, "rows": [], "next_steps": None}
+    out = attach_cache_fields(
+        envelope,
+        fingerprint="abc123def456",
+        tool="tap",
+        endpoint="https://example.org/tap",
+        query="SELECT 1",
+    )
+    assert "load_recipe" not in out
+    last = out["next_steps"][-1]
+    assert "pandas DataFrame named df" in last
+    assert "load_recipe.code" not in last
 
 
 def test_attach_cache_fields_appends_to_existing_next_steps():

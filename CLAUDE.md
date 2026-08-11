@@ -2,7 +2,7 @@
 
 MANNA (MCP Architecture for NOIRLab and NRAO Archives) is an MCP server exposing
 IVOA-compliant astronomical archives (NOIRLab Astro Data Lab, NRAO/ALMA, …) to LLM
-clients. STABLE summer project (CosmicAI). Current version: 0.6.1 (stateless
+clients. STABLE summer project (CosmicAI). Current version: 0.6.2 (stateless
 query-cache envelopes).
 
 **Casing:** *MANNA* in prose; lowercase `manna` for every identifier — package,

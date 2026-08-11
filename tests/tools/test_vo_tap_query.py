@@ -162,6 +162,8 @@ def test_inline_envelope_carries_cache_fields(monkeypatch):
     assert out["query_fingerprint"] == _qfp("tap", _EP, "SELECT ra, dec FROM t")
     assert out["save_recipe"]["path"] == f"manna_cache/{out['query_fingerprint']}.csv"
     assert "catalog.csv" in out["save_recipe"]["code"]
+    assert "SELECT ra, dec FROM t" in out["load_recipe"]["code"]
+    assert "run_sync" in out["load_recipe"]["code"]
 
 
 def test_auto_mode_fast_path_also_carries_cache_fields(monkeypatch):
@@ -175,6 +177,7 @@ def test_auto_mode_fast_path_also_carries_cache_fields(monkeypatch):
     out = tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT ra, dec FROM t", mode="auto")
     assert out["query_fingerprint"] == _qfp("tap", _EP, "SELECT ra, dec FROM t")
     assert "save_recipe" in out
+    assert "SELECT ra, dec FROM t" in out["load_recipe"]["code"]
 
 
 def test_endpoint_from_job_url_standard_uws_layout():
@@ -212,6 +215,16 @@ def test_tap_results_fingerprints_job_adql(monkeypatch):
     # endpoint is recovered from the job_url, the ADQL from the job itself.
     assert out["query_fingerprint"] == _qfp("tap", _EP, "SELECT ra FROM big_table")
     assert "save_recipe" in out
+
+
+def test_tap_results_envelope_does_not_carry_load_recipe(monkeypatch):
+    """fetch_recipe already covers loading async results client-side, so
+    vo_tap_results must not attach a load_recipe."""
+    from manna.tools import tap as tap_tools
+
+    monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeTapWithJob())
+    out = tap_tools.vo_tap_results(job_url="https://example.org/tap/async/42")
+    assert "load_recipe" not in out
 
 
 class _FakeCompletedJobNoQuery:

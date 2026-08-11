@@ -48,6 +48,28 @@ def test_success_envelopes_carry_cache_fields(monkeypatch):
         assert any("save_recipe.code" in step for step in env["next_steps"])
 
 
+def test_tap_success_envelope_carries_load_recipe(monkeypatch):
+    """vo_tap_query's inline sync path carries load_recipe (kernel-side pyvo
+    transport for large row counts) — cone/sia deliberately don't (their
+    results are small discovery sets, see shaper.build_load_recipe)."""
+    monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeOk())
+    out = tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT 1", mode="sync")
+    assert set(out["load_recipe"]) == {"module", "code"}
+
+
+def test_tap_success_envelope_load_recipe_is_fused_with_save(monkeypatch):
+    """Saving must be a side effect of load_recipe.code, not a separate cell
+    the model can skip (live runs: models ran load_recipe + plotted but
+    never ran the standalone save cell). One cell does both."""
+    monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeOk())
+    out = tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT 1", mode="sync")
+    code = out["load_recipe"]["code"]
+    assert "manna_cache/catalog.csv" in code
+    assert "csv.QUOTE_ALL" in code
+    assert "run_sync" in code
+    assert any("ONE notebook cell" in step for step in out["next_steps"])
+
+
 def test_error_payloads_never_carry_cache_fields(monkeypatch):
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeErr())
     monkeypatch.setattr(cone_tools, "_get_cone", lambda: _FakeErr())
@@ -61,6 +83,7 @@ def test_error_payloads_never_carry_cache_fields(monkeypatch):
         assert "error_class" in p
         assert "query_fingerprint" not in p
         assert "save_recipe" not in p
+        assert "load_recipe" not in p
 
 
 class _FakeErrorJob:
