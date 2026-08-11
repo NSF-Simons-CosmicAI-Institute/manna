@@ -163,6 +163,24 @@ def build_fetch_recipe(job_url: str, result_url: str | None = None) -> dict[str,
     return recipe
 
 
+def build_load_recipe(*, endpoint: str, adql: str) -> dict[str, Any]:
+    """Client-side recipe re-executing a sync TAP query in the user's kernel.
+
+    Inline rows in the envelope are for the MODEL to read; getting them into
+    a notebook by pasting literals truncates tool calls past ~100 rows
+    (observed live 2026-08-11: edit_cell arrived with empty args). This
+    recipe is the size-independent transport — the kernel re-runs the same
+    sync query directly against the archive (constant-size cell, same trade
+    as auto-promote's discarded first execution) and binds `table` + `df`.
+    """
+    code = (
+        "import pyvo\n"
+        f"table = pyvo.dal.TAPService({endpoint!r}).run_sync({adql!r}).to_table()\n"
+        "df = table.to_pandas()"
+    )
+    return {"module": "pyvo", "code": code}
+
+
 def build_save_recipe(
     *,
     fingerprint: str,
@@ -191,32 +209,38 @@ def build_save_recipe(
     row cap that was in effect (or '' when unknown, e.g. from
     vo_tap_results) — without it, a result capped upstream catalogs as
     truncated=False with no record of the cap, and a capped CSV can be
-    mistaken for the full result. The catalog append is idempotent per
-    fingerprint — rerunning the save cell, or refreshing the same query
-    later, replaces that row in place instead of duplicating it (duplicate
-    rows observed live 2026-08-11).
+    mistaken for the full result.
+
+    The catalog append is deliberately append-only, not idempotent. Models
+    retype this snippet by hand into notebook cells rather than executing
+    it verbatim (observed live), and the previous read-filter-rewrite
+    version was long enough that retyping corrupted it in roughly a third
+    of runs — a dropped header line in one, a SyntaxError in another
+    (observed live 2026-08-11). Every physical line is a retype hazard, so
+    this version just appends: it can produce duplicate rows for the same
+    fingerprint (rerunning the save cell, or refreshing the same query
+    later). That's accepted here — READERS must dedupe by taking the
+    newest (last) row per fingerprint; that rule lives in the deployment
+    persona, not in this snippet.
     """
     csv_path = f"manna_cache/{fingerprint}.csv"
     maxrec_value = maxrec if maxrec is not None else ""
+    header = (
+        "['fingerprint', 'tool', 'endpoint', 'archive', 'query', 'target', "
+        "'n_rows', 'truncated', 'maxrec', 'csv_path', 'saved_at']"
+    )
     code = (
         "import csv, os\n"
         "from datetime import datetime, timezone\n"
         "os.makedirs('manna_cache', exist_ok=True)\n"
         f"df.to_csv({csv_path!r}, index=False)\n"
-        "_kept = []\n"
-        "if os.path.exists('manna_cache/catalog.csv'):\n"
-        "    with open('manna_cache/catalog.csv', newline='') as _f:\n"
-        "        _existing = list(csv.reader(_f))\n"
-        f"    _kept = [_r for _r in _existing[1:] if _r and _r[0] != {fingerprint!r}]\n"
-        "with open('manna_cache/catalog.csv', 'w', newline='') as _f:\n"
+        "_new = not os.path.exists('manna_cache/catalog.csv')\n"
+        "with open('manna_cache/catalog.csv', 'a', newline='') as _f:\n"
         "    _w = csv.writer(_f, quoting=csv.QUOTE_ALL)\n"
-        "    _w.writerow(['fingerprint', 'tool', 'endpoint', 'archive', 'query',\n"
-        "                 'target', 'n_rows', 'truncated', 'maxrec', 'csv_path',\n"
-        "                 'saved_at'])\n"
-        "    _w.writerows(_kept)\n"
-        f"    _w.writerow([{fingerprint!r}, {tool!r}, {endpoint!r}, {archive!r}, {query!r},\n"
-        f"                 '', len(df), {truncated!r}, {maxrec_value!r}, {csv_path!r},\n"
-        "                 datetime.now(timezone.utc).isoformat()])"
+        f"    if _new: _w.writerow({header})\n"
+        f"    _w.writerow([{fingerprint!r}, {tool!r}, {endpoint!r}, {archive!r}, "
+        f"{query!r}, '', len(df), {truncated!r}, {maxrec_value!r}, {csv_path!r}, "
+        "datetime.now(timezone.utc).isoformat()])"
     )
     return {
         "path": csv_path,
@@ -239,8 +263,10 @@ def attach_cache_fields(
     endpoint: str,
     query: str,
     maxrec: int | None = None,
+    load_recipe: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Add query_fingerprint + save_recipe to a success envelope (mutates).
+    """Add query_fingerprint + save_recipe (+ optional load_recipe) to a
+    success envelope (mutates).
 
     Called by the primitive query tools (TAP/cone/SIA) after shaping.
     `archive` and `truncated` are read off the envelope so the recipe's
@@ -251,6 +277,23 @@ def attach_cache_fields(
     where the original maxrec isn't recoverable from the job). Error
     payloads never pass through here (wrap_tool_errors short-circuits
     before shaping).
+
+    `load_recipe` (from build_load_recipe) is passed by the inline sync TAP
+    paths only — it re-executes the query kernel-side so the client never
+    has to paste inline rows into a cell to build `df`. When None (the
+    async vo_tap_results path, where fetch_recipe already covers loading),
+    no `load_recipe` key is added to the envelope.
+
+    When `load_recipe` is given, its `code` is fused with the save
+    snippet's code (load lines, then save lines, joined with a newline) —
+    saving becomes a side effect of running load_recipe.code, not a
+    separate cell the model can skip. Live runs showed models executing
+    load_recipe + plotting but never running the standalone save cell at
+    all (observed live, roughly half of runs) — a save action described as
+    a second, later step is easy to drop once the model has what it wanted
+    (`df`). `save_recipe` is still attached standalone too: async results
+    load via fetch_recipe (not load_recipe) and still need it, and it
+    covers a cache-only re-save of already-loaded data.
 
     Also appends an imperative save instruction to the envelope's
     top-level `next_steps` — nested fields like `save_recipe.instructions`
@@ -268,15 +311,25 @@ def attach_cache_fields(
         truncated=bool(envelope.get("truncated", False)),
         maxrec=maxrec,
     )
-    save_instruction = (
-        "Save this result now: put it in a pandas DataFrame named df "
-        "(inline results: df = pd.DataFrame(rows, columns=[c['name'] for c "
-        "in columns]); async results: run fetch_recipe first, then df = "
-        "table.to_pandas()), then execute save_recipe.code with your "
-        "code-execution tool. It writes "
-        f"manna_cache/{fingerprint}.csv and a catalog row so this query is "
-        "never re-run. Do NOT re-run the query to save it."
-    )
+    if load_recipe is not None:
+        fused_code = load_recipe["code"] + "\n" + envelope["save_recipe"]["code"]
+        envelope["load_recipe"] = {**load_recipe, "code": fused_code}
+        save_instruction = (
+            "Run load_recipe.code in ONE notebook cell — it loads the data "
+            "as `table`/`df` AND saves the cache CSV + catalog row in the "
+            "same cell. For async results run fetch_recipe.code then "
+            "save_recipe.code."
+        )
+    else:
+        save_instruction = (
+            "Save this result now: put it in a pandas DataFrame named df "
+            "(inline results: df = pd.DataFrame(rows, columns=[c['name'] for c "
+            "in columns]); async results: run fetch_recipe first, then df = "
+            "table.to_pandas()), then execute save_recipe.code with your "
+            "code-execution tool. It writes "
+            f"manna_cache/{fingerprint}.csv and a catalog row so this query is "
+            "never re-run. Do NOT re-run the query to save it."
+        )
     next_steps = envelope.get("next_steps")
     if next_steps is None:
         envelope["next_steps"] = [save_instruction]

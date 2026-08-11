@@ -27,6 +27,7 @@ from manna.errors import (
 )
 from manna.shaper import (
     attach_cache_fields,
+    build_load_recipe,
     is_oversize,
     shape_inline_table,
     shape_promotion,
@@ -217,6 +218,7 @@ def vo_tap_query(
                 endpoint=endpoint,
                 query=adql,
                 maxrec=maxrec,
+                load_recipe=build_load_recipe(endpoint=endpoint, adql=adql),
             )
 
         # mode == "auto": try sync, promote to async on a sync timeout OR when the
@@ -239,6 +241,7 @@ def vo_tap_query(
             endpoint=endpoint,
             query=adql,
             maxrec=maxrec,
+            load_recipe=build_load_recipe(endpoint=endpoint, adql=adql),
         )
 
 
