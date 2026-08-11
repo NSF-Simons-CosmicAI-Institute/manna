@@ -2,8 +2,8 @@
 
 MANNA (MCP Architecture for NOIRLab and NRAO Archives) is an MCP server exposing
 IVOA-compliant astronomical archives (NOIRLab Astro Data Lab, NRAO/ALMA, …) to LLM
-clients. STABLE summer project (CosmicAI). Current version: 0.5.0 (modular per-archive
-knowledge).
+clients. STABLE summer project (CosmicAI). Current version: 0.6.0 (stateless
+query-cache envelopes).
 
 **Casing:** *MANNA* in prose; lowercase `manna` for every identifier — package,
 `python -m manna`, `src/manna`, image tags, and the MCP client alias. Never
@@ -13,7 +13,7 @@ uppercase an identifier.
 
 ```bash
 uv sync                                  # install deps + dev deps
-uv run pytest --record-mode=none         # 657 tests, offline replay (incl. tests/evals/)
+uv run pytest --record-mode=none         # 682 tests, offline replay (incl. tests/evals/)
 uv run pytest --record-mode=once -k <t>  # re-record one cassette (needs net)
 uv run ruff check .                      # lint
 uv run python -m manna                   # boot server on :8000 (MANNA_PORT to override)
