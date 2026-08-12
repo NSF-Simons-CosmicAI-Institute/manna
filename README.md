@@ -33,6 +33,13 @@ The recommended LLM workflow for a positional query:
 4. `vo_registry_describe` — live column introspection
 5. `vo_tap_query` (mode=`async` for data reads) — run the query
 
+## Install
+
+```bash
+pip install manna     # or: uvx manna to run without installing
+manna                 # boots the server on http://localhost:8000
+```
+
 ## Quickstart
 
 ```bash
