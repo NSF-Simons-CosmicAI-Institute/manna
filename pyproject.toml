@@ -1,5 +1,8 @@
 [project]
-name = "manna"
+# Distribution name only — the import package and console script stay `manna`.
+# Bare `manna` is admin-prohibited on PyPI (name-retention blocklist); a release
+# request is on file with pypi/support.
+name = "manna-mcp"
 version = "0.6.2"
 description = "MANNA — MCP Architecture for NOIRLab and NRAO Archives"
 requires-python = ">=3.12"
