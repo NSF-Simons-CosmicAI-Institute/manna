@@ -45,9 +45,10 @@ jobs:
   release-pypi:
     # Independent of release-docker: a ghcr hiccup shouldn't block PyPI, nor vice versa.
     # Publishes via PyPI Trusted Publishing (OIDC) — no stored tokens; the publisher is
-    # registered on pypi.org against this repo + workflow filename.
+    # registered on pypi.org against this repo + workflow filename + environment.
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: pypi
     permissions:
       contents: read
       id-token: write
