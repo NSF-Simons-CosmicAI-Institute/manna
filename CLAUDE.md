@@ -7,7 +7,8 @@ query-cache envelopes).
 
 **Casing:** *MANNA* in prose; lowercase `manna` for every identifier — package,
 `python -m manna`, `src/manna`, image tags, and the MCP client alias. Never
-uppercase an identifier.
+uppercase an identifier. Exception: the PyPI distribution is `manna-mcp` (bare
+`manna` is admin-prohibited on PyPI); the import package and CLI stay `manna`.
 
 ## Commands
 

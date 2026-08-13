@@ -950,7 +950,7 @@ wheels = [
 ]
 
 [[package]]
-name = "manna"
+name = "manna-mcp"
 version = "0.6.2"
 source = { editable = "." }
 dependencies = [

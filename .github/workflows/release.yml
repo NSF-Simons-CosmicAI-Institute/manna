@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write # PyPI Trusted Publishing (OIDC) — used by release-pypi only
 
 env:
   REGISTRY: ghcr.io
@@ -40,3 +41,32 @@ jobs:
           docker push "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
           docker tag "$REGISTRY/$IMAGE_NAME:$BUILD_SHA" "$REGISTRY/$IMAGE_NAME:latest"
           docker push "$REGISTRY/$IMAGE_NAME:latest"
+
+  release-pypi:
+    # Independent of release-docker: a ghcr hiccup shouldn't block PyPI, nor vice versa.
+    # Publishes via PyPI Trusted Publishing (OIDC) — no stored tokens; the publisher is
+    # registered on pypi.org against this repo + workflow filename + environment.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify release tag matches pyproject version
+        run: |
+          version=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          if [ "v${version}" != "$RELEASE_TAG" ]; then
+            echo "::error::release tag '$RELEASE_TAG' != pyproject version 'v${version}' — bump pyproject.toml before cutting the release"
+            exit 1
+          fi
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
