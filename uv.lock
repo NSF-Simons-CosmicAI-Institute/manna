@@ -950,8 +950,8 @@ wheels = [
 ]
 
 [[package]]
-name = "manna"
-version = "0.6.2"
+name = "manna-mcp"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "astropy" },

@@ -7,7 +7,8 @@ NRAO/ALMA, CADC, ESO, Gaia, …) to LLM clients.
 
 > **Naming:** *MANNA* in prose (it's an acronym); lowercase `manna` for every
 > identifier — the Python package, `python -m manna`, the `manna:dev` image tag,
-> and the MCP client alias (`mcp__manna__*`).
+> and the MCP client alias (`mcp__manna__*`). The one exception is the PyPI
+> distribution, `manna-mcp` (bare `manna` is admin-prohibited on PyPI).
 
 ## Tools
 
@@ -32,6 +33,15 @@ The recommended LLM workflow for a positional query:
 3. `vo_schema_describe` — get table-specific quirks before writing ADQL
 4. `vo_registry_describe` — live column introspection
 5. `vo_tap_query` (mode=`async` for data reads) — run the query
+
+## Install
+
+```bash
+pip install manna-mcp                # distribution name; the import + CLI are `manna`
+manna                                # boots the server on http://localhost:8000
+# or run without installing:
+uvx --from manna-mcp manna
+```
 
 ## Quickstart
 

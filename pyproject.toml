@@ -1,11 +1,35 @@
 [project]
-name = "manna"
-version = "0.6.2"
+# Distribution name only — the import package and console script stay `manna`.
+# Bare `manna` is admin-prohibited on PyPI (name-retention blocklist); a release
+# request is on file with pypi/support.
+name = "manna-mcp"
+version = "0.7.0"
 description = "MANNA — MCP Architecture for NOIRLab and NRAO Archives"
 requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "MIT" }
-authors = [{ name = "STABLE / CosmicAI", email = "noreply@example.invalid" }]
+authors = [{ name = "NSF-Simons CosmicAI Institute" }]
+maintainers = [{ name = "Dan Gause", email = "danpgause@gmail.com" }]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "ivoa",
+    "virtual-observatory",
+    "tap",
+    "adql",
+    "astronomy",
+    "alma",
+    "nrao",
+    "noirlab",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
 dependencies = [
     "fastmcp>=3.0,<4.0",
     "pyvo>=1.8,<2.0",
@@ -16,6 +40,11 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "httpx>=0.27",
 ]
+
+[project.urls]
+Homepage = "https://github.com/NSF-Simons-CosmicAI-Institute/manna"
+Repository = "https://github.com/NSF-Simons-CosmicAI-Institute/manna"
+Issues = "https://github.com/NSF-Simons-CosmicAI-Institute/manna/issues"
 
 [project.scripts]
 manna = "manna.__main__:main"
@@ -50,6 +79,16 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/manna"]
+
+# Keep the sdist as lean as the wheel: library code + the files uv/pip need to
+# build it. tests/, evals/, deploy/, notebooks/, docs/ stay repo-only.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src/manna",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
