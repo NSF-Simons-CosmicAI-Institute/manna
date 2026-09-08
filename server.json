@@ -1,0 +1,55 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.nsf-simons-cosmicai-institute/manna",
+  "title": "MANNA",
+  "description": "MCP server for IVOA astronomical archives: NOIRLab Astro Data Lab, NRAO/ALMA, CADC, ESO, Gaia",
+  "repository": {
+    "url": "https://github.com/NSF-Simons-CosmicAI-Institute/manna",
+    "source": "github"
+  },
+  "version": "0.7.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "manna-mcp",
+      "version": "0.7.1",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "--stdio",
+          "description": "Serve MCP over stdio. Without it the server binds an HTTP port instead."
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "MANNA_ARCHIVES",
+          "description": "Comma-separated archive short_names to activate (e.g. 'datalab,alma'). Unset means all.",
+          "isRequired": false
+        },
+        {
+          "name": "MANNA_ALLOWED_HOSTS",
+          "description": "Comma-separated hostnames the server may fetch. Unset means any public host.",
+          "isRequired": false
+        },
+        {
+          "name": "MANNA_LOG_LEVEL",
+          "description": "Logging verbosity.",
+          "default": "INFO",
+          "choices": ["DEBUG", "INFO", "WARNING", "ERROR"],
+          "isRequired": false
+        },
+        {
+          "name": "MANNA_INLINE_ROW_LIMIT",
+          "description": "Max rows returned inline before a result is promoted to an async job or truncated.",
+          "default": "200",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

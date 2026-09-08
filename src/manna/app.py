@@ -94,7 +94,11 @@ def build_mcp() -> FastMCP:
     KB reader (vo_schema_describe left that set when it grew a live column
     fetch).
     """
-    mcp = FastMCP(name="manna")
+    # Pass version explicitly: FastMCP otherwise reports *its own* version in
+    # the initialize handshake's serverInfo, so every client saw the FastMCP
+    # release (e.g. "3.4.7") where MANNA's belongs. /health has always been
+    # right; this makes the MCP seam agree with it.
+    mcp = FastMCP(name="manna", version=__version__)
     mcp.tool(vo_archive_list, annotations=_LOCAL)
     mcp.tool(vo_tap_query, annotations=_REMOTE, description=_tap_query_description())
     mcp.tool(vo_tap_status, annotations=_REMOTE)
