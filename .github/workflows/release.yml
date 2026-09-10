@@ -70,3 +70,59 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  release-registry:
+    # Publishes the server.json record to the official MCP Registry.
+    #
+    # Gated on release-pypi because the registry verifies package ownership by
+    # fetching manna-mcp's description from PyPI and looking for the
+    # `mcp-name:` marker that lives in README.md. Publishing here before the
+    # release is on PyPI fails validation.
+    #
+    # Auth is GitHub OIDC, not a stored token: the OIDC claim carries this
+    # repo's owner, which is what authorizes the
+    # `io.github.nsf-simons-cosmicai-institute/*` namespace. Moving the repo to
+    # a different org would require a new server name.
+    needs: release-pypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify server.json versions match the release tag
+        run: |
+          server_version=$(jq -r '.version' server.json)
+          package_version=$(jq -r '.packages[0].version' server.json)
+          for v in "$server_version" "$package_version"; do
+            if [ "v${v}" != "$RELEASE_TAG" ]; then
+              echo "::error::server.json version '${v}' != release tag '$RELEASE_TAG' — bump server.json before cutting the release"
+              exit 1
+            fi
+          done
+
+      - name: Wait for the release to be served by PyPI
+        run: |
+          version="${RELEASE_TAG#v}"
+          for i in $(seq 1 30); do
+            if curl -fsS "https://pypi.org/pypi/manna-mcp/${version}/json" > /dev/null; then
+              echo "manna-mcp ${version} is live on PyPI"
+              exit 0
+            fi
+            echo "attempt ${i}: not indexed yet, retrying in 10s"
+            sleep 10
+          done
+          echo "::error::manna-mcp ${version} never appeared on PyPI; registry validation would fail"
+          exit 1
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to the MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server.json
+        run: ./mcp-publisher publish

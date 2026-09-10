@@ -1,9 +1,10 @@
 [project]
-# Distribution name only — the import package and console script stay `manna`.
-# Bare `manna` is admin-prohibited on PyPI (name-retention blocklist); a release
-# request is on file with pypi/support.
+# Distribution name only — the import package stays `manna`, as does the
+# primary console script (see [project.scripts] for the `manna-mcp` alias and
+# why it exists). Bare `manna` is admin-prohibited on PyPI (name-retention
+# blocklist); a release request is on file with pypi/support.
 name = "manna-mcp"
-version = "0.7.0"
+version = "0.7.1"
 description = "MANNA — MCP Architecture for NOIRLab and NRAO Archives"
 requires-python = ">=3.12"
 readme = "README.md"
@@ -48,6 +49,12 @@ Issues = "https://github.com/NSF-Simons-CosmicAI-Institute/manna/issues"
 
 [project.scripts]
 manna = "manna.__main__:main"
+# Alias matching the distribution name. MCP clients build the launch command
+# from the registry record as `uvx <identifier>`, and uvx resolves an
+# executable named after the package — `uvx manna-mcp` fails outright when the
+# only script is `manna`. Keep both: `manna` is the documented CLI, `manna-mcp`
+# is what the registry-generated invocation needs.
+manna-mcp = "manna.__main__:main"
 
 [dependency-groups]
 dev = [
