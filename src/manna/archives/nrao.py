@@ -156,21 +156,11 @@ ARCHIVE = Archive(
                 ),
             ),
         ),
-        Note(
-            id="error-summary-empty",
-            text=(
-                "On phase=ERROR the UWS `error_summary` field is always empty — no "
-                "diagnostic message. Avoid speculating about what went wrong; "
-                "instead, isolate the offending clause by simplifying the query and "
-                "re-submitting. Common ERROR triggers: missing spatial predicate, "
-                "LOWER/UPPER in WHERE, non-existent column."
-            ),
-            audit=Audit.manual(
-                "On phase=ERROR the UWS error_summary is always empty (no "
-                "diagnostic) — nothing to assert against live beyond the control "
-                "probe."
-            ),
-        ),
+        # A note claiming "UWS error_summary is always empty on ERROR" lived here
+        # until 2026-09-10. It was our bug, not NRAO's: the tools read
+        # `job.error_summary`, an attribute pyvo never had, so every archive's
+        # message was dropped. NRAO does populate errorSummary/message — see
+        # backends/tap.py::job_error_message and tests/archives/test_nrao.py.
         Note(
             id="rows-scan-level",
             text=(

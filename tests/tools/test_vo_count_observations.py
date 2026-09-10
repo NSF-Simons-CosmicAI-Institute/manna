@@ -138,14 +138,16 @@ def test_async_completes_within_budget(monkeypatch):
     assert tap.submitted  # went async
 
 
-class _FakeErrorSummary:
-    def __init__(self, message):
-        self.message = message
+def _uws_error(message):
+    """pyvo's real structure: AsyncTAPJob._job.errorsummary.message.content."""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(errorsummary=SimpleNamespace(message=SimpleNamespace(content=message)))
 
 
 def test_async_error_phase_maps_to_tap_query_error(monkeypatch):
     """ERROR must surface as tap_query_error/fix_and_retry carrying the
-    upstream job.error_summary.message — mirroring vo_tap_results' mapping
+    upstream UWS errorSummary message — mirroring vo_tap_results' mapping
     in tools/tap.py — not a generic archive_error/wait_and_retry that tells
     the model to sleep and re-issue a doomed query.
     """
@@ -158,7 +160,7 @@ def test_async_error_phase_maps_to_tap_query_error(monkeypatch):
     )
     tap = _FakeTap()
     job = _FakeJob(["ERROR"])
-    job.error_summary = _FakeErrorSummary("unknown column obs_id in obscore")
+    job._job = _uws_error("unknown column obs_id in obscore")
     tap._job = job
     monkeypatch.setattr(count_mod, "_get_tap", lambda: tap)
     monkeypatch.setattr(count_mod, "_sleep", lambda s: None)

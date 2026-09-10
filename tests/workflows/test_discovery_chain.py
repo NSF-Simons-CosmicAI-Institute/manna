@@ -43,7 +43,7 @@ class _FakeTapClient:
             phase = "EXECUTING"
             starttime = None
             endtime = None
-            error_summary = None
+            _job = None
 
         return _J()
 

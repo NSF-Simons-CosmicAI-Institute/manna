@@ -71,6 +71,19 @@ def test_load_dependent_claims_are_manual_not_probed():
     assert notes["async-or-auto-for-data"].audit.expect == "manual"
 
 
+def test_retracted_error_summary_note_stays_gone():
+    """`error-summary-empty` claimed NRAO's UWS error_summary is always blank
+    (findings N-06). It was our bug: the tools read `job.error_summary`, an
+    attribute pyvo's AsyncTAPJob never had, so every archive's message was
+    swallowed. NRAO populates errorSummary/message (verified live 2026-09-10:
+    "IllegalArgumentException:Function [LOWER] is not found in TapSchema").
+    Don't let the note — or its "don't speculate, just simplify" advice — return."""
+    ids = {n.id for n in ARCHIVE.usage_notes}
+    assert "error-summary-empty" not in ids
+    text = " ".join(n.text for n in ARCHIVE.usage_notes).lower()
+    assert "error_summary" not in text
+
+
 def test_lower_upper_note_is_probeable():
     notes = {n.id: n for n in ARCHIVE.usage_notes}
     assert notes["lower-upper-fail"].audit.expect == "error"

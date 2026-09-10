@@ -15,7 +15,7 @@ from manna.archives._endpoints import (
     tap_endpoint_urls,
 )
 from manna.archives._traps import loud_trap_guidance
-from manna.backends.tap import TapClient
+from manna.backends.tap import TapClient, job_error_message
 from manna.config import get_settings
 from manna.errors import (
     ArchiveError,
@@ -271,11 +271,7 @@ def _endpoint_from_job_url(job_url: str) -> str:
 
 def _status_payload(*, job, job_url: str) -> dict:
     """Build the status response from a live AsyncTAPJob."""
-    error_message = None
-    if job.phase == "ERROR":
-        es = getattr(job, "error_summary", None)
-        if es is not None:
-            error_message = getattr(es, "message", None) or str(es)
+    error_message = job_error_message(job) if job.phase == "ERROR" else None
 
     started = getattr(job, "starttime", None)
     ended = getattr(job, "endtime", None)
@@ -334,9 +330,10 @@ def vo_tap_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     phase = job.phase
 
     if phase == "ERROR":
-        es = getattr(job, "error_summary", None)
-        msg = getattr(es, "message", None) if es is not None else None
-        raise DalQueryError(message=msg or "Async TAP job ended in ERROR.")
+        msg = job_error_message(job)
+        raise DalQueryError(
+            message=msg or "Async TAP job ended in ERROR (the archive gave no diagnostic)."
+        )
     if phase == "ABORTED":
         raise ValidationError(
             message="This job was aborted; re-submit if you still want results.",

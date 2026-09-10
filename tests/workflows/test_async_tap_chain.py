@@ -16,6 +16,8 @@ server never fetches the result bytes itself).
 The TapClient backend is faked so this stays hermetic + fast.
 """
 
+from types import SimpleNamespace
+
 import pytest
 from fastmcp import Client
 
@@ -30,12 +32,10 @@ class _FakeAsyncJob:
         self.phase = "EXECUTING"
         self.starttime = None
         self.endtime = None
-        self._error_summary = None
+        # pyvo's real shape: the parsed UWS tree at _job, message text at
+        # _job.errorsummary.message.content (there is no `error_summary`).
+        self._job = SimpleNamespace(errorsummary=None)
         self.result_uri = "https://archive.example/tap/async/test-job-id/results/result"
-
-    @property
-    def error_summary(self):
-        return self._error_summary
 
     def delete(self):
         pass
@@ -171,11 +171,12 @@ async def test_chain_handles_phase_error_with_message(mcp_server, fake_tap):
         job_url = promotion.structured_content["job_url"]
 
         # Upstream completes with ERROR + message
-        class _ErrSummary:
-            message = "Syntax error: unexpected token BAD"
-
         fake_tap.job.phase = "ERROR"
-        fake_tap.job._error_summary = _ErrSummary()
+        fake_tap.job._job = SimpleNamespace(
+            errorsummary=SimpleNamespace(
+                message=SimpleNamespace(content="Syntax error: unexpected token BAD")
+            )
+        )
 
         results = await client.call_tool("vo_tap_results", {"job_url": job_url})
         rp = results.structured_content
@@ -186,9 +187,11 @@ async def test_chain_handles_phase_error_with_message(mcp_server, fake_tap):
 
 @pytest.mark.asyncio
 async def test_chain_handles_phase_error_with_empty_message(mcp_server, fake_tap):
-    """NRAO regression: when the upstream sends phase=ERROR with no
-    error_summary (N-06 finding), the chain must still produce a
-    structured payload — not crash."""
+    """When the upstream sends phase=ERROR with no errorSummary at all, the
+    chain must still produce a structured, actionable payload — not crash.
+    (This used to cite NRAO findings N-06; that finding was retracted on
+    2026-09-10 — the "empty" message was our own accessor bug. The
+    no-diagnostic case is still worth guarding for any archive.)"""
     async with Client(mcp_server) as client:
         promotion = await client.call_tool(
             "vo_tap_query",
@@ -201,7 +204,7 @@ async def test_chain_handles_phase_error_with_empty_message(mcp_server, fake_tap
         job_url = promotion.structured_content["job_url"]
 
         fake_tap.job.phase = "ERROR"
-        fake_tap.job._error_summary = None  # the NRAO regression case
+        fake_tap.job._job = SimpleNamespace(errorsummary=None)  # archive gave no diagnostic
 
         results = await client.call_tool("vo_tap_results", {"job_url": job_url})
         rp = results.structured_content

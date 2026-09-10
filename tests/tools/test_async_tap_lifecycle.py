@@ -6,6 +6,7 @@ registry to seed, so each test simply passes the URL it cares about.
 """
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from fastmcp import Client
@@ -17,6 +18,15 @@ DATALAB_JOB = "https://datalab.noirlab.edu/tap/async/abc"
 ALMA_JOB = "https://almascience.eso.org/tap/async/xyz"
 
 
+def _uws_error(message: str):
+    """The UWS tree pyvo hangs off AsyncTAPJob._job for an ERROR job: the text
+    lives at errorsummary.message.content. Mirrors pyvo's real structure — the
+    old fakes exposed a `job.error_summary` attribute pyvo has never had, which
+    let the tools read a non-existent attribute for months without any test
+    noticing."""
+    return SimpleNamespace(errorsummary=SimpleNamespace(message=SimpleNamespace(content=message)))
+
+
 class _FakeAsyncJob:
     """Minimal AsyncTAPJob stand-in for test purposes."""
 
@@ -25,19 +35,15 @@ class _FakeAsyncJob:
         phase="EXECUTING",
         started_at=None,
         ended_at=None,
-        error_summary=None,
+        uws=None,
         result_uri="https://datalab.noirlab.edu/tap/async/abc/results/result",
     ):
         self.phase = phase
         self.starttime = started_at
         self.endtime = ended_at
-        self._error_summary = error_summary
+        self._job = uws if uws is not None else SimpleNamespace(errorsummary=None)
         self.result_uri = result_uri
         self.deleted = False
-
-    @property
-    def error_summary(self):
-        return self._error_summary
 
     def delete(self):
         self.deleted = True
@@ -111,10 +117,7 @@ async def test_status_on_vanished_job_says_abandon(mcp_server, fake_tap):
 
 @pytest.mark.asyncio
 async def test_status_phase_error_surfaces_message(mcp_server, fake_tap):
-    class _ErrSummary:
-        message = "Syntax error near 'bogus'."
-
-    fake_tap.job = _FakeAsyncJob(phase="ERROR", error_summary=_ErrSummary())
+    fake_tap.job = _FakeAsyncJob(phase="ERROR", uws=_uws_error("Syntax error near 'bogus'."))
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("vo_tap_status", {"job_url": ALMA_JOB})
@@ -155,10 +158,7 @@ async def test_results_when_executing_returns_job_not_ready(mcp_server, fake_tap
 
 @pytest.mark.asyncio
 async def test_results_when_error_phase_returns_tap_query_error(mcp_server, fake_tap):
-    class _ErrSummary:
-        message = "Bad syntax."
-
-    fake_tap.job = _FakeAsyncJob(phase="ERROR", error_summary=_ErrSummary())
+    fake_tap.job = _FakeAsyncJob(phase="ERROR", uws=_uws_error("Bad syntax."))
 
     async with Client(mcp_server) as client:
         result = await client.call_tool("vo_tap_results", {"job_url": ALMA_JOB})

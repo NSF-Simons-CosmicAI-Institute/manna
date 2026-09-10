@@ -27,7 +27,7 @@ class _FakeJob:
     phase = "COMPLETED"
     starttime = None
     endtime = None
-    error_summary = None
+    _job = None
     result_uri = "https://almascience.eso.org/tap/async/12345/results/result"
 
 
