@@ -66,6 +66,23 @@ def test_marker_is_followed_by_a_boundary(readme):
     )
 
 
+def test_namespace_matches_the_github_owner_exactly(server_json):
+    """`io.github.<owner>/` must carry the owner's real casing.
+
+    Namespace authorization is case-sensitive: GitHub OIDC grants
+    `io.github.NSF-Simons-CosmicAI-Institute/*`, and publishing a lowercased
+    name is refused with a 403 that reads, confusingly, as the same string
+    twice. v0.7.1 shipped lowercase and had to be replaced — the marker match
+    is byte-exact and PyPI descriptions are immutable, so the mistake could not
+    be corrected without cutting another version.
+    """
+    owner = server_json["repository"]["url"].rstrip("/").split("/")[-2]
+    assert server_json["name"].startswith(f"io.github.{owner}/"), (
+        f"server name {server_json['name']!r} does not match the GitHub owner "
+        f"{owner!r} exactly (case included) — publishing will 403"
+    )
+
+
 def test_server_version_matches_the_package_version(server_json, pyproject):
     expected = pyproject["project"]["version"]
     assert server_json["version"] == expected

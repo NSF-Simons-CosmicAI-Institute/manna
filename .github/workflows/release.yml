@@ -81,7 +81,7 @@ jobs:
     #
     # Auth is GitHub OIDC, not a stored token: the OIDC claim carries this
     # repo's owner, which is what authorizes the
-    # `io.github.nsf-simons-cosmicai-institute/*` namespace. Moving the repo to
+    # `io.github.NSF-Simons-CosmicAI-Institute/*` namespace. Moving the repo to
     # a different org would require a new server name.
     needs: release-pypi
     runs-on: ubuntu-latest
