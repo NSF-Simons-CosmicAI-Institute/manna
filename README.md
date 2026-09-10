@@ -1,5 +1,7 @@
 # MANNA
 
+<!-- mcp-name: io.github.nsf-simons-cosmicai-institute/manna -->
+
 **MANNA** — *MCP Architecture for NOIRLab and NRAO Archives.*
 
 An MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab,
@@ -26,6 +28,9 @@ NRAO/ALMA, CADC, ESO, Gaia, …) to LLM clients.
 | `vo_cone_search` | SCS | Simple Cone Search for legacy SCS-only archives |
 | `vo_sia_search` | SIA 2.0 | Search for images by position and waveband (returns access URLs to fetch client-side) |
 | `vo_find_observations` | SIA 2.0 / SCS | One-call facade: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `vo_target_resolve` + `vo_archive_list` + `vo_sia_search`/`vo_cone_search` so the model doesn't have to |
+| `vo_count_observations` | TAP | Count observations/sources near a target in one call (resolve → select archive → `COUNT`) |
+| `vo_survey_target` | TAP | Survey which archives hold data for a target, with per-archive counts |
+| `vo_inspect_table` | TAP | Columns + curated enums/notes + a sample of rows for one table, in one call |
 
 The recommended LLM workflow for a positional query:
 1. `vo_target_resolve` — get RA/Dec for a named object
@@ -40,8 +45,27 @@ The recommended LLM workflow for a positional query:
 pip install manna-mcp                # distribution name; the import + CLI are `manna`
 manna                                # boots the server on http://localhost:8000
 # or run without installing:
-uvx --from manna-mcp manna
+uvx manna-mcp
 ```
+
+### As an MCP server in a client
+
+MANNA speaks stdio with `--stdio`, and streamable HTTP otherwise. For a stdio
+client (Claude Desktop, Claude Code, IDE extensions):
+
+```bash
+claude mcp add manna -- uvx manna-mcp --stdio
+```
+
+or, editing a client config by hand:
+
+```json
+{"mcpServers": {"manna": {"command": "uvx", "args": ["manna-mcp", "--stdio"]}}}
+```
+
+The first launch resolves astropy and pyvo, which is a large download; run
+`uvx manna-mcp --stdio` once in a terminal before wiring it into a client whose
+startup timeout is short.
 
 ## Quickstart
 
