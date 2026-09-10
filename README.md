@@ -1,6 +1,6 @@
 # MANNA
 
-<!-- mcp-name: io.github.nsf-simons-cosmicai-institute/manna -->
+<!-- mcp-name: io.github.NSF-Simons-CosmicAI-Institute/manna -->
 
 **MANNA** — *MCP Architecture for NOIRLab and NRAO Archives.*
 
