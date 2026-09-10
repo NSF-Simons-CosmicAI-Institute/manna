@@ -35,8 +35,20 @@ def test_usage_notes_capture_critical_gotchas():
 def test_obscore_schema_missing_columns_and_enums():
     obscore = SCHEMAS["tap_schema.obscore"]
     assert "dataproduct_subtype" in obscore.missing_standard_columns
-    assert obscore.value_enums["instrument_name"] == ("EVLA", "VLA", "VLBA", "GBT")
-    assert obscore.value_enums["facility_name"] == ("NRAO",)
+    # Live 2026-09-10, 0.5° cone on 3C 273 GROUP BY instrument_name, facility_name:
+    # EVLA/VLA/VLBA/GBT/GMVA under facility NRAO, plus ALMA rows under facility ALMA.
+    # The old enum ({EVLA, VLA, VLBA, GBT}, facility uniformly NRAO) was stale and its
+    # count-audit only proved the columns exist — don't let it shrink back.
+    assert obscore.value_enums["instrument_name"] == ("EVLA", "VLA", "VLBA", "GBT", "GMVA", "ALMA")
+    assert obscore.value_enums["facility_name"] == ("NRAO", "ALMA")
+    notes = {n.id: n for n in obscore.notes}
+    assert "alma" in notes["instrument-facility-columns"].text.lower()
+    # obs_collection is almost always empty (only 'VLASS' and 'RealFast' seen) — the
+    # model must select VLASS by project_code, not by collection.
+    assert "project_code" in notes["obs-collection-sparse"].text
+    # access_format is the literal 'Execution Block', not a MIME type — never branch
+    # on it for DataLink the way the ALMA module does.
+    assert "Execution Block" in notes["access-format-not-mime"].text
 
 
 def test_key_note_audits_have_expected_outcomes():
@@ -71,9 +83,52 @@ def test_load_dependent_claims_are_manual_not_probed():
     assert notes["async-or-auto-for-data"].audit.expect == "manual"
 
 
+def test_retracted_error_summary_note_stays_gone():
+    """`error-summary-empty` claimed NRAO's UWS error_summary is always blank
+    (findings N-06). It was our bug: the tools read `job.error_summary`, an
+    attribute pyvo's AsyncTAPJob never had, so every archive's message was
+    swallowed. NRAO populates errorSummary/message (verified live 2026-09-10:
+    "IllegalArgumentException:Function [LOWER] is not found in TapSchema").
+    Don't let the note — or its "don't speculate, just simplify" advice — return."""
+    ids = {n.id for n in ARCHIVE.usage_notes}
+    assert "error-summary-empty" not in ids
+    text = " ".join(n.text for n in ARCHIVE.usage_notes).lower()
+    assert "error_summary" not in text
+
+
 def test_lower_upper_note_is_probeable():
     notes = {n.id: n for n in ARCHIVE.usage_notes}
     assert notes["lower-upper-fail"].audit.expect == "error"
+
+
+def test_string_function_note_covers_concat_and_fires_on_it():
+    """Live 2026-09-10: LOWER/UPPER/ILIKE are absent (an OPTIONAL ADQL 2.1 feature
+    set, so not a violation — the note must not call it one), and the core-grammar
+    string concatenation `||` fails too with a bare JSQLParserException. The loud
+    trap should catch `||` as well, since that error text implies no fix."""
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    note = notes["lower-upper-fail"]
+    assert "||" in note.text
+    assert "spec violation" not in note.text.lower()
+    assert note.trap is not None
+    assert note.trap.fires_on("SELECT obs_id FROM tap_schema.obscore WHERE target_name || '' = 'x'")
+    assert "||" in note.trap.guidance
+
+
+def test_unfiltered_scans_not_spatial_predicates_are_the_documented_failure():
+    """The old `spatial-predicate-required` note said obscore queries without a
+    CIRCLE/CONTAINS predicate tend to error even in async. Live 2026-09-10 that
+    is false: `instrument_name = 'GBT'` (112 s), `project_code = 'VLASS3.2'`
+    (691 s) and an RA/Dec BETWEEN box (278 s) all COMPLETED async with no
+    geometry. What fails is the UNFILTERED scan (COUNT(*) → ERROR after ~32 min).
+    The note must say that, and must not tell the model geometry is mandatory."""
+    ids = {n.id for n in ARCHIVE.usage_notes}
+    assert "spatial-predicate-required" not in ids
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    text = notes["unfiltered-scans-fail"].text.lower()
+    assert "unfiltered" in text
+    assert "non-spatial" in text or "without geometry" in text
+    assert "always include" not in text
 
 
 def test_nrao_count_target():

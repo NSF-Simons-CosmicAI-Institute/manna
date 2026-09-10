@@ -263,7 +263,7 @@
 
 - id: t3-nrao-spatial
   tier: 3
-  probes_trap: "NRAO requires a spatial predicate on obscore queries"
+  probes_trap: "NRAO obscore reads need a selective filter; a cone is the fast path for positional asks"
   prompt: "Get 25 EVLA rows from NRAO obscore near the Crab Nebula."
   expect_tools: [vo_tap_query]
   arg_checks:

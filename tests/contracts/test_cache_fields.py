@@ -3,6 +3,8 @@ query_fingerprint + save_recipe; error payloads never do; the recipe text
 keeps its load-bearing phrases (QUOTE_ALL quoting, catalog path, the
 do-not-re-run imperative — the PR-#64 lesson: weakest-reader phrasing)."""
 
+from types import SimpleNamespace
+
 from astropy.table import Table
 
 from manna.errors import DalQueryError
@@ -88,9 +90,10 @@ def test_error_payloads_never_carry_cache_fields(monkeypatch):
 
 class _FakeErrorJob:
     phase = "ERROR"
-
-    class error_summary:  # noqa: N801 — mirrors pyvo's attribute-object shape
-        message = "upstream query failed"
+    # pyvo's real shape: parsed UWS tree at _job, text at errorsummary.message.content
+    _job = SimpleNamespace(
+        errorsummary=SimpleNamespace(message=SimpleNamespace(content="upstream query failed"))
+    )
 
 
 class _FakeTapWithErrorJob:

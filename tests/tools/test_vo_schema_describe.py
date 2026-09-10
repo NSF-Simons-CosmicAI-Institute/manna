@@ -49,13 +49,16 @@ async def test_known_entry_returns_envelope_with_curated_fields(mcp_server):
     assert payload["archive"] == "nrao"
     assert payload["table"] == "tap_schema.obscore"
     assert "dataproduct_subtype" in payload["missing_standard_columns"]
+    # Live 2026-09-10: the table also carries GMVA and ALMA rows (see archives/nrao.py).
     assert payload["value_enums"]["instrument_name"] == [
         "EVLA",
         "VLA",
         "VLBA",
         "GBT",
+        "GMVA",
+        "ALMA",
     ]
-    assert payload["value_enums"]["facility_name"] == ["NRAO"]
+    assert payload["value_enums"]["facility_name"] == ["NRAO", "ALMA"]
 
 
 @pytest.mark.asyncio

@@ -87,25 +87,36 @@ ARCHIVE = Archive(
             ),
         ),
         Note(
-            id="spatial-predicate-required",
+            id="unfiltered-scans-fail",
             text=(
-                "Even in async mode, queries that lack a spatial predicate tend to "
-                "error out. ALWAYS include a CIRCLE/CONTAINS positional filter on "
-                "(s_ra, s_dec). Trivial SELECT DISTINCT or full-table scans typically "
-                "fail."
+                "Unfiltered scans of tap_schema.obscore fail even in async: a bare "
+                "SELECT COUNT(*) or SELECT DISTINCT over the whole table ends in "
+                "phase=ERROR after ~30 min. Any selective WHERE works, spatial or "
+                "not — non-spatial filters such as instrument_name = 'GBT' or "
+                "project_code = 'VLASS3.2' complete async (2–12 min under load); a "
+                "CIRCLE/CONTAINS cone on (s_ra, s_dec) is the fastest path. Prefer a "
+                "cone when the question is positional, but do not add fake geometry "
+                "to a non-positional query."
             ),
             audit=Audit.manual(
-                "Even in async, queries lacking a CIRCLE/CONTAINS spatial predicate "
-                "tend to error — depends on server load/query shape, not a single "
-                "deterministic probe."
+                "The failing case takes ~30 min to reach ERROR and the passing cases "
+                "2–12 min, so neither is a viable audit probe. Verified live "
+                "2026-09-10: instrument_name/project_code/BETWEEN filters all "
+                "COMPLETED async; unfiltered COUNT(*) reached ERROR after 1,895 s. "
+                "(Replaced the earlier 'spatial-predicate-required' note, which "
+                "was wrong.)"
             ),
         ),
         Note(
             id="lower-upper-fail",
             text=(
-                "ADQL string functions LOWER() and UPPER() FAIL on NRAO (spec "
-                "violation). Use exact-case equality (`instrument_name = 'GBT'`) or "
-                "LIKE patterns instead."
+                "NRAO's ADQL has no string functions: LOWER(), UPPER() and ILIKE are "
+                "rejected ('Function [LOWER] is not found in TapSchema'), and the "
+                "string concatenation operator || fails with a bare parser error. "
+                "Use exact-case equality (`instrument_name = 'GBT'`) or LIKE "
+                "patterns, and do string assembly client-side. (LOWER/UPPER/ILIKE "
+                "are an optional ADQL 2.1 feature; NRAO cannot declare that because "
+                "its /capabilities endpoint is missing.)"
             ),
             audit=Audit.probe(
                 expect="error",
@@ -120,11 +131,11 @@ ARCHIVE = Archive(
             # the description budget (a loud trap: triggers decide when it fires).
             trap=Trap(
                 guidance=(
-                    "NRAO's TAP rejects the ADQL string functions LOWER() and UPPER(). "
-                    "Re-run without them: match exact case (instrument_name = 'GBT') or "
-                    "use a LIKE pattern."
+                    "NRAO's TAP rejects the ADQL string functions LOWER()/UPPER()/ILIKE "
+                    "and the || concatenation operator. Re-run without them: match exact "
+                    "case (instrument_name = 'GBT') or use a LIKE pattern."
                 ),
-                triggers=("LOWER(", "UPPER("),
+                triggers=("LOWER(", "UPPER(", "ILIKE", "||"),
             ),
         ),
         Note(
@@ -156,21 +167,11 @@ ARCHIVE = Archive(
                 ),
             ),
         ),
-        Note(
-            id="error-summary-empty",
-            text=(
-                "On phase=ERROR the UWS `error_summary` field is always empty — no "
-                "diagnostic message. Avoid speculating about what went wrong; "
-                "instead, isolate the offending clause by simplifying the query and "
-                "re-submitting. Common ERROR triggers: missing spatial predicate, "
-                "LOWER/UPPER in WHERE, non-existent column."
-            ),
-            audit=Audit.manual(
-                "On phase=ERROR the UWS error_summary is always empty (no "
-                "diagnostic) — nothing to assert against live beyond the control "
-                "probe."
-            ),
-        ),
+        # A note claiming "UWS error_summary is always empty on ERROR" lived here
+        # until 2026-09-10. It was our bug, not NRAO's: the tools read
+        # `job.error_summary`, an attribute pyvo never had, so every archive's
+        # message was dropped. NRAO does populate errorSummary/message — see
+        # backends/tap.py::job_error_message and tests/archives/test_nrao.py.
         Note(
             id="rows-scan-level",
             text=(
@@ -277,9 +278,13 @@ ARCHIVE = Archive(
             archive="nrao",
             table="tap_schema.obscore",
             missing_standard_columns=("dataproduct_subtype",),
+            # Live GROUP BY instrument_name, facility_name on a 0.5° cone around
+            # 3C 273, 2026-09-10 (scan rows): EVLA 789k, VLBA 63k, ALMA 49k,
+            # VLA 47k, GMVA 44k, GBT 2.8k. ALMA rows carry facility_name='ALMA';
+            # everything else 'NRAO'.
             value_enums={
-                "instrument_name": ("EVLA", "VLA", "VLBA", "GBT"),
-                "facility_name": ("NRAO",),
+                "instrument_name": ("EVLA", "VLA", "VLBA", "GBT", "GMVA", "ALMA"),
+                "facility_name": ("NRAO", "ALMA"),
             },
             notes=(
                 Note(
@@ -301,12 +306,45 @@ ARCHIVE = Archive(
                     id="instrument-facility-columns",
                     text=(
                         "Enumerated case-sensitive values you'll need: "
-                        "instrument_name ∈ {'EVLA', 'VLA', 'VLBA', 'GBT'}, "
-                        "facility_name = 'NRAO' (uniformly — not the instrument)."
+                        "instrument_name ∈ {'EVLA', 'VLA', 'VLBA', 'GBT', 'GMVA', "
+                        "'ALMA'}; facility_name is 'NRAO' for all of those except the "
+                        "ALMA rows, which carry facility_name = 'ALMA'. Yes, this "
+                        "table includes ALMA scans (NRAO mirrors them) — for ALMA "
+                        "science prefer the ALMA archive's own richer ivoa.obscore."
                     ),
                     audit=Audit.count(
                         table="tap_schema.obscore",
                         columns=("instrument_name", "facility_name"),
+                    ),
+                ),
+                Note(
+                    id="obs-collection-sparse",
+                    text=(
+                        "obs_collection is empty on almost every row; the only "
+                        "populated values seen are 'VLASS' and 'RealFast', and even "
+                        "most VLASS scans leave it blank. Select VLASS by "
+                        "project_code (LIKE 'VLASS%' or = 'VLASS3.2'), never by "
+                        "obs_collection."
+                    ),
+                    audit=Audit.manual(
+                        "Value-sparsity claim needs an async GROUP BY over obscore "
+                        "(minutes); observed 2026-09-10 on a 0.5° cone: 1 VLASS + 15 "
+                        "RealFast rows populated out of ~1.0M."
+                    ),
+                ),
+                Note(
+                    id="access-format-not-mime",
+                    text=(
+                        "access_format holds the literal 'Execution Block', not a MIME "
+                        "type, so you cannot branch on it to detect DataLink the way "
+                        "you can at ALMA/CADC. There is no scripted download path at "
+                        "NRAO: hand the user the execution block id / access_url for "
+                        "the web Archive Access Tool."
+                    ),
+                    audit=Audit.manual(
+                        "Reading access_format requires an obscore row read, which is "
+                        "async-only and load-dependent; observed 'Execution Block' on "
+                        "every sampled row 2026-09-10 (candidate finding N-09)."
                     ),
                 ),
             ),
