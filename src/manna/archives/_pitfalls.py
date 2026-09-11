@@ -2,20 +2,21 @@
 
 Two channels, both fed by `Note.pitfall` (see `_model.Pitfall` for the taxonomy):
 
-- `silent_trap_cheatsheet()` — the up-front notes (called silent traps in the
-  code): a compact preventive blob appended to the
+- `upfront_note_cheatsheet()` — the up-front notes: a compact preventive blob
+  appended to the
   `vo_tap_query` description at `build_mcp()` time. This is the token-expensive
   channel: the description is re-sent on every turn, so it is deliberately
   capped (`CHEATSHEET_TOKEN_BUDGET`) and carries `guidance` only, never the
   note's full prose. `vo_archive_list` remains the place for everything else.
-- `loud_trap_guidance()` — the error hints (called loud traps in the code):
-  looked up at failure time, attached to the error payload's `hint`. Costs nothing until a query actually trips it.
+- `error_hint_for()` — the error hints: looked up at failure time, attached to
+  the error payload's `hint`. Costs nothing until a query actually trips it.
 
 Everything resolves from `get_active_archives()` at call time, so `MANNA_ARCHIVES`
 selection is honoured for free and there is no import-time snapshot to keep in
 sync — same contract as `_endpoints.py`.
 """
 
+from typing import Literal
 from urllib.parse import urlparse
 
 from manna.archives._endpoints import active_archives, by_short_name
@@ -25,9 +26,9 @@ __all__ = [
     "CHEATSHEET_HEADER",
     "CHEATSHEET_TOKEN_BUDGET",
     "estimate_tokens",
-    "loud_trap_guidance",
-    "silent_trap_cheatsheet",
-    "trap_notes",
+    "error_hint_for",
+    "pitfall_notes",
+    "upfront_note_cheatsheet",
 ]
 
 # The description is re-sent every turn, so the cheatsheet is rent we pay
@@ -48,17 +49,15 @@ def estimate_tokens(text: str) -> int:
     return len(text) // 4
 
 
-def trap_notes(archive: Archive, *, loud: bool) -> list[Note]:
-    """The archive's error-hint (loud=True) or up-front (loud=False) trap notes, in
-    declaration order.
+def pitfall_notes(archive: Archive, *, channel: Literal["upfront", "error_hint"]) -> list[Note]:
+    """The archive's pitfall notes on one channel, in declaration order.
 
-    Covers usage_notes and per-table schema notes — a trap is worth pushing
+    Covers usage_notes and per-table schema notes — a pitfall is worth pushing
     wherever it was curated.
     """
     notes = list(archive.usage_notes)
     for schema in archive.schemas:
         notes.extend(schema.notes)
-    channel = "error_hint" if loud else "upfront"
     return [n for n in notes if n.pitfall is not None and n.pitfall.channel == channel]
 
 
@@ -75,28 +74,28 @@ def _cheatsheet_key(archive: Archive) -> str:
 
 
 def _cheatsheet_line(archive: Archive, note: Note) -> str:
-    assert note.pitfall is not None  # guaranteed by trap_notes
+    assert note.pitfall is not None  # guaranteed by pitfall_notes
     return f"- {archive.display_name} ({_cheatsheet_key(archive)}): {note.pitfall.guidance}"
 
 
-def silent_trap_cheatsheet() -> str:
+def upfront_note_cheatsheet() -> str:
     """The preventive blob for the vo_tap_query description, or "" if no active
-    archive tags an up-front note (e.g. a MANNA_ARCHIVES set that excludes them).
+    archive carries an up-front note (e.g. a MANNA_ARCHIVES set that excludes them).
 
     Ordered by archive priority, so the archives we steer toward lead.
     """
     lines = [
         _cheatsheet_line(a, n)
         for a in sorted(active_archives(), key=lambda a: (a.priority, a.short_name))
-        for n in trap_notes(a, loud=False)
+        for n in pitfall_notes(a, channel="upfront")
     ]
     if not lines:
         return ""
     return "\n".join([CHEATSHEET_HEADER, *lines])
 
 
-def loud_trap_guidance(archive_short_name: str, adql: str) -> str | None:
-    """The error hint for the first trap `adql` trips at this archive, else None.
+def error_hint_for(archive_short_name: str, adql: str) -> str | None:
+    """The error hint for the first pitfall `adql` hits at this archive, else None.
 
     `archive_short_name` comes from `archive_label(endpoint)`; an unknown or
     unselected archive simply has no curated claims, so this returns None and
@@ -105,8 +104,8 @@ def loud_trap_guidance(archive_short_name: str, adql: str) -> str | None:
     archive = by_short_name(archive_short_name)
     if archive is None:
         return None
-    for note in trap_notes(archive, loud=True):
-        assert note.pitfall is not None  # guaranteed by trap_notes
+    for note in pitfall_notes(archive, channel="error_hint"):
+        assert note.pitfall is not None  # guaranteed by pitfall_notes
         if note.pitfall.fires_on(adql):
             return note.pitfall.guidance
     return None

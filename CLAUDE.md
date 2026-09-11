@@ -21,8 +21,8 @@ results-file keys (`arm`, `condition`) are contract and never change.
 | `archives/<name>.py`, `Note`, `Schema` (`active_schemas()`) | **Archive notes** | One file per archive: addresses, notes about quirks, a check per note |
 | `Audit` | **Check** | A live probe (or manual marker) that re-verifies a note |
 | `Pitfall` (`Note.pitfall`, `archives/_pitfalls.py`) | **Pitfall** | A note that describes a known way queries go wrong |
-| `Pitfall.channel == "upfront"` (no `triggers`; `silent_trap_cheatsheet()` injects it into the `vo_tap_query` description) | **Up-front note** | Delivered every turn via the tool description |
-| `Pitfall.channel == "error_hint"` (`triggers` present; `loud_trap_guidance()` rides the error `hint`) | **Error hint** | Delivered only when a failed query matches the pattern |
+| `Pitfall.channel == "upfront"` (no `triggers`; `upfront_note_cheatsheet()` injects it into the `vo_tap_query` description) | **Up-front note** | Delivered every turn via the tool description |
+| `Pitfall.channel == "error_hint"` (`triggers` present; `error_hint_for()` rides the error `hint`) | **Error hint** | Delivered only when a failed query matches the pattern |
 | "cheatsheet" | (keep) | The block of up-front notes injected into the description |
 | `condition: ablated` / `ablated_context()` | **With-and-without comparison** | Tier-3 run with archive notes stripped |
 | `arm` (`mcp` / `raw_tap` / `raw_web`) | **Approach** | The three configurations compared in `mcp_quality.py` |

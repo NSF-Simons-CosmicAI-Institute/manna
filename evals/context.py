@@ -3,8 +3,8 @@
 The whole point of MANNA (vs. handing a model raw pyvo) is the
 archive notes: each archive's ``usage_notes`` and its per-table
 ``Schema`` entries. Tier 3 of
-the eval quantifies that value by running the same trap tasks twice — once with
-the context and once without — and comparing trap-avoidance rates.
+the eval quantifies that value by running the same pitfall tasks twice — once with
+the context and once without — and comparing pitfall-avoidance rates.
 
 We strip context *harness-side* rather than adding a flag to production
 ``build_mcp`` (see plan §10): the tools resolve their archive-note references from module

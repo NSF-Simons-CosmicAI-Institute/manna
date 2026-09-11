@@ -11,18 +11,16 @@ from manna.archives._audit import Audit
 from manna.archives._model import Note, Pitfall
 
 
-def test_triggerless_trap_is_silent_and_never_fires():
+def test_triggerless_pitfall_is_upfront_and_never_fires():
     t = Pitfall(guidance="use q3c_radial_query")
     assert t.channel == "upfront"
-    assert t.is_loud is False
     # An up-front note is preventive — it is always shown, never matched.
     assert t.fires_on("SELECT anything") is False
 
 
-def test_loud_trap_fires_case_insensitively():
+def test_error_hint_pitfall_fires_case_insensitively():
     t = Pitfall(guidance="drop LOWER()", triggers=("LOWER(", "UPPER("))
     assert t.channel == "error_hint"
-    assert t.is_loud is True
     assert t.fires_on("select * from x where lower(name) = 'm87'") is True
     assert t.fires_on("SELECT * FROM x WHERE UPPER(name) = 'M87'") is True
     assert t.fires_on("SELECT * FROM x WHERE name = 'M87'") is False

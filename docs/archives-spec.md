@@ -257,9 +257,9 @@ diff to a single file.
   `guidance` is pushed up-front — `archives/_pitfalls.py`
   derives a cheatsheet from the ACTIVE set and `build_mcp()` appends it to
   `vo_tap_query`'s description. That channel is re-sent every turn, so it is
-  capped at `CHEATSHEET_TOKEN_BUDGET` (200): if a new trap doesn't fit, write
+  capped at `CHEATSHEET_TOKEN_BUDGET` (200): if a new pitfall doesn't fit, write
   terser `guidance` rather than raise the ceiling, and remember `vo_archive_list`
-  is still the place for everything that isn't a trap. A `Pitfall` with `triggers`
+  is still the place for everything that isn't a pitfall. A `Pitfall` with `triggers`
   is an *error hint* (`channel == "error_hint"`; called *loud* in older code): the query throws and the
   triggers spot the cause in the submitted ADQL, so the `guidance` rides the error
   payload's `hint` and costs nothing until it fires. Gated by `tests/archives/test_pitfalls.py` +
@@ -283,7 +283,7 @@ diff to a single file.
 | Active-set API | `get_active_archives()` | mirrors `get_settings()` (cached, cache_clear-able) |
 | One curated claim | `Note` | atomic, addressable (`archives/<archive>.py :: <note_id>`); carries its own `Audit` |
 | A note's re-check | `Audit` (paper: *check*) | declarative probe spec, read by `evals/audit.py` |
-| A known way queries go wrong | `Pitfall` (`Note.pitfall`) | paper term; was `Trap` before 0.8.0 |
-| Which channel a pitfall rides | `Pitfall.channel` → `"upfront"` / `"error_hint"` | the one place that reads "`triggers` empty"; `is_loud` derives from it |
-| Pitfall delivery module | `archives/_pitfalls.py` | `silent_trap_cheatsheet()` (up-front notes) + `loud_trap_guidance()` (error hints); function names kept |
+| A known way queries go wrong | `Pitfall` (`Note.pitfall`) | paper term (renamed in 0.8.0) |
+| Which channel a pitfall rides | `Pitfall.channel` → `"upfront"` / `"error_hint"` | the only reader of "`triggers` empty" |
+| Pitfall delivery module | `archives/_pitfalls.py` | `upfront_note_cheatsheet()` + `error_hint_for()` |
 | Per-table facts, flattened | `active_schemas()` | was `active_schema_kb()` before 0.8.0 |

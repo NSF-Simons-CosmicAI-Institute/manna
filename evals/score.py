@@ -134,7 +134,7 @@ def _check_calls(calls: list[dict[str, Any]], check: dict[str, Any]) -> bool:
 
     match: any (>=1 call) | all (every call) | last (the final call only).
 
-    `last` scores where the model ENDED UP. It exists for error hints (loud traps in the code), whose
+    `last` scores where the model ENDED UP. It exists for error hints, whose
     guidance rides the error `hint` and so can only arrive AFTER the model trips
     them once — `all` would score those FAIL however well the hint worked.
     """

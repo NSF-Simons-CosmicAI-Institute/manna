@@ -52,7 +52,7 @@ class Pitfall:
     guidance: str
     # Case-insensitive substrings of the submitted ADQL that fire an error hint.
     # Empty ⇒ up-front note (preventive, always shown); non-empty ⇒ error hint
-    # (reactive). `channel` is the one place that reads this distinction.
+    # (reactive). `channel` is the only reader of this distinction.
     triggers: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -65,13 +65,8 @@ class Pitfall:
         error hints have triggers and ride the failure payload's `hint`."""
         return "error_hint" if self.triggers else "upfront"
 
-    @property
-    def is_loud(self) -> bool:
-        """Legacy name for `channel == "error_hint"`."""
-        return self.channel == "error_hint"
-
     def fires_on(self, adql: str) -> bool:
-        """Whether `adql` trips this trap. Up-front notes never fire (no triggers)."""
+        """Whether `adql` hits this pitfall. Up-front notes never fire (no triggers)."""
         low = adql.lower()
         return any(t.lower() in low for t in self.triggers)
 

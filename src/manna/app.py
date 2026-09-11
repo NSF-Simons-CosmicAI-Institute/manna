@@ -8,7 +8,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
 from manna import __version__
-from manna.archives._pitfalls import silent_trap_cheatsheet
+from manna.archives._pitfalls import upfront_note_cheatsheet
 from manna.observability import (
     current_request_id,
     new_request_id,
@@ -76,12 +76,12 @@ def _tap_query_description() -> str:
 
     Derived here, at build time, rather than baked into the docstring: the blob
     depends on which archives are active (``MANNA_ARCHIVES``), and
-    ``silent_trap_cheatsheet`` reads the ``lru_cache``d active set at call time.
-    Empty cheatsheet (e.g. a selection with no tagged traps) leaves the
+    ``upfront_note_cheatsheet`` reads the ``lru_cache``d active set at call time.
+    Empty cheatsheet (e.g. a selection with no tagged pitfalls) leaves the
     docstring untouched.
     """
     base = vo_tap_query.__doc__ or ""
-    cheatsheet = silent_trap_cheatsheet()
+    cheatsheet = upfront_note_cheatsheet()
     return f"{base}\n\n{cheatsheet}" if cheatsheet else base
 
 

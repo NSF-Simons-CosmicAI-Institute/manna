@@ -4,7 +4,7 @@
 #
 # Schema per task:
 #   id:            unique slug
-#   tier:          1=tool-selection | 2=task-success | 3=trap avoidance, with-and-without archive notes | 4=robustness
+#   tier:          1=tool-selection | 2=task-success | 3=pitfall avoidance, with-and-without archive notes | 4=robustness
 #   prompt:        the user turn handed to the model
 #   expect_tools:  tool names that MUST appear in the trace (order-free unless `sequence`)
 #   forbid_tools:  tool names that must NOT appear
@@ -17,7 +17,7 @@
 #                    arg supports dotted paths into nested args
 #                    match: any (>=1 call satisfies, default) | all (every call must satisfy)
 #                           | last (only the FINAL call must satisfy — scores where the
-#                             model ended up; use for traps served reactively via the
+#                             model ended up; use for pitfalls served reactively via the
 #                             error hint, which cannot fire until the model trips them)
 #   ground_truth:  deterministic check on the FINAL answer text
 #                    type: coords {ra,dec,tol_deg} | contains {values:[...]} | regex {pattern}
@@ -182,7 +182,7 @@
       - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
 
 # =====================================================================
-# Tier 3 — with-and-without comparison (trap avoidance)
+# Tier 3 — with-and-without comparison (pitfall avoidance)
 # Each runs twice: with vs. without the archive notes (usage_notes + per-table schema notes).
 # "Avoided" == the arg_checks below pass. The with/without delta is the headline.
 # =====================================================================
@@ -194,7 +194,7 @@
   expect_tools: [vo_tap_query]
   arg_checks:
     vo_tap_query:
-      # The trap is riding bare mode='sync' (unfiltered obscore reads error out;
+      # The pitfall is riding bare mode='sync' (unfiltered obscore reads error out;
       # filtered ones are load-dependent and timeout-prone). BOTH escape hatches
       # count: explicit 'async', and 'auto' — which runs sync first and promotes
       # to async on timeout/oversize. match: all still fails a bare-sync retry
@@ -232,11 +232,11 @@
   expect_tools: [vo_tap_query]
   arg_checks:
     vo_tap_query:
-      # PREVENTION: never trip the trap at all. This is EXPECTED TO FAIL as long
+      # PREVENTION: never hit the pitfall at all. This is EXPECTED TO FAIL as long
       # as the lower-upper note is delivered only reactively (a Pitfall with triggers
       # -> error hint, issue #57) — the hint cannot arrive until the model has
       # already written LOWER(). Kept deliberately strict: it is the measurement
-      # that would flip if we ever spent description budget on this trap, and
+      # that would flip if we ever spent description budget on this pitfall, and
       # pairing it with -recovery below is what makes the two channels legible.
       # Do NOT loosen it to make a green run; loosen the pair, or change channel.
       - { arg: adql, op: not_icontains, value: "LOWER(", match: all }
@@ -253,13 +253,13 @@
     vo_tap_query:
       # RECOVERY: the question the hint channel can actually answer — did the
       # model end on a query free of the rejected functions? match: last, because
-      # tripping the trap once is the PRICE of a reactive channel, not a failure.
+      # hitting the pitfall once is the PRICE of a reactive channel, not a failure.
       - { arg: adql, op: not_icontains, value: "LOWER(", match: last }
       - { arg: adql, op: not_icontains, value: "UPPER(", match: last }
-  # No rubric, matching the other arg-check trap tasks in this tier. A rubric
+  # No rubric, matching the other arg-check pitfall tasks in this tier. A rubric
   # needs a final answer, and these NRAO tasks routinely exhaust max_steps on
   # upstream async latency — that would score the agent loop's stamina, not
-  # whether the hint got read. The trap is fully visible in the submitted ADQL.
+  # whether the hint got read. The pitfall is fully visible in the submitted ADQL.
 
 - id: t3-nrao-spatial
   tier: 3

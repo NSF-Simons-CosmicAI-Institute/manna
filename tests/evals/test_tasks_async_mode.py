@@ -52,13 +52,13 @@ def test_async_and_auto_both_accepted(task_id: str, mode: str):
 
 @pytest.mark.parametrize("task_id", ASYNC_MODE_TASKS)
 def test_bare_sync_still_rejected(task_id: str):
-    """mode='sync' is the actual trap: it 5xxs/times out on obscore reads."""
+    """mode='sync' is the actual pitfall: it 5xxs/times out on obscore reads."""
     assert _args_check(task_id, _tap_run("sync")) is False
 
 
 @pytest.mark.parametrize("task_id", ASYNC_MODE_TASKS)
 def test_sync_retry_loop_still_rejected(task_id: str):
-    """match: all — a model that keeps retrying bare sync has not avoided the trap,
+    """match: all — a model that keeps retrying bare sync has not avoided the pitfall,
     even if one call in the trace used auto."""
     assert _args_check(task_id, _tap_run("auto", "sync", "sync")) is False
 

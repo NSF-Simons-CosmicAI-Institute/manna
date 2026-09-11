@@ -6,8 +6,8 @@ and whether the server's curated context actually earns its keep.
 
 The suite is organized in four tiers: **1** tool-selection accuracy (single intent, no
 chaining), **2** multi-step task success (real workflows), **3** a with-and-without comparison that
-runs each trap task with and without the server's archive notes (`usage_notes` + per-table
-schema notes) to measure trap avoidance, and **4** robustness/safety (error recovery, unknown archives,
+runs each pitfall task with and without the server's archive notes (`usage_notes` + per-table
+schema notes) to measure pitfall avoidance, and **4** robustness/safety (error recovery, unknown archives,
 async-job polling, and leak checks).
 
 This is **not** part of the shipped server. It lives outside `tests/` because eval
@@ -28,7 +28,7 @@ task prompt ─► model under test (Anthropic Messages API)  ─► emits tool_
 - **`tasks.yaml`** — the versioned task suite (4 tiers, above). The review target.
 - **`harness.py`** — the agent loop + model config (`ModelConfig.from_env`).
 - **`context.py`** — the Tier-3 with-and-without comparison: strips the archive notes
-  (`usage_notes` + per-table schema notes) so we can compare trap-avoidance **with vs.
+  (`usage_notes` + per-table schema notes) so we can compare pitfall-avoidance **with vs.
   without** them.
 - **`score.py`** — programmatic checks (tools, order, args, ground truth, safety scan)
   plus an optional LLM judge for open-ended `rubric` tasks.
@@ -103,7 +103,7 @@ uv run python -m evals.run                    # full suite
 ```
 
 Tier-3 tasks (and `--condition both`) run twice — full vs. ablated — and the report
-prints the **trap-avoidance delta**, the headline "is this server worth it" number.
+prints the **pitfall-avoidance delta**, the headline "is this server worth it" number.
 Keep `--concurrency` low (default 3) against a single-GPU-hosted model.
 
 ## Clean-state run recipe
@@ -131,8 +131,8 @@ grep -cE '\[(PASS|FAIL)\]' eval.log   # poll progress
 
 Append to `tasks.yaml` following the schema documented at the top of that file. Prefer a
 deterministic `ground_truth` (coords/contains/regex) when the answer has a stable correct
-value; use a `rubric` (judge-scored) only for open-ended answers. For a Tier-3 trap,
-express "avoided the trap" as `arg_checks` on the recorded ADQL/args (e.g. `mode == async`,
+value; use a `rubric` (judge-scored) only for open-ended answers. For a Tier-3 pitfall,
+express "avoided the pitfall" as `arg_checks` on the recorded ADQL/args (e.g. `mode == async`,
 or ADQL `not_contains CONTAINS(`) so it scores without a judge.
 
 ## Three evaluation programs

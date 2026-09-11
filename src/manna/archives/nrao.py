@@ -125,7 +125,7 @@ ARCHIVE = Archive(
                     "WHERE LOWER(table_name) = 'tap_schema.obscore'"
                 ),
             ),
-            # The trap issue #57 is named after: true, probed, and served by
+            # The pitfall issue #57 is named after: true, probed, and served by
             # vo_archive_list — and the model wrote LOWER() anyway, in BOTH eval
             # conditions. It throws, so the fix rides the error hint rather than
             # the description budget (an error hint: triggers decide when it fires).

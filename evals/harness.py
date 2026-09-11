@@ -177,7 +177,7 @@ class TaskRun:
         }
 
 
-# The hand-written _SILENT_TRAP_CHEATSHEET that used to live here is gone: its own
+# The hand-written cheatsheet constant that used to live here is gone: its own
 # comment said "a real server-side version would derive this from tagged notes on the
 # active archives", and issue #57 did exactly that. The server now ships the blob on
 # vo_tap_query's description by default (archives/_pitfalls.py), so the harness no longer
@@ -186,7 +186,7 @@ class TaskRun:
 
 
 def strip_cheatsheet(description: str) -> str:
-    """`description` with the server-injected trap cheatsheet removed.
+    """`description` with the server-injected pitfall cheatsheet removed.
 
     The subtraction lives here, not in the server package: only the stripped condition
     ever wants the blob back OUT of an otherwise identical tool surface.
