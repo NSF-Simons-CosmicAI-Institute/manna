@@ -1,7 +1,8 @@
 """The Trap model — the declarative half of trap delivery (issue #57).
 
-Loudness is carried entirely by `triggers`: none ⇒ silent (preventive, always
-shown), some ⇒ loud (reactive, fires on a matching ADQL).
+The channel is carried entirely by `triggers`: none ⇒ up-front note (preventive,
+always shown; `is_loud` False), some ⇒ error hint (reactive, fires on a matching
+ADQL; `is_loud` True).
 """
 
 import pytest
@@ -13,7 +14,7 @@ from manna.archives._model import Note, Trap
 def test_triggerless_trap_is_silent_and_never_fires():
     t = Trap(guidance="use q3c_radial_query")
     assert t.is_loud is False
-    # A silent trap is preventive — it is always shown, never matched.
+    # An up-front note is preventive — it is always shown, never matched.
     assert t.fires_on("SELECT anything") is False
 
 

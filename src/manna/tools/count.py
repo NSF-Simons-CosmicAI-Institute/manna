@@ -1,9 +1,9 @@
-"""Purpose-driven counting facade: vo_count_observations.
+"""Purpose-driven counting shortcut tool: vo_count_observations.
 
 One call answers "how many observations/sources are near this target?" by
 resolving the target, selecting an archive by its curated `count_target`, and
 running the archive-correct positional COUNT — sync, or (NRAO) async with a
-bounded poll. A thin facade over TapClient + the resolver; the atomic
+bounded poll. A thin shortcut tool over TapClient + the resolver; the atomic
 vo_tap_query stays the escape hatch (the chosen ADQL is surfaced in `plan`).
 """
 

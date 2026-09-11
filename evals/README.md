@@ -5,9 +5,9 @@ Measures how well a real LLM (a local vLLM endpoint by default, configured via
 and whether the server's curated context actually earns its keep.
 
 The suite is organized in four tiers: **1** tool-selection accuracy (single intent, no
-chaining), **2** multi-step task success (real workflows), **3** a context ablation that
-runs each trap task with and without the server's curated `usage_notes` + schema KB to
-measure trap avoidance, and **4** robustness/safety (error recovery, unknown archives,
+chaining), **2** multi-step task success (real workflows), **3** a with-and-without comparison that
+runs each trap task with and without the server's archive notes (`usage_notes` + per-table
+schema notes) to measure trap avoidance, and **4** robustness/safety (error recovery, unknown archives,
 async-job polling, and leak checks).
 
 This is **not** part of the shipped server. It lives outside `tests/` because eval
@@ -27,8 +27,9 @@ task prompt ─► model under test (Anthropic Messages API)  ─► emits tool_
 
 - **`tasks.yaml`** — the versioned task suite (4 tiers, above). The review target.
 - **`harness.py`** — the agent loop + model config (`ModelConfig.from_env`).
-- **`context.py`** — the Tier-3 ablation: strips `usage_notes` + the schema KB so we can
-  compare trap-avoidance **with vs. without** curated context.
+- **`context.py`** — the Tier-3 with-and-without comparison: strips the archive notes
+  (`usage_notes` + per-table schema notes) so we can compare trap-avoidance **with vs.
+  without** them.
 - **`score.py`** — programmatic checks (tools, order, args, ground truth, safety scan)
   plus an optional LLM judge for open-ended `rubric` tasks.
 - **`run.py`** — CLI; aggregates metrics and writes `results/<timestamp>.json`.
@@ -42,7 +43,7 @@ task prompt ─► model under test (Anthropic Messages API)  ─► emits tool_
   (or won't) call the discovery tools.
 - **`rejudge.py`** — re-scores a saved results file's `rubric` tasks with a (possibly
   different) judge model, without re-running the agent loop.
-- **`selftest.py`** — offline self-test of the scoring/ablation machinery (`score.py` +
+- **`selftest.py`** — offline self-test of the scoring/stripping machinery (`score.py` +
   `context.py`); no model calls, no network. Because it never contacts the model it
   **cannot** tell you whether `EVAL_MODEL_NAME` is still valid — a green selftest with a
   stale model name is expected, not reassuring. `run.py` covers that with a preflight.
@@ -96,7 +97,7 @@ grade itself for real numbers; if no judge is set, rubric tasks report as *unsco
 ```bash
 uv run python -m evals.run --dry-run          # validate tasks.yaml, no model calls
 uv run python -m evals.run --tier 1 --tier 2  # tool-selection + task-success
-uv run python -m evals.run --tier 3           # ablation: with vs. without context
+uv run python -m evals.run --tier 3           # with-and-without comparison
 uv run python -m evals.run --task t2-resolve-cone   # a single task
 uv run python -m evals.run                    # full suite
 ```
@@ -139,17 +140,18 @@ or ADQL `not_contains CONTAINS(`) so it scores without a judge.
 Beyond the tier suite above, `evals/` hosts three focused programs.
 
 **1 — MCP quality** (`mcp_quality.py`): is the server *worth it*? Runs a task suite
-(`mcp_quality_tasks.yaml`) through 3 arms — `mcp` (the tools) vs `raw_tap` vs `raw_web`
-(`providers.py`) — and reports accuracy / tool-errors / iterations per arm, with per-tool /
+(`mcp_quality_tasks.yaml`) through three approaches (called `arm` in the code and results files) — `mcp` (the tools)
+vs `raw_tap` vs `raw_web` (`providers.py`) — and reports accuracy / tool-errors / iterations
+per approach, with per-tool /
 per-archive breakdown and version-over-version diffing against a baseline.
 
 ```bash
-uv run python -m evals.mcp_quality                 # 3-arm comparison
+uv run python -m evals.mcp_quality                 # three-approach comparison
 uv run python -m evals.mcp_quality --set-baseline  # record results/mcp-quality-baseline.json
 ```
 
 > **Metric change (2026-07):** `tool_error_calls` now counts the server's
-> error-as-payload results (`error_class` present), which the mcp arm
+> error-as-payload results (`error_class` present), which the `mcp` approach
 > previously could never register. Re-record baselines (`--set-baseline`)
 > before trusting version-over-version diffs that span this change.
 
@@ -166,7 +168,7 @@ uv run python -m evals.persona_run --same-model --limit 3  # persona at the same
 uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/persona-*.json
 ```
 
-**3 — archive note regression** (`audit.py`): keep the KB honest. **Model-free** — one
+**3 — archive note regression** (`audit.py`): keep the archive notes honest. **Model-free** — one
 live ADQL probe per each probeable `Note` audit, keyed to `archives/<archive>.py ::
 <note_id>`, reporting STILL-TRUE / STALE / ENDPT-DEAD / UNREACHABLE. Notes whose claims
 a single ADQL probe can't check are tagged MANUAL and listed for hand-verification —

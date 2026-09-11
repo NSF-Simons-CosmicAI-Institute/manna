@@ -1,6 +1,6 @@
 """CountTarget — how to build a positional COUNT query for one archive table.
 
-The pure, dependency-free half of the counting facade (mirrors `_audit.py`):
+The pure, dependency-free half of the counting shortcut tool (mirrors `_audit.py`):
 each geometry variant renders its own ADQL WHERE predicate, and `CountTarget`
 bundles that with the table, the count expression, and the sync/async mode.
 `vo_count_observations` / `vo_survey_target` read these; the archives declare

@@ -63,16 +63,16 @@ src/manna/
 │   ├── count.py               # vo_count_observations
 │   ├── survey.py              # vo_survey_target
 │   ├── inspect.py             # vo_inspect_table
-│   ├── _select.py             # shared resolve + archive-selection helpers for count/survey/find facades
+│   ├── _select.py             # shared resolve + archive-selection helpers for the count/survey/find shortcut tools
 │   └── _constants.py          # shared tool-layer constants (_ERROR_DOCSTRING)
-├── archives/          # per-archive knowledge (one <short_name>.py each)
+├── archives/          # archive notes (one <short_name>.py each)
 │   ├── _model.py      # Archive, Schema dataclasses (leaf)
 │   ├── _select.py     # pure parse_allow/sort/select/validate helpers
 │   ├── __init__.py    # registry: discover_archives() + get_active_archives()
 │   ├── _endpoints.py  # endpoint lists/descriptions over the active set (Field examples)
 │   ├── _knowledge.py  # per-table schema lookups (lookup_schema, active_schema_kb, schema_to_dict)
 │   ├── _audit.py      # Audit dataclass: declarative live-probe spec read by evals/audit.py
-│   ├── _traps.py      # trap push channels (silent cheatsheet + loud failure-time hint)
+│   ├── _traps.py      # trap push channels (up-front-note cheatsheet + failure-time error hint)
 │   └── <archive>.py   # ARCHIVE = Archive(..., schemas=(...), priority=N)
 │                      # (currently: alma.py, cadc.py, datalab.py, eso.py, gaia.py, gaia_ari.py, nrao.py, sdss.py)
 ├── _archive_label.py  # archive short_name lookup from a URL (label field on envelopes)
@@ -86,12 +86,12 @@ src/manna/
 └── __main__.py        # uvicorn entry; called by `python -m manna`
 ```
 
-Knowledge layer — **per-archive modules** (`archives/<short_name>.py`, see docs/archives-spec.md):
+Archive notes — **per-archive modules** (`archives/<short_name>.py`, see docs/archives-spec.md):
 - Each archive is one portable, plugin-style file: a single `Archive` dataclass carrying its identity (URLs, waveband), `usage_notes`, **its own per-table `Schema` entries**, and a `priority`. One archive = one file, exporting `ARCHIVE = Archive(...)`.
 - Derived helpers over the active archive set live in the package: **`archives/_endpoints.py`** (endpoint URL lists + Field-example descriptions) and **`archives/_knowledge.py`** (`lookup_schema` / `active_schema_kb` / `schema_to_dict`). The `_archive_label` substring map itself lives in top-level **`_archive_label.py`**, built from `_endpoints.host_substring_to_short_name()`. Both resolve from the `lru_cache`d `get_active_archives()` at call time — no import-time snapshot. `_archive_label.py`'s `_STATIC_MAP` is different: it is built once at import, so a restart is needed to pick up a newly added archive. Archive-level quirks live in `usage_notes` (surfaced by `vo_archive_list`); table-specific facts live in `Archive.schemas` (surfaced by `vo_schema_describe`), NOT in usage_notes.
 - **Archives are additive, never gating.** A missing archive just means no curated claims about it; it stays reachable via `vo_registry_search`. Selection: delete archive files, or set `MANNA_ARCHIVES=datalab,alma` (unset ⇒ all). `priority` (ascending) sets order.
 
-Result handling (stateless — the server never persists result bytes):
+Result handling (the server keeps nothing between requests and never persists result bytes):
 - **Small results inline.** A TAP/cone/SIA result within the inline caps (`MANNA_INLINE_ROW_LIMIT` / `MANNA_INLINE_BYTE_LIMIT`) is returned inline via `shape_inline_table`.
 - **Successful TAP/cone/SIA envelopes carry `query_fingerprint` + `save_recipe`** (`attach_cache_fields` in shaper.py): a stable hash of the query identity plus a client-side snippet that saves the result to `manna_cache/<fingerprint>.csv` and appends a row to `manna_cache/catalog.csv`. The server computes and forgets — saving happens in the client's environment; reuse policy lives in the deployment persona, not here.
 - **Large TAP results go async.** `vo_tap_query` mode='auto' re-submits an oversize sync result as an async job; mode='sync' raises `validation_error` telling the LLM to use mode='async'. `vo_tap_results` returns the upstream `job_url` + `result_url` + a **pyvo `fetch_recipe`** (`shape_result_url`) — the client loads the data itself (anonymous only). This is why there is no `result_store` or MCP Resource serving: designed for multi-tenant TACC where per-user byte caches don't scale.
@@ -114,7 +114,7 @@ Tests mirror the source: `tests/unit/` (pure), `tests/archives/` (registry mecha
 
 - **Tools never touch raw pyvo.** Only `backends/` imports pyvo. Verifiable with `grep -r pyvo src/manna/tools/`.
 - **The server never persists result bytes.** No result cache, no MCP Resource serving. Large results are handed to the client as a `job_url` + `result_url` + pyvo `fetch_recipe`; the client fetches them itself. This is the load-bearing multi-tenant invariant — do NOT reintroduce a server-side byte store.
-- **The server holds NO cross-request state at all.** The JobStore was removed in the stateless-async-tap change: it was a process-global `dict` with no notion of caller identity, so in a shared-service topology (one server process, many users, no per-user auth) any session holding any `job_id` could read or abort another user's job. It also concealed nothing, because the promotion envelope already returned the `job_url`. Do NOT reintroduce a server-side job registry, cache, or session map; if you need per-caller state, it must be keyed on a verified caller identity, which this server does not yet have.
+- **The server holds NO cross-request state at all.** The JobStore was removed when async TAP was made to keep nothing between requests: it was a process-global `dict` with no notion of caller identity, so in a shared-service topology (one server process, many users, no per-user auth) any session holding any `job_id` could read or abort another user's job. It also concealed nothing, because the promotion envelope already returned the `job_url`. Do NOT reintroduce a server-side job registry, cache, or session map; if you need per-caller state, it must be keyed on a verified caller identity, which this server does not yet have.
 - **Every user-supplied URL clears `_url_guard.ensure_safe_url` before it is fetched.** `endpoint` (tap/cone/sia), `ivoid_or_url` (registry, when not an `ivo://` IVOID), and `job_url` (status/results/abort). The guard rejects non-http(s) schemes and any target resolving to private/loopback/link-local/reserved space, which is what stops a caller pivoting to `http://hub:8000` or `169.254.169.254` from inside the compose network. `vo_tap_abort` sends an upstream DELETE, so this is load-bearing, not advisory. Known gap: DNS rebinding (we resolve, then `requests` resolves again) — see the module docstring.
 - **`truncated` is always a top-level boolean.** Never silently true. The ALMA_MCP prototype's `df.head(20)` is the explicit anti-pattern. Enforced in `shape_inline_table`.
 - **Error payloads carry `error_class` + `retry_strategy`.** `error_class` is the discriminator the LLM branches on. No `isError` key (intentional — the shared `_ERROR_DOCSTRING` in `tools/_constants.py`, appended to every tool's docstring, spells this out).

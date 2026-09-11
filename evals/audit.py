@@ -1,21 +1,21 @@
 """Archive-note regression suite — Pillar 3, derived from the archive knowledge itself.
 
-The server's value is its *curated knowledge* of archive quirks — now atomic `Note`s
+The server's value is its *archive notes* about archive quirks — now atomic `Note`s
 carried directly on each `archives/<short_name>.py` `Archive` (its `usage_notes` and each
 `Schema`'s `notes`), each paired with an `Audit` describing how to re-check it live. Those
 claims are about live third-party archives that drift underneath us: a sync endpoint starts
 accepting reads, a missing column reappears, an untranslated geometry function starts
-working. When that happens the KB silently goes STALE and the server starts handing agents
+working. When that happens the notes silently go STALE and the server starts handing agents
 wrong advice.
 
 This suite is the guard. Unlike the retired hand-maintained `evals/caveats.py` list, it is
 **derived**: it walks the active archives' notes directly, so a new archive or a new note
 is audited automatically — there's no separate table to keep in sync. It aims for **1:1
-coverage of every falsifiable quirk** in the KB, keyed to `(archive, note_id)`, so running
+coverage of every falsifiable quirk** in the archive notes, keyed to `(archive, note_id)`, so running
 it singles out *which* note went stale:
 
   * STILL-TRUE   — the archive still behaves as the note says.
-  * STALE        — the archive changed; the note's claim no longer holds → update the KB.
+  * STALE        — the archive changed; the note's claim no longer holds → update the note.
   * UNREACHABLE  — the archive (or the network) is down; can't judge this run.
   * MANUAL       — the quirk isn't checkable by a single ADQL probe (SIA/DataLink download
                    recipes, advisory naming conventions, async-only behaviours that would
@@ -27,7 +27,7 @@ note's `Audit` and, on drift, names exactly which column disappeared.
 
 Separating STALE from UNREACHABLE: each archive first runs a **control probe** (a query that
 must work if the service is up). If the control fails, the whole archive is UNREACHABLE and
-its notes are not judged — so a network blip is never misreported as "the KB went stale".
+its notes are not judged — so a network blip is never misreported as "the notes went stale".
 
     uv run python -m evals.audit                 # check every note
     uv run python -m evals.audit --archive nrao  # just one archive's notes
@@ -187,7 +187,7 @@ def check_note(
 
 
 def _control_state(endpoint: str, control_adql: str) -> str:
-    """'ok' | 'dead' (hard 404 — the endpoint moved/retired: a KB bug) |
+    """'ok' | 'dead' (hard 404 — the endpoint moved/retired: an archive-notes bug) |
     'down' (timeout / 5xx / network — can't judge this run)."""
     outcome, _, _, detail = _probe(
         TapClient(sync_timeout_seconds=_PROBE_TIMEOUT_S), endpoint, control_adql
@@ -259,9 +259,13 @@ def _print(rows: list[dict], *, probeable_only: bool = False) -> None:
         f"({len(rows)} notes)"
     )
     if counts["stale"]:
-        print("  ⚠ STALE notes mean the archive changed — update the KB at the printed source.")
+        print(
+            "  ⚠ STALE notes mean the archive changed — update the archive notes at the printed source."
+        )
     if counts["endpoint_dead"]:
-        print("  ⚠ ENDPT-DEAD notes have an unreachable endpoint — update the KB at the source.")
+        print(
+            "  ⚠ ENDPT-DEAD notes have an unreachable endpoint — update the archive notes at the source."
+        )
 
 
 def main() -> int:

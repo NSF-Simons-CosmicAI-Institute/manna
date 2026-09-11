@@ -1,7 +1,7 @@
 """Tool for surfacing the curated archive registry to the LLM.
 
 `vo_archive_list` is the agent-facing entry point into the project's
-knowledge base of well-known IVOA archives. Each returned entry carries
+archive notes for well-known IVOA archives. Each returned entry carries
 the canonical endpoint URLs, capabilities, notable tables, and — most
 importantly — `usage_notes` that capture archive-specific gotchas
 (non-standard table locations, sync-vs-async routing, target-name

@@ -7,7 +7,7 @@ Examples:
     # run tiers 1-2 against the configured model (reads ANTHROPIC_* / EVAL_MODEL_* env)
     uv run python -m evals.run --tier 1 --tier 2
 
-    # run the tier-3 ablation (each trap task runs with AND without curated context)
+    # run the tier-3 with-and-without comparison (each trap task runs with AND without archive notes)
     uv run python -m evals.run --tier 3
 
     # full suite, with hosted Claude as the rubric judge
@@ -162,7 +162,9 @@ async def _main_async(args: argparse.Namespace) -> int:
     print(f"Running {len(tasks)} task(s), concurrency={args.concurrency}\n")
 
     if args.no_inject_notes:
-        print("Ablation: silent-trap cheatsheet STRIPPED from the vo_tap_query description")
+        print(
+            "With-and-without: up-front-note cheatsheet STRIPPED from the vo_tap_query description"
+        )
     if args.no_discovery:
         print("No-discovery: vo_archive_list + vo_schema_describe withheld from the model")
     sem = asyncio.Semaphore(args.concurrency)
@@ -233,7 +235,7 @@ def main() -> int:
         "--no-inject-notes",
         action="store_true",
         help=(
-            "ablation: STRIP the silent-trap cheatsheet from the vo_tap_query description. "
+            "with-and-without comparison: STRIP the up-front-note cheatsheet from the vo_tap_query description. "
             "Injection is default-on server-side since #57, so isolating its value means "
             "removing it, not adding it."
         ),

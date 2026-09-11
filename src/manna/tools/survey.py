@@ -1,4 +1,4 @@
-"""Multi-archive availability facade: vo_survey_target.
+"""Multi-archive availability shortcut tool: vo_survey_target.
 
 "What data exists for this target, everywhere?" — resolves the target once,
 then fans the curated per-archive count out over every countable archive and

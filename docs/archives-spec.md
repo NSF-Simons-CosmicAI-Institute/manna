@@ -4,7 +4,7 @@ Status: **implemented** · Version: 0.5.0 · Author: dpg
 
 ## 1. Problem
 
-The server's curated knowledge about each archive used to be spread across two
+The server's archive notes (its curated knowledge about each archive) used to be spread across two
 monolithic modules:
 
 - `known_archives.py` — one giant `KNOWN_ARCHIVES` tuple of archive identity
@@ -41,7 +41,7 @@ can be added or removed like a plugin, per deployment.
 
 - No move to external data files (YAML/TOML). Archives are Python modules
   (§3.1). The `Archive` dataclass is the seam if that ever changes.
-- No RAG / dynamic KB. Still static, in-process, zero-I/O.
+- No RAG / dynamic notes store. Still static, in-process, zero-I/O.
 
 ## 3. Architecture
 
@@ -249,16 +249,17 @@ diff to a single file.
   *delivered* — because the eval showed reachable knowledge isn't used knowledge
   (issue #57: the NRAO LOWER/UPPER note was true, probed and served by
   `vo_archive_list`, and the model wrote `LOWER()` anyway). A `Trap` without
-  `triggers` is *silent*: the model gets no usable correction signal (no error
-  at all, or one too cryptic to act on), so the `guidance` is pushed up-front — `archives/_traps.py`
+  `triggers` is an *up-front note* (called *silent* in the code): the model gets no
+  usable correction signal (no error at all, or one too cryptic to act on), so the
+  `guidance` is pushed up-front — `archives/_traps.py`
   derives a cheatsheet from the ACTIVE set and `build_mcp()` appends it to
   `vo_tap_query`'s description. That channel is re-sent every turn, so it is
   capped at `CHEATSHEET_TOKEN_BUDGET` (200): if a new trap doesn't fit, write
   terser `guidance` rather than raise the ceiling, and remember `vo_archive_list`
   is still the place for everything that isn't a trap. A `Trap` with `triggers`
-  is *loud*: the query throws and the triggers spot the cause in the submitted
-  ADQL, so the `guidance` rides the error payload's `hint` and costs nothing
-  until it fires. Gated by `tests/archives/test_traps.py` +
+  is an *error hint* (called *loud* in the code): the query throws and the
+  triggers spot the cause in the submitted ADQL, so the `guidance` rides the error
+  payload's `hint` and costs nothing until it fires. Gated by `tests/archives/test_traps.py` +
   `tests/contracts/test_trap_delivery.py`.
 - Structured `Schema` fields (`missing_standard_columns`, `value_enums`) are not
   yet under the audit gate — a documented follow-up. If a structured fact needs

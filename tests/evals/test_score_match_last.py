@@ -1,6 +1,6 @@
 """`match: last` — score where the model ENDED UP, not every step it took.
 
-Needed for loud traps (issue #57). Their guidance rides the error `hint`, which
+Needed for error hints (loud traps in the code; issue #57). Their guidance rides the error `hint`, which
 is reactive by construction: the model must trip the trap once to be told about
 it. `match: all` therefore scores such a task FAIL however well the hint works,
 which measures prevention, not recovery. `match: last` asks the question the

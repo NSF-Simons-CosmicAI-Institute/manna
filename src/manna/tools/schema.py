@@ -1,4 +1,4 @@
-"""Tool for querying the curated per-table schema knowledge base.
+"""Tool for querying the per-table archive notes (curated schema facts).
 
 `vo_schema_describe(archive, table)` returns table-specific structured
 facts (missing ObsCore columns, enum values, spatial index columns) that

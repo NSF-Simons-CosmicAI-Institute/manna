@@ -1,7 +1,7 @@
-"""Tests for vo_find_observations — the purpose-driven orchestration facade.
+"""Tests for vo_find_observations — the purpose-driven orchestration shortcut tool.
 
 This tool absorbs the resolve -> select-archive -> search chain into one call.
-It is a thin facade over the SAME backends the atomic tools use; the atomic
+It is a thin shortcut tool over the SAME backends the atomic tools use; the atomic
 tools (vo_target_resolve / vo_archive_list / vo_sia_search / vo_cone_search)
 stay the precision escape hatch.
 """

@@ -4,7 +4,7 @@
 #
 # Schema per task:
 #   id:            unique slug
-#   tier:          1=tool-selection | 2=task-success | 3=ablation-trap | 4=robustness
+#   tier:          1=tool-selection | 2=task-success | 3=trap avoidance, with-and-without archive notes | 4=robustness
 #   prompt:        the user turn handed to the model
 #   expect_tools:  tool names that MUST appear in the trace (order-free unless `sequence`)
 #   forbid_tools:  tool names that must NOT appear
@@ -182,8 +182,8 @@
       - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
 
 # =====================================================================
-# Tier 3 — contextual-value ablation (trap avoidance)
-# Each runs twice: with vs. without curated context (usage_notes + schema KB).
+# Tier 3 — with-and-without comparison (trap avoidance)
+# Each runs twice: with vs. without the archive notes (usage_notes + per-table schema notes).
 # "Avoided" == the arg_checks below pass. The with/without delta is the headline.
 # =====================================================================
 
@@ -233,7 +233,7 @@
   arg_checks:
     vo_tap_query:
       # PREVENTION: never trip the trap at all. This is EXPECTED TO FAIL as long
-      # as the lower-upper note is delivered only reactively (a loud Trap
+      # as the lower-upper note is delivered only reactively (a Trap with triggers
       # -> error hint, issue #57) — the hint cannot arrive until the model has
       # already written LOWER(). Kept deliberately strict: it is the measurement
       # that would flip if we ever spent description budget on this trap, and

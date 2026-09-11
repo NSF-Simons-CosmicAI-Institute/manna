@@ -58,7 +58,7 @@ class RequestIdMiddleware:
             current_request_id.reset(token)
 
 
-# Closed-world: reads only the in-process KB. Open-world: hits live services.
+# Closed-world: reads only the in-process archive notes. Open-world: hits live services.
 _LOCAL = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
 _REMOTE = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
 # vo_tap_abort DELETEs an upstream UWS job — not read-only, but idempotent
@@ -72,7 +72,7 @@ _ABORT = ToolAnnotations(
 
 
 def _tap_query_description() -> str:
-    """vo_tap_query's docstring + the derived silent-trap cheatsheet.
+    """vo_tap_query's docstring + the derived cheatsheet of up-front notes.
 
     Derived here, at build time, rather than baked into the docstring: the blob
     depends on which archives are active (``MANNA_ARCHIVES``), and
@@ -91,7 +91,7 @@ def build_mcp() -> FastMCP:
     Every tool is read-only (the server never mutates archive state) except
     ``vo_tap_abort``, which deletes an upstream UWS job. Tools that hit live
     archive services are open-world; vo_archive_list is the one closed-world
-    KB reader (vo_schema_describe left that set when it grew a live column
+    archive-notes reader (vo_schema_describe left that set when it grew a live column
     fetch).
     """
     # Pass version explicitly: FastMCP otherwise reports *its own* version in

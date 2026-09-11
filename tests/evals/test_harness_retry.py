@@ -1,8 +1,8 @@
 """The transient-error retry around model.complete.
 
 A shared vLLM endpoint throws connection blips under load; without a retry those
-silently fail whichever ablation arm runs during a flaky window (observed: one arm
-at 0% infra-fail, the other at 39%), biasing the comparison. Pin the retry so a
+silently fail whichever with-and-without condition runs during a flaky window
+(observed: one condition at 0% infra-fail, the other at 39%), biasing the comparison. Pin the retry so a
 transient error is recovered but a persistent one still surfaces.
 """
 

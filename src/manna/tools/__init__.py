@@ -6,10 +6,10 @@ One tool per IVOA standard, split by protocol:
 * Simple Image Access: tools.sia (vo_sia_search)
 * Registry: tools.registry (vo_registry_search, vo_registry_describe)
 * Archive directory: tools.archives (vo_archive_list)
-* Schema KB: tools.schema (vo_schema_describe)
+* Per-table archive notes: tools.schema (vo_schema_describe)
 * Target resolver: tools.resolver (vo_target_resolve)
 
-Facade tools (combine multiple protocols for single-call workflows):
+Shortcut tools (bundle a multi-step task into one call):
 * tools.count (vo_count_observations)
 * tools.survey (vo_survey_target)
 * tools.inspect (vo_inspect_table)

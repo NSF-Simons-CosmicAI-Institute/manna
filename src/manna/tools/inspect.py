@@ -1,8 +1,8 @@
-"""Table-inspection facade: vo_inspect_table.
+"""Table-inspection shortcut tool: vo_inspect_table.
 
 "What's actually in table T?" in one call — the real column list + curated
 value-enums/notes + a best-effort sample of rows. Columns and curated facts
-come from reliable metadata (tap_schema.columns + the schema KB); the sample is
+come from reliable metadata (tap_schema.columns + the archive notes); the sample is
 a soft-fail extra (an archive that rejects an unfiltered read just yields
 sample_status='error', never a hard failure). A convenience layer over
 vo_schema_describe; drop to it + vo_tap_query for full control.
@@ -27,7 +27,7 @@ _tap: TapClient | None = None
 
 
 def _infer_archive(table: str) -> Archive | None:
-    """First active archive (priority order) whose curated knowledge names
+    """First active archive (priority order) whose archive notes name
     `table` — via a matching `Schema.table` or a `notable_tables` entry —
     and which has a `tap_url`. None if nothing matches."""
     for a in active_archives():
@@ -119,7 +119,7 @@ def vo_inspect_table(
     if not table_clean:
         raise ValidationError(message="'table' must be non-empty (fully qualified).")
 
-    # Resolve owning archive: explicit, else INFERRED from curated knowledge
+    # Resolve owning archive: explicit, else INFERRED from the archive notes
     # (Schema.table / notable_tables) across the active archives.
     if archive:
         arch_name = archive.strip()

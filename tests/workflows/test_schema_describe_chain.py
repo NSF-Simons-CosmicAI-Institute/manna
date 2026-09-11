@@ -6,7 +6,7 @@ Simulates the LLM action:
     2. Use the discovered instrument_name='GBT' value (exact case from
        the enum) in an async ADQL submit.
 
-Pins that the KB → query handoff works and that the value flows
+Pins that the archive-notes → query handoff works and that the value flows
 through correctly. TapClient is faked; no network.
 """
 

@@ -1,6 +1,6 @@
 """Archive model — the dataclasses one archive's knowledge is built from.
 
-An **archive** is the portable, plugin-style unit of curated knowledge: its
+An **archive** is the portable, plugin-style unit of archive notes: its
 identity + endpoints + usage_notes, together with the per-table `Schema`
 entries for that same archive. One archive = one file under `archives/`.
 
@@ -31,7 +31,8 @@ class Trap:
     Two kinds, split by whether the model can self-correct from the failure,
     and told apart entirely by ``triggers``:
 
-    - **silent** (no ``triggers``) — the model gets NO usable correction
+    - **up-front note** (no ``triggers``; called *silent* in the code) — the
+      model gets NO usable correction
       signal, so the claim must arrive BEFORE the query. Either the query
       silently returns a wrong answer (ALMA: COUNT(*) over-counts, no error)
       or it errors so cryptically that the message doesn't imply the fix
@@ -39,7 +40,8 @@ class Trap:
       exist`, which never suggests q3c). These go in the `vo_tap_query`
       description — the expensive channel, re-sent every turn, so the bar is
       high and `guidance` must be terse.
-    - **loud** (``triggers`` set) — the query throws, and the triggers
+    - **error hint** (``triggers`` set; called *loud* in the code) — the query
+      throws, and the triggers
       recognise the cause in the submitted ADQL. `guidance` rides the error
       payload's `hint` instead, so it costs nothing until it fires.
 
@@ -47,8 +49,9 @@ class Trap:
     """
 
     guidance: str
-    # Case-insensitive substrings of the submitted ADQL that fire a loud trap.
-    # Empty ⇒ silent (preventive, always shown); non-empty ⇒ loud (reactive).
+    # Case-insensitive substrings of the submitted ADQL that fire an error hint.
+    # Empty ⇒ up-front note (preventive, always shown); non-empty ⇒ error hint
+    # (reactive).
     triggers: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -60,7 +63,7 @@ class Trap:
         return bool(self.triggers)
 
     def fires_on(self, adql: str) -> bool:
-        """Whether `adql` trips this trap. Silent traps never fire (no triggers)."""
+        """Whether `adql` trips this trap. Up-front notes never fire (no triggers)."""
         low = adql.lower()
         return any(t.lower() in low for t in self.triggers)
 
@@ -107,7 +110,7 @@ def _normalize_notes(notes) -> tuple[Note, ...]:
 
 @dataclass(frozen=True)
 class Schema:
-    """Curated knowledge about ONE table at one archive.
+    """Archive notes about ONE table at one archive.
 
     `archive` is the owning archive's short_name. It is redundant with the
     owning `Archive.short_name` (validated in `Archive.__post_init__`) but kept

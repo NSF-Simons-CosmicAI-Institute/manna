@@ -22,7 +22,7 @@ def test_entry_covers_full_instrument_suite():
 
 
 def test_usage_notes_capture_critical_gotchas():
-    """The usage_notes are the agent-facing knowledge base; NRAO's must cover
+    """The usage_notes are the agent-facing archive notes; NRAO's must cover
     the friction we learned the hard way."""
     notes = " ".join(n.text for n in ARCHIVE.usage_notes).lower()
     assert "async" in notes
@@ -59,7 +59,7 @@ def test_key_note_audits_have_expected_outcomes():
 
 def test_sync_notes_do_not_overstate_async_requirement():
     """Live-probed 2026-07-16 (issue #58): unfiltered obscore reads DO still fail in
-    sync, but spatially-filtered reads succeed when NRAO is responsive. So the KB
+    sync, but spatially-filtered reads succeed when NRAO is responsive. So the note
     must recommend auto/async rather than claim sync is categorically broken —
     otherwise the eval penalises the now-correct mode='auto' behaviour."""
     notes = {n.id: n for n in ARCHIVE.usage_notes}
@@ -104,8 +104,8 @@ def test_lower_upper_note_is_probeable():
 def test_string_function_note_covers_concat_and_fires_on_it():
     """Live 2026-09-10: LOWER/UPPER/ILIKE are absent (an OPTIONAL ADQL 2.1 feature
     set, so not a violation — the note must not call it one), and the core-grammar
-    string concatenation `||` fails too with a bare JSQLParserException. The loud
-    trap should catch `||` as well, since that error text implies no fix."""
+    string concatenation `||` fails too with a bare JSQLParserException. The error
+    hint should catch `||` as well, since that error text implies no fix."""
     notes = {n.id: n for n in ARCHIVE.usage_notes}
     note = notes["lower-upper-fail"]
     assert "||" in note.text

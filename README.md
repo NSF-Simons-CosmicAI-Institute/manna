@@ -34,7 +34,7 @@ re-verifies it. Every tool below is tagged with the layer it belongs to.
 | `vo_registry_describe` | RegTAP | Connections · Result handling | Describe a specific registry resource (columns, capabilities) |
 | `vo_cone_search` | SCS | Connections · Result handling | Simple Cone Search for legacy SCS-only archives |
 | `vo_sia_search` | SIA 2.0 | Connections · Result handling | Search for images by position and waveband (returns access URLs to fetch client-side) |
-| `vo_find_observations` | SIA 2.0 / SCS | Shortcut tools | One-call facade: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `vo_target_resolve` + `vo_archive_list` + `vo_sia_search`/`vo_cone_search` so the model doesn't have to |
+| `vo_find_observations` | SIA 2.0 / SCS | Shortcut tools | One-call shortcut tool: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `vo_target_resolve` + `vo_archive_list` + `vo_sia_search`/`vo_cone_search` so the model doesn't have to |
 | `vo_count_observations` | TAP | Shortcut tools | Count observations/sources near a target in one call (resolve → select archive → `COUNT`) |
 | `vo_survey_target` | TAP | Shortcut tools | Survey which archives hold data for a target, with per-archive counts |
 | `vo_inspect_table` | TAP | Shortcut tools · Archive notes | Columns + curated enums/notes + a sample of rows for one table, in one call |
@@ -154,6 +154,6 @@ Inspect the cassette diff before committing — large changes in the VOTable nam
 
 ## Docs
 
-- [`docs/archives-spec.md`](docs/archives-spec.md) — how per-archive knowledge modules work, and how to author one
+- [`docs/archives-spec.md`](docs/archives-spec.md) — how archive notes (per-archive modules) work, and how to author one
 
 Deployment configurations are maintained in a separate repository.

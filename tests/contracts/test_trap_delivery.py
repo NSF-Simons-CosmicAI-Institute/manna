@@ -4,8 +4,10 @@ Knowledge the model *can* reach is not knowledge it *uses*: the NRAO LOWER/UPPER
 note was true, live-probed and served by vo_archive_list, and the model still
 wrote LOWER() in both eval conditions. These pin the two push channels:
 
-- silent traps -> appended to the registered vo_tap_query description
-- loud traps   -> the error payload's `hint`, next to error_class/retry_strategy
+- up-front notes (silent traps in the code) -> appended to the registered
+  vo_tap_query description
+- error hints (loud traps in the code) -> the error payload's `hint`, next to
+  error_class/retry_strategy
 """
 
 import pytest

@@ -66,7 +66,7 @@ def test_count_missing_column_is_stale_and_named(monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# endpoint_dead — a hard 404 endpoint is a stale-KB signal, not a blip
+# endpoint_dead — a hard 404 endpoint is a stale-note signal, not a blip
 # --------------------------------------------------------------------------- #
 def test_control_state_dead_on_404(monkeypatch):
     monkeypatch.setattr(

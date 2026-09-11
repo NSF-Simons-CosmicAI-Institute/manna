@@ -2,13 +2,14 @@
 
 Two channels, both fed by `Note.trap` (see `_model.Trap` for the taxonomy):
 
-- `silent_trap_cheatsheet()` — a compact preventive blob appended to the
+- `silent_trap_cheatsheet()` — the up-front notes (called silent traps in the
+  code): a compact preventive blob appended to the
   `vo_tap_query` description at `build_mcp()` time. This is the token-expensive
   channel: the description is re-sent on every turn, so it is deliberately
   capped (`CHEATSHEET_TOKEN_BUDGET`) and carries `guidance` only, never the
   note's full prose. `vo_archive_list` remains the place for everything else.
-- `loud_trap_guidance()` — looked up at failure time, attached to the error
-  payload's `hint`. Costs nothing until a query actually trips it.
+- `loud_trap_guidance()` — the error hints (called loud traps in the code):
+  looked up at failure time, attached to the error payload's `hint`. Costs nothing until a query actually trips it.
 
 Everything resolves from `get_active_archives()` at call time, so `MANNA_ARCHIVES`
 selection is honoured for free and there is no import-time snapshot to keep in
@@ -30,11 +31,11 @@ __all__ = [
 ]
 
 # The description is re-sent every turn, so the cheatsheet is rent we pay
-# continuously. 200 tokens is the ceiling agreed in issue #57 — if a new silent
-# trap won't fit, the fix is a terser `guidance`, not a bigger budget.
+# continuously. 200 tokens is the ceiling agreed in issue #57 — if a new up-front
+# note won't fit, the fix is a terser `guidance`, not a bigger budget.
 CHEATSHEET_TOKEN_BUDGET = 200
 
-# Public because it is the seam the eval's ablation arm cuts on: the harness's
+# Public because it is the seam the eval's with-and-without comparison cuts on: the harness's
 # strip_cheatsheet removes the blob to measure what injecting it is worth.
 CHEATSHEET_HEADER = (
     "Archive quirks that give wrong results or unactionable errors — apply BEFORE querying:"
@@ -48,7 +49,8 @@ def estimate_tokens(text: str) -> int:
 
 
 def trap_notes(archive: Archive, *, loud: bool) -> list[Note]:
-    """The archive's loud (or silent) trap notes, in declaration order.
+    """The archive's error-hint (loud=True) or up-front (loud=False) trap notes, in
+    declaration order.
 
     Covers usage_notes and per-table schema notes — a trap is worth pushing
     wherever it was curated.
@@ -78,7 +80,7 @@ def _cheatsheet_line(archive: Archive, note: Note) -> str:
 
 def silent_trap_cheatsheet() -> str:
     """The preventive blob for the vo_tap_query description, or "" if no active
-    archive tags a silent trap (e.g. a MANNA_ARCHIVES set that excludes them).
+    archive tags an up-front note (e.g. a MANNA_ARCHIVES set that excludes them).
 
     Ordered by archive priority, so the archives we steer toward lead.
     """
@@ -93,7 +95,7 @@ def silent_trap_cheatsheet() -> str:
 
 
 def loud_trap_guidance(archive_short_name: str, adql: str) -> str | None:
-    """Guidance for the first loud trap `adql` trips at this archive, else None.
+    """The error hint for the first trap `adql` trips at this archive, else None.
 
     `archive_short_name` comes from `archive_label(endpoint)`; an unknown or
     unselected archive simply has no curated claims, so this returns None and

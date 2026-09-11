@@ -28,12 +28,12 @@ def clear_archive_caches():
     get_active_archives.cache_clear()
 
 
-# ---------- silent traps -> vo_tap_query description ----------
+# ---------- up-front notes (silent traps) -> vo_tap_query description ----------
 
 
 def test_cheatsheet_covers_the_tagged_silent_traps():
     cs = silent_trap_cheatsheet()
-    # ALMA granularity: the archetypal silent trap (COUNT(*) over-counts, no error).
+    # ALMA granularity: the archetypal up-front note (COUNT(*) over-counts, no error).
     assert "COUNT(DISTINCT member_ous_uid)" in cs
     # Data Lab geometry: errors, but unactionably.
     assert "q3c_radial_query" in cs
@@ -81,7 +81,7 @@ def test_cheatsheet_empty_when_no_active_archive_tags_a_trap(monkeypatch, clear_
     assert silent_trap_cheatsheet() == ""
 
 
-# ---------- loud traps -> error hint ----------
+# ---------- error hints (loud traps) -> error payload `hint` ----------
 
 
 @pytest.mark.parametrize(

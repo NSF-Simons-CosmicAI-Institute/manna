@@ -2,7 +2,7 @@
 curated archive quirks when the model can't (or won't) consult the discovery tools?
 
 Since issue #57 this measures a SHIPPED feature, not a hypothetical: the server
-injects the silent-trap cheatsheet into vo_tap_query's description by default
+injects the cheatsheet of up-front notes into vo_tap_query's description by default
 (archives/_traps.py, derived from notes tagged with a triggerless `Trap`). So the
 `inject` axis inverted — cell C now STRIPS the blob rather than cell D adding it.
 The cells and the decisive comparison are otherwise unchanged, so the numbers
@@ -21,7 +21,7 @@ the SUBMITTED adql — set EVAL_MAX_STEPS/EVAL_ASYNC_POLL_SLEEP low to run fast:
       uv run python -m evals.exp_a_matrix        # (with model creds sourced)
 
 Reference result, pre-#57 (Qwen3.5, N=3) (historical, Qwen3.5-era): A=15/15, C=0/15, D=12/15. The 3 misses were
-all t3-nrao-lowerupper — a LOUD trap deliberately NOT in the cheatsheet. #57 gave that
+all t3-nrao-lowerupper — an ERROR-HINT trap deliberately NOT in the cheatsheet. #57 gave that
 trap the OTHER channel (the error `hint`), which this matrix does not isolate: the hint
 fires on a live rejection in every cell. Judge it from the tier-3 run instead.
 """
@@ -39,7 +39,8 @@ TRAPS = [
     "t3-nrao-spatial",
 ]
 CELLS = {
-    # A is production as shipped: discovery available AND the cheatsheet injected.
+    # A is production as shipped: discovery available AND the up-front notes injected.
+    # Cell labels are kept verbatim — they appear in saved output.
     "A disc/INJ": dict(no_discovery=False, inject_notes=True),
     "C nodisc/noinj": dict(no_discovery=True, inject_notes=False),
     "D nodisc/INJ": dict(no_discovery=True, inject_notes=True),

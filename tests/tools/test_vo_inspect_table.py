@@ -167,7 +167,7 @@ def test_inspect_infers_archive_from_notable_tables_when_archive_omitted(monkeyp
 
 
 def test_inspect_no_match_and_no_archive_soft_fails(monkeypatch):
-    """No `archive` arg and nothing in curated knowledge references the table."""
+    """No `archive` arg and no archive note references the table."""
     from manna.archives._model import Archive
 
     unrelated = Archive(
