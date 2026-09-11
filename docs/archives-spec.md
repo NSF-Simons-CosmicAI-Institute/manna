@@ -117,7 +117,7 @@ src/manna/
 │   ├── datalab.py      # ARCHIVE = Archive(...)
 │   ├── alma.py … sdss.py
 │   ├── _endpoints.py    # endpoint lists + Field descriptions over the active set
-│   ├── _knowledge.py    # per-table schema lookups (lookup_schema, active_schema_kb)
+│   ├── _knowledge.py    # per-table schema lookups (lookup_schema, active_schemas)
 ```
 
 `Archive`/`Schema` live in `archives/_model.py`; the derived helpers in
@@ -159,7 +159,7 @@ re-exported over the active archive set) so existing consumers kept working
 unchanged. Once no consumer imported those symbols, the views were folded into
 `archives/_endpoints.py` (endpoint lists + `Field(examples=…)` descriptions, the
 `_archive_label` map) and `archives/_knowledge.py` (`lookup_schema` /
-`active_schema_kb` / `schema_to_dict`) in 0.5.x, and the two modules were
+`active_schemas` / `schema_to_dict`) in 0.5.x, and the two modules were
 deleted. Both helpers resolve from the active archive set at call time, so they
 honor a mid-process re-selection. Consumers of the derived helpers:
 

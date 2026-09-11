@@ -186,7 +186,7 @@ def test_select_empty_result_is_allowed_and_warns(caplog):
 
 def test_stable_archives_env_narrows_the_active_set(monkeypatch, clear_archive_caches):
     from manna.archives._endpoints import active_archives
-    from manna.archives._knowledge import active_schema_kb, lookup_schema
+    from manna.archives._knowledge import active_schemas, lookup_schema
 
     monkeypatch.setenv("MANNA_ARCHIVES", "datalab,alma")
     get_settings.cache_clear()
@@ -196,7 +196,7 @@ def test_stable_archives_env_narrows_the_active_set(monkeypatch, clear_archive_c
     assert active == ["datalab", "alma"]
 
     # Only the selected archives' schemas are visible.
-    assert {s.archive for s in active_schema_kb()} == {"datalab", "alma"}
+    assert {s.archive for s in active_schemas()} == {"datalab", "alma"}
     # A deselected archive's curated schema is no longer found (but the
     # archive stays reachable via registry search — not exercised here).
     assert lookup_schema(archive="nrao", table="tap_schema.obscore") is None
