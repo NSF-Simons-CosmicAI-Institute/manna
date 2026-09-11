@@ -22,7 +22,7 @@
 #   ground_truth:  deterministic check on the FINAL answer text
 #                    type: coords {ra,dec,tol_deg} | contains {values:[...]} | regex {pattern}
 #   rubric:        free-text criteria for the LLM judge (open-ended answers)
-#   probes_trap:   tier-3 only — human-readable name of the usage_note under test
+#   probes_pitfall:   tier-3 only — human-readable name of the usage_note under test
 #
 # Ground truths marked with a trailing "# ✔" comment are deterministic and verified
 # against the repo's own tests/smoke test. Others are plausibility/rubric-scored.
@@ -189,7 +189,7 @@
 
 - id: t3-nrao-async
   tier: 3
-  probes_trap: "NRAO obscore data reads must not ride bare mode='sync'"
+  probes_pitfall: "NRAO obscore data reads must not ride bare mode='sync'"
   prompt: "Get me 20 rows from NRAO's obscore table for VLA observations near RA=250, Dec=-30."
   expect_tools: [vo_tap_query]
   arg_checks:
@@ -203,7 +203,7 @@
 
 - id: t3-obscore-location
   tier: 3
-  probes_trap: "NRAO obscore is at tap_schema.obscore, not ivoa.obscore"
+  probes_pitfall: "NRAO obscore is at tap_schema.obscore, not ivoa.obscore"
   prompt: "Query NRAO for the 5 most recent VLA observations. Return obs_id and t_min."
   expect_tools: [vo_tap_query]
   arg_checks:
@@ -213,7 +213,7 @@
 
 - id: t3-datalab-geometry
   tier: 3
-  probes_trap: "Data Lab does not translate ADQL geometry -> use q3c_radial_query or bounding box"
+  probes_pitfall: "Data Lab does not translate ADQL geometry -> use q3c_radial_query or bounding box"
   prompt: >-
     Using Astro Data Lab, count nsc_dr2.object rows within 0.1 degrees of RA=180, Dec=-30.
   expect_tools: [vo_tap_query]
@@ -225,7 +225,7 @@
 
 - id: t3-nrao-lowerupper
   tier: 3
-  probes_trap: "LOWER/UPPER string functions fail on NRAO TAP (PREVENTION)"
+  probes_pitfall: "LOWER/UPPER string functions fail on NRAO TAP (PREVENTION)"
   prompt: >-
     Query NRAO obscore for observations whose target name matches 'm87'
     case-insensitively. Return 10 rows.
@@ -233,7 +233,7 @@
   arg_checks:
     vo_tap_query:
       # PREVENTION: never trip the trap at all. This is EXPECTED TO FAIL as long
-      # as the lower-upper note is delivered only reactively (a Trap with triggers
+      # as the lower-upper note is delivered only reactively (a Pitfall with triggers
       # -> error hint, issue #57) — the hint cannot arrive until the model has
       # already written LOWER(). Kept deliberately strict: it is the measurement
       # that would flip if we ever spent description budget on this trap, and
@@ -244,7 +244,7 @@
 
 - id: t3-nrao-lowerupper-recovery
   tier: 3
-  probes_trap: "recovers from the NRAO LOWER/UPPER rejection via the error hint"
+  probes_pitfall: "recovers from the NRAO LOWER/UPPER rejection via the error hint"
   prompt: >-
     Query NRAO obscore for observations whose target name matches 'm87'
     case-insensitively. Return 10 rows.
@@ -263,7 +263,7 @@
 
 - id: t3-nrao-spatial
   tier: 3
-  probes_trap: "NRAO obscore reads need a selective filter; a cone is the fast path for positional asks"
+  probes_pitfall: "NRAO obscore reads need a selective filter; a cone is the fast path for positional asks"
   prompt: "Get 25 EVLA rows from NRAO obscore near the Crab Nebula."
   expect_tools: [vo_tap_query]
   arg_checks:
@@ -273,7 +273,7 @@
 
 - id: t3-alma-granularity
   tier: 3
-  probes_trap: "ALMA rows are at spectral-window granularity (naive COUNT over-counts)"
+  probes_pitfall: "ALMA rows are at spectral-window granularity (naive COUNT over-counts)"
   prompt: >-
     How many distinct ALMA observations are there of the galaxy NGC 253?
     Be careful about how ALMA counts rows.

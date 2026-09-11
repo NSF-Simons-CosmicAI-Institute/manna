@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from evals.context import ablated_context
 from evals.harness import _anthropic_tools
-from manna.archives._traps import loud_trap_guidance, silent_trap_cheatsheet
+from manna.archives._pitfalls import loud_trap_guidance, silent_trap_cheatsheet
 
 
 @dataclass
@@ -87,7 +87,7 @@ def test_ablated_context_strips_both_trap_channels():
     advantage and the with/without delta understates the ROI.
 
     This works because ablated_context() blanks usage_notes on the active set and
-    _traps.py resolves through that same patched global. It is load-bearing and
+    _pitfalls.py resolves through that same patched global. It is load-bearing and
     easy to break (e.g. by snapshotting traps at import), so pin it.
     """
     lower = "SELECT * FROM tap_schema.obscore WHERE LOWER(target_name) = 'm87'"

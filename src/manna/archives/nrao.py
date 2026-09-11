@@ -2,7 +2,7 @@
 
 from manna.archives._audit import Audit
 from manna.archives._count import ContainsPoint, CountTarget
-from manna.archives._model import Archive, Note, Schema, Trap
+from manna.archives._model import Archive, Note, Pitfall, Schema
 
 ARCHIVE = Archive(
     short_name="nrao",
@@ -82,7 +82,7 @@ ARCHIVE = Archive(
             # Querying ivoa.obscore here errors, but with a bare "table not found"
             # that never reveals where obscore actually lives — so prevention
             # (an up-front note, no triggers) is the only channel that helps.
-            trap=Trap(
+            pitfall=Pitfall(
                 guidance="obscore is at tap_schema.obscore, NOT ivoa.obscore (which does not exist).",
             ),
         ),
@@ -129,7 +129,7 @@ ARCHIVE = Archive(
             # vo_archive_list — and the model wrote LOWER() anyway, in BOTH eval
             # conditions. It throws, so the fix rides the error hint rather than
             # the description budget (an error hint: triggers decide when it fires).
-            trap=Trap(
+            pitfall=Pitfall(
                 guidance=(
                     "NRAO's TAP rejects the ADQL string functions LOWER()/UPPER()/ILIKE "
                     "and the || concatenation operator. Re-run without them: match exact "

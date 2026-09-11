@@ -14,7 +14,7 @@ from manna.archives._endpoints import (
     tap_endpoint_description,
     tap_endpoint_urls,
 )
-from manna.archives._traps import loud_trap_guidance
+from manna.archives._pitfalls import loud_trap_guidance
 from manna.backends.tap import TapClient, job_error_message
 from manna.config import get_settings
 from manna.errors import (

@@ -72,7 +72,7 @@ src/manna/
 │   ├── _endpoints.py  # endpoint lists/descriptions over the active set (Field examples)
 │   ├── _knowledge.py  # per-table schema lookups (lookup_schema, active_schema_kb, schema_to_dict)
 │   ├── _audit.py      # Audit dataclass: declarative live-probe spec read by evals/audit.py
-│   ├── _traps.py      # trap push channels (up-front-note cheatsheet + failure-time error hint)
+│   ├── _pitfalls.py   # pitfall push channels (up-front-note cheatsheet + failure-time error hint)
 │   └── <archive>.py   # ARCHIVE = Archive(..., schemas=(...), priority=N)
 │                      # (currently: alma.py, cadc.py, datalab.py, eso.py, gaia.py, gaia_ari.py, nrao.py, sdss.py)
 ├── _archive_label.py  # archive short_name lookup from a URL (label field on envelopes)

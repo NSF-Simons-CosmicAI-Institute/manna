@@ -1,4 +1,4 @@
-"""Trap derivation over the active archive set (issue #57).
+"""Pitfall derivation over the active archive set (issue #57).
 
 The cheatsheet is DERIVED from tagged notes, not hardcoded — the thing this
 replaces was `evals/harness.py::_SILENT_TRAP_CHEATSHEET`, an experiment artifact
@@ -8,7 +8,7 @@ whose own comment said a real version would derive it from tagged notes.
 import pytest
 
 from manna.archives import get_active_archives
-from manna.archives._traps import (
+from manna.archives._pitfalls import (
     CHEATSHEET_TOKEN_BUDGET,
     estimate_tokens,
     loud_trap_guidance,
@@ -31,7 +31,7 @@ def clear_archive_caches():
 # ---------- up-front notes (silent traps) -> vo_tap_query description ----------
 
 
-def test_cheatsheet_covers_the_tagged_silent_traps():
+def test_cheatsheet_covers_the_tagged_silent_pitfalls():
     cs = silent_trap_cheatsheet()
     # ALMA granularity: the archetypal up-front note (COUNT(*) over-counts, no error).
     assert "COUNT(DISTINCT member_ous_uid)" in cs

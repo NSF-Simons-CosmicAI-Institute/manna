@@ -1,6 +1,6 @@
-"""Trap delivery — derive the push channels from the active archive set.
+"""Pitfall delivery — derive the push channels from the active archive set.
 
-Two channels, both fed by `Note.trap` (see `_model.Trap` for the taxonomy):
+Two channels, both fed by `Note.pitfall` (see `_model.Pitfall` for the taxonomy):
 
 - `silent_trap_cheatsheet()` — the up-front notes (called silent traps in the
   code): a compact preventive blob appended to the
@@ -58,7 +58,8 @@ def trap_notes(archive: Archive, *, loud: bool) -> list[Note]:
     notes = list(archive.usage_notes)
     for schema in archive.schemas:
         notes.extend(schema.notes)
-    return [n for n in notes if n.trap is not None and n.trap.is_loud == loud]
+    channel = "error_hint" if loud else "upfront"
+    return [n for n in notes if n.pitfall is not None and n.pitfall.channel == channel]
 
 
 def _cheatsheet_key(archive: Archive) -> str:
@@ -74,8 +75,8 @@ def _cheatsheet_key(archive: Archive) -> str:
 
 
 def _cheatsheet_line(archive: Archive, note: Note) -> str:
-    assert note.trap is not None  # guaranteed by trap_notes
-    return f"- {archive.display_name} ({_cheatsheet_key(archive)}): {note.trap.guidance}"
+    assert note.pitfall is not None  # guaranteed by trap_notes
+    return f"- {archive.display_name} ({_cheatsheet_key(archive)}): {note.pitfall.guidance}"
 
 
 def silent_trap_cheatsheet() -> str:
@@ -105,7 +106,7 @@ def loud_trap_guidance(archive_short_name: str, adql: str) -> str | None:
     if archive is None:
         return None
     for note in trap_notes(archive, loud=True):
-        assert note.trap is not None  # guaranteed by trap_notes
-        if note.trap.fires_on(adql):
-            return note.trap.guidance
+        assert note.pitfall is not None  # guaranteed by trap_notes
+        if note.pitfall.fires_on(adql):
+            return note.pitfall.guidance
     return None

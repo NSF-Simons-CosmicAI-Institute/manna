@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from evals.context import ablated_context, full_context
-from manna.archives._traps import CHEATSHEET_HEADER
+from manna.archives._pitfalls import CHEATSHEET_HEADER
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
 # Async TAP lifecycles poll vo_tap_status repeatedly, so this must be generous.
@@ -180,7 +180,7 @@ class TaskRun:
 # The hand-written _SILENT_TRAP_CHEATSHEET that used to live here is gone: its own
 # comment said "a real server-side version would derive this from tagged notes on the
 # active archives", and issue #57 did exactly that. The server now ships the blob on
-# vo_tap_query's description by default (archives/_traps.py), so the harness no longer
+# vo_tap_query's description by default (archives/_pitfalls.py), so the harness no longer
 # ADDS anything — the with-and-without comparison SUBTRACTS it instead. Keeping a second copy here
 # would silently drift from what the server actually serves.
 

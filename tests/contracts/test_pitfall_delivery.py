@@ -1,4 +1,4 @@
-"""Contract tests for trap delivery (issue #57).
+"""Contract tests for pitfall delivery (issue #57).
 
 Knowledge the model *can* reach is not knowledge it *uses*: the NRAO LOWER/UPPER
 note was true, live-probed and served by vo_archive_list, and the model still
@@ -14,7 +14,7 @@ import pytest
 from fastmcp import Client
 
 from manna.app import build_mcp
-from manna.archives._traps import CHEATSHEET_TOKEN_BUDGET, estimate_tokens
+from manna.archives._pitfalls import CHEATSHEET_TOKEN_BUDGET, estimate_tokens
 from manna.errors import DalQueryError, TimeoutArchiveError, error_to_payload
 from manna.tools import tap as tap_tool
 

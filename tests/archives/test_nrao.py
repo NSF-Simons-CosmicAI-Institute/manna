@@ -110,9 +110,11 @@ def test_string_function_note_covers_concat_and_fires_on_it():
     note = notes["lower-upper-fail"]
     assert "||" in note.text
     assert "spec violation" not in note.text.lower()
-    assert note.trap is not None
-    assert note.trap.fires_on("SELECT obs_id FROM tap_schema.obscore WHERE target_name || '' = 'x'")
-    assert "||" in note.trap.guidance
+    assert note.pitfall is not None
+    assert note.pitfall.fires_on(
+        "SELECT obs_id FROM tap_schema.obscore WHERE target_name || '' = 'x'"
+    )
+    assert "||" in note.pitfall.guidance
 
 
 def test_unfiltered_scans_not_spatial_predicates_are_the_documented_failure():

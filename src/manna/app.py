@@ -8,7 +8,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
 from manna import __version__
-from manna.archives._traps import silent_trap_cheatsheet
+from manna.archives._pitfalls import silent_trap_cheatsheet
 from manna.observability import (
     current_request_id,
     new_request_id,

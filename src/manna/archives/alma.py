@@ -2,7 +2,7 @@
 
 from manna.archives._audit import Audit
 from manna.archives._count import CountTarget, IntersectsRegion
-from manna.archives._model import Archive, Note, Schema, Trap
+from manna.archives._model import Archive, Note, Pitfall, Schema
 
 ARCHIVE = Archive(
     short_name="alma",
@@ -76,7 +76,7 @@ ARCHIVE = Archive(
             # The archetypal up-front note (no triggers): COUNT(*) returns a
             # plausible number and no error at all, so nothing downstream can
             # flag the over-count.
-            trap=Trap(
+            pitfall=Pitfall(
                 guidance=(
                     "rows are per spectral-window, so COUNT(*) over-counts observations — "
                     "count with COUNT(DISTINCT member_ous_uid)."
