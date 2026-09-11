@@ -70,7 +70,7 @@ src/manna/
 │   ├── _select.py     # pure parse_allow/sort/select/validate helpers
 │   ├── __init__.py    # registry: discover_archives() + get_active_archives()
 │   ├── _endpoints.py  # endpoint lists/descriptions over the active set (Field examples)
-│   ├── _knowledge.py  # per-table schema lookups (lookup_schema, active_schema_kb, schema_to_dict)
+│   ├── _knowledge.py  # per-table schema lookups (lookup_schema, active_schemas, schema_to_dict)
 │   ├── _audit.py      # Audit dataclass: declarative live-probe spec read by evals/audit.py
 │   ├── _pitfalls.py   # pitfall push channels (up-front-note cheatsheet + failure-time error hint)
 │   └── <archive>.py   # ARCHIVE = Archive(..., schemas=(...), priority=N)
@@ -88,7 +88,7 @@ src/manna/
 
 Archive notes — **per-archive modules** (`archives/<short_name>.py`, see docs/archives-spec.md):
 - Each archive is one portable, plugin-style file: a single `Archive` dataclass carrying its identity (URLs, waveband), `usage_notes`, **its own per-table `Schema` entries**, and a `priority`. One archive = one file, exporting `ARCHIVE = Archive(...)`.
-- Derived helpers over the active archive set live in the package: **`archives/_endpoints.py`** (endpoint URL lists + Field-example descriptions) and **`archives/_knowledge.py`** (`lookup_schema` / `active_schema_kb` / `schema_to_dict`). The `_archive_label` substring map itself lives in top-level **`_archive_label.py`**, built from `_endpoints.host_substring_to_short_name()`. Both resolve from the `lru_cache`d `get_active_archives()` at call time — no import-time snapshot. `_archive_label.py`'s `_STATIC_MAP` is different: it is built once at import, so a restart is needed to pick up a newly added archive. Archive-level quirks live in `usage_notes` (surfaced by `vo_archive_list`); table-specific facts live in `Archive.schemas` (surfaced by `vo_schema_describe`), NOT in usage_notes.
+- Derived helpers over the active archive set live in the package: **`archives/_endpoints.py`** (endpoint URL lists + Field-example descriptions) and **`archives/_knowledge.py`** (`lookup_schema` / `active_schemas` / `schema_to_dict`). The `_archive_label` substring map itself lives in top-level **`_archive_label.py`**, built from `_endpoints.host_substring_to_short_name()`. Both resolve from the `lru_cache`d `get_active_archives()` at call time — no import-time snapshot. `_archive_label.py`'s `_STATIC_MAP` is different: it is built once at import, so a restart is needed to pick up a newly added archive. Archive-level quirks live in `usage_notes` (surfaced by `vo_archive_list`); table-specific facts live in `Archive.schemas` (surfaced by `vo_schema_describe`), NOT in usage_notes.
 - **Archives are additive, never gating.** A missing archive just means no curated claims about it; it stays reachable via `vo_registry_search`. Selection: delete archive files, or set `MANNA_ARCHIVES=datalab,alma` (unset ⇒ all). `priority` (ascending) sets order.
 
 Result handling (the server keeps nothing between requests and never persists result bytes):
