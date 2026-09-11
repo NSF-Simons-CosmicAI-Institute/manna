@@ -1,7 +1,7 @@
 """`match: last` — score where the model ENDED UP, not every step it took.
 
-Needed for error hints (loud traps in the code; issue #57). Their guidance rides the error `hint`, which
-is reactive by construction: the model must trip the trap once to be told about
+Needed for error hints (issue #57). Their guidance rides the error `hint`, which
+is reactive by construction: the model must hit the pitfall once to be told about
 it. `match: all` therefore scores such a task FAIL however well the hint works,
 which measures prevention, not recovery. `match: last` asks the question the
 hint channel can actually answer — did the model end on a good query?
@@ -22,7 +22,7 @@ def _calls(*adqls):
 
 
 def test_last_ignores_earlier_violations():
-    """Trip the trap, read the hint, recover -> pass."""
+    """Hit the pitfall, read the hint, recover -> pass."""
     assert _check_calls(_calls("SELECT LOWER(x)", "SELECT x"), CHECK) is True
 
 
@@ -83,7 +83,7 @@ def test_recovery_task_scores_the_hint_channel():
 
 def test_prevention_task_still_demands_never_tripping_it():
     """t3-nrao-lowerupper keeps measuring PREVENTION. It is expected to fail
-    while the trap is served only reactively — that honesty is the point, and
+    while the pitfall is served only reactively — that honesty is the point, and
     it is what would flip if the note ever moved into the description."""
     task = _task("t3-nrao-lowerupper")
     recovered = _run(

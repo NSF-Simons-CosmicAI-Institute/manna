@@ -7,14 +7,14 @@ Examples:
     # run tiers 1-2 against the configured model (reads ANTHROPIC_* / EVAL_MODEL_* env)
     uv run python -m evals.run --tier 1 --tier 2
 
-    # run the tier-3 with-and-without comparison (each trap task runs with AND without archive notes)
+    # run the tier-3 with-and-without comparison (each pitfall task runs with AND without archive notes)
     uv run python -m evals.run --tier 3
 
     # full suite, with hosted Claude as the rubric judge
     EVAL_JUDGE_NAME=claude-opus-4-8 uv run python -m evals.run
 
 Tier-3 tasks (and anything under --condition both) run twice — full vs. ablated
-context — and the report prints the trap-avoidance delta, the server's headline ROI.
+context — and the report prints the pitfall-avoidance delta, the server's headline ROI.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def _summarize(scores: list[TaskScore]) -> dict[str, Any]:
         "by_tier": {f"tier{t}": rate(v) for t, v in by_tier.items()},
     }
 
-    # Tier-3 headline: trap-avoidance full vs. ablated + per-trap breakdown.
+    # Tier-3 headline: pitfall-avoidance full vs. ablated + per-pitfall breakdown.
     tier3 = [s for s in scores if s.tier == 3]
     if tier3:
         full = [s for s in tier3 if s.condition == "full"]
@@ -79,7 +79,7 @@ def _summarize(scores: list[TaskScore]) -> dict[str, Any]:
         summary["tier3_ablation"] = {
             "avoidance_with_context": rate(full),
             "avoidance_without_context": rate(ablated),
-            "per_trap": by_task,
+            "per_pitfall": by_task,
         }
     return summary
 
@@ -93,11 +93,11 @@ def _print_report(summary: dict[str, Any], runs: list[TaskRun]) -> None:
         print(f"  {tier} pass rate  : {r}")
     if "tier3_ablation" in summary:
         ab = summary["tier3_ablation"]
-        print("\nTier-3 trap avoidance (the server's ROI):")
+        print("\nTier-3 pitfall avoidance (the server's ROI):")
         print(f"  WITH curated context    : {ab['avoidance_with_context']}")
         print(f"  WITHOUT curated context : {ab['avoidance_without_context']}")
-        print("  per trap (full / ablated):")
-        for tid, conds in ab["per_trap"].items():
+        print("  per pitfall (full / ablated):")
+        for tid, conds in ab["per_pitfall"].items():
             f = "PASS" if conds.get("full") else "FAIL"
             a = "PASS" if conds.get("ablated") else "FAIL"
             print(f"    {tid:24s} {f:4s} / {a}")

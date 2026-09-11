@@ -131,14 +131,14 @@ def vo_find_observations(
 ) -> dict:
     """Find observations of a target in one call (resolve -> select -> search).
 
-    A purpose-driven facade over vo_target_resolve + vo_archive_list +
+    A purpose-driven shortcut over vo_target_resolve + vo_archive_list +
     vo_sia_search / vo_cone_search. Pass an object name (auto-resolved) or
     explicit 'RA DEC'; optionally steer archive choice with `waveband` or an
     explicit `archive`.
 
     Returns the standard inline tabular envelope (same shape as vo_sia_search /
     vo_cone_search — typed `columns`, `rows`, explicit `truncated` bool; note
-    this facade envelope does NOT carry the `query_fingerprint` / `save_recipe`
+    this shortcut's envelope does NOT carry the `query_fingerprint` / `save_recipe`
     cache fields the primitive tools attach — call the underlying vo_sia_search
     / vo_cone_search directly if you need those) plus:
 

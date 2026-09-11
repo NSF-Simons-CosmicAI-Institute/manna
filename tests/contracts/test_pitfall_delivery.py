@@ -4,10 +4,8 @@ Knowledge the model *can* reach is not knowledge it *uses*: the NRAO LOWER/UPPER
 note was true, live-probed and served by vo_archive_list, and the model still
 wrote LOWER() in both eval conditions. These pin the two push channels:
 
-- up-front notes (silent traps in the code) -> appended to the registered
-  vo_tap_query description
-- error hints (loud traps in the code) -> the error payload's `hint`, next to
-  error_class/retry_strategy
+- up-front notes -> appended to the registered vo_tap_query description
+- error hints   -> the error payload's `hint`, next to error_class/retry_strategy
 """
 
 import pytest
@@ -100,7 +98,7 @@ def test_hint_rides_every_mode(monkeypatch):
 
 
 def test_clean_adql_gets_no_hint(monkeypatch):
-    """No curated trap matched -> no invented advice."""
+    """No curated pitfall matched -> no invented advice."""
 
     def _boom(**_kwargs):
         raise DalQueryError(message="some other syntax error")

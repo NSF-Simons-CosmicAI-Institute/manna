@@ -14,7 +14,7 @@ from manna.archives._endpoints import (
     tap_endpoint_description,
     tap_endpoint_urls,
 )
-from manna.archives._pitfalls import loud_trap_guidance
+from manna.archives._pitfalls import error_hint_for
 from manna.backends.tap import TapClient, job_error_message
 from manna.config import get_settings
 from manna.errors import (
@@ -49,13 +49,13 @@ def _get_tap() -> TapClient:
 
 
 @contextmanager
-def _trap_hint(*, endpoint: str, adql: str) -> Iterator[None]:
+def _pitfall_hint(*, endpoint: str, adql: str) -> Iterator[None]:
     """Attach a curated error hint to a rejected query's `hint`.
 
     The error payload is the one channel the model reliably reads at failure
     time — issue #57 measured it writing LOWER() against NRAO even with the
     note served by vo_archive_list. So when the archive rejects an ADQL that
-    trips a trap delivered as an error hint, the fix rides back with the rejection.
+    hits a pitfall that carries an error hint, the fix rides back with the rejection.
 
     Only DalQueryError: that means the archive UNDERSTOOD the query and refused
     it, which is when curated guidance is trustworthy. A timeout or 5xx says
@@ -65,7 +65,7 @@ def _trap_hint(*, endpoint: str, adql: str) -> Iterator[None]:
         yield
     except DalQueryError as err:
         if err.hint is None:
-            err.hint = loud_trap_guidance(archive_label(endpoint), adql)
+            err.hint = error_hint_for(archive_label(endpoint), adql)
         raise
 
 
@@ -194,9 +194,9 @@ def vo_tap_query(
     query need not be re-run later.
     """
     ensure_safe_url(endpoint, param="endpoint")
-    # Every path that can surface a DalQueryError runs inside _trap_hint, so a
+    # Every path that can surface a DalQueryError runs inside _pitfall_hint, so a
     # rejected query carries its curated fix regardless of which mode found it.
-    with _trap_hint(endpoint=endpoint, adql=adql):
+    with _pitfall_hint(endpoint=endpoint, adql=adql):
         if mode == "async":
             return _promote_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
 

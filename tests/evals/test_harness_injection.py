@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from evals.context import ablated_context
 from evals.harness import _anthropic_tools
-from manna.archives._pitfalls import loud_trap_guidance, silent_trap_cheatsheet
+from manna.archives._pitfalls import error_hint_for, upfront_note_cheatsheet
 
 
 @dataclass
@@ -26,7 +26,7 @@ def _tools():
     return [
         _FakeTool(
             "vo_tap_query",
-            f"Run an ADQL query.\n\n{silent_trap_cheatsheet()}",
+            f"Run an ADQL query.\n\n{upfront_note_cheatsheet()}",
             {"type": "object"},
         ),
         _FakeTool("vo_archive_list", "List archives.", {"type": "object"}),
@@ -81,23 +81,23 @@ def test_exclude_tools_unset_keeps_everything(monkeypatch):
 # ---------- the tier-3 with-and-without comparison must strip BOTH channels ----------
 
 
-def test_ablated_context_strips_both_trap_channels():
-    """Traps are archive notes, so the tier-3 with-and-without comparison has to take
+def test_ablated_context_strips_both_pitfall_channels():
+    """Pitfalls are archive notes, so the tier-3 with-and-without comparison has to take
     them away too — otherwise the stripped condition silently keeps the server's
     advantage and the with/without delta understates the ROI.
 
     This works because ablated_context() blanks usage_notes on the active set and
     _pitfalls.py resolves through that same patched global. It is load-bearing and
-    easy to break (e.g. by snapshotting traps at import), so pin it.
+    easy to break (e.g. by snapshotting pitfalls at import), so pin it.
     """
     lower = "SELECT * FROM tap_schema.obscore WHERE LOWER(target_name) = 'm87'"
-    assert silent_trap_cheatsheet() != ""
-    assert loud_trap_guidance("nrao", lower) is not None
+    assert upfront_note_cheatsheet() != ""
+    assert error_hint_for("nrao", lower) is not None
 
     with ablated_context():
-        assert silent_trap_cheatsheet() == ""
-        assert loud_trap_guidance("nrao", lower) is None
+        assert upfront_note_cheatsheet() == ""
+        assert error_hint_for("nrao", lower) is None
 
     # ...and restored on exit.
-    assert silent_trap_cheatsheet() != ""
-    assert loud_trap_guidance("nrao", lower) is not None
+    assert upfront_note_cheatsheet() != ""
+    assert error_hint_for("nrao", lower) is not None

@@ -95,7 +95,7 @@ def test_vo_tap_query_error_path_returns_structured_payload(exc, expected_error_
 
 
 # --------------------------------------------------------------------------- #
-# the shipped few-shot example must not teach a trap
+# the shipped few-shot example must not teach a pitfall
 #
 # The old example ran CONTAINS(POINT(...)) against smash_dr2.object, a Data Lab
 # table. Verified live 2026-07-15: it fails with
@@ -103,7 +103,7 @@ def test_vo_tap_query_error_path_returns_structured_payload(exc, expected_error_
 # — the exact construct datalab.py's geometry-contains-untranslated note
 # documents as broken and tasks.yaml's t3-datalab-geometry docks models for
 # emitting. The Field description is re-sent to the model on EVERY turn, so we
-# taught the trap continuously and then penalized the model for copying us.
+# taught the pitfall continuously and then penalized the model for copying us.
 # --------------------------------------------------------------------------- #
 def _adql_field_examples() -> list[str]:
     """The `examples` the model actually sees on vo_tap_query's adql parameter."""
@@ -120,7 +120,7 @@ def _datalab_examples() -> list[str]:
     return [e for e in _adql_field_examples() if "smash_dr2" in e or "nsc_dr2" in e]
 
 
-def test_datalab_example_does_not_teach_the_geometry_trap():
+def test_datalab_example_does_not_teach_the_geometry_pitfall():
     examples = _datalab_examples()
     assert examples, "expected at least one Data Lab example"
     for example in examples:
