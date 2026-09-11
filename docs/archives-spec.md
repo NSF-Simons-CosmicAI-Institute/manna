@@ -1,6 +1,6 @@
-# Modular archives — per-archive knowledge
+# Modular archives — archive notes, one file per archive
 
-Status: **implemented** · Version: 0.5.0 · Author: dpg
+Status: **implemented** · Version: 0.5.0 (naming updated 0.8.0) · Author: dpg
 
 ## 1. Problem
 
@@ -118,6 +118,8 @@ src/manna/
 │   ├── alma.py … sdss.py
 │   ├── _endpoints.py    # endpoint lists + Field descriptions over the active set
 │   ├── _knowledge.py    # per-table schema lookups (lookup_schema, active_schemas)
+│   ├── _audit.py        # Audit (paper: check): declarative live-probe spec
+│   ├── _pitfalls.py     # Pitfall delivery: up-front-note cheatsheet + error hints
 ```
 
 `Archive`/`Schema` live in `archives/_model.py`; the derived helpers in
@@ -279,3 +281,9 @@ diff to a single file.
 | Ordering field | `priority` (ascending) | explicit replacement for load-bearing order |
 | Runtime knob | `MANNA_ARCHIVES` | matches the `MANNA_*` Settings convention |
 | Active-set API | `get_active_archives()` | mirrors `get_settings()` (cached, cache_clear-able) |
+| One curated claim | `Note` | atomic, addressable (`archives/<archive>.py :: <note_id>`); carries its own `Audit` |
+| A note's re-check | `Audit` (paper: *check*) | declarative probe spec, read by `evals/audit.py` |
+| A known way queries go wrong | `Pitfall` (`Note.pitfall`) | paper term; was `Trap` before 0.8.0 |
+| Which channel a pitfall rides | `Pitfall.channel` → `"upfront"` / `"error_hint"` | the one place that reads "`triggers` empty"; `is_loud` derives from it |
+| Pitfall delivery module | `archives/_pitfalls.py` | `silent_trap_cheatsheet()` (up-front notes) + `loud_trap_guidance()` (error hints); function names kept |
+| Per-table facts, flattened | `active_schemas()` | was `active_schema_kb()` before 0.8.0 |
