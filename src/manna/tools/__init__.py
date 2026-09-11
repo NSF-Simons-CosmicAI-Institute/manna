@@ -10,23 +10,23 @@ One tool per IVOA standard, split by protocol:
 * Target resolver: tools.resolver (vo_target_resolve)
 
 Shortcut tools (bundle a multi-step task into one call):
-* tools.count (vo_count_observations)
-* tools.survey (vo_survey_target)
+* tools.shortcuts.count (vo_count_observations)
+* tools.shortcuts.survey (vo_survey_target)
 * tools.inspect (vo_inspect_table)
-* tools.find_observations (vo_find_observations)
+* tools.shortcuts.find_observations (vo_find_observations)
 """
 
 # Re-exports so `from manna.tools import vo_tap_query` still works.
 from manna.tools.archives import vo_archive_list
 from manna.tools.cone import vo_cone_search
-from manna.tools.count import vo_count_observations
-from manna.tools.find_observations import vo_find_observations
 from manna.tools.inspect import vo_inspect_table
 from manna.tools.registry import vo_registry_describe, vo_registry_search
 from manna.tools.resolver import vo_target_resolve
 from manna.tools.schema import vo_schema_describe
+from manna.tools.shortcuts.count import vo_count_observations
+from manna.tools.shortcuts.find_observations import vo_find_observations
+from manna.tools.shortcuts.survey import vo_survey_target
 from manna.tools.sia import vo_sia_search
-from manna.tools.survey import vo_survey_target
 from manna.tools.tap import vo_tap_abort, vo_tap_query, vo_tap_results, vo_tap_status
 
 __all__ = [

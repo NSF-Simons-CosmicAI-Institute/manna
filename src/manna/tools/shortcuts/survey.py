@@ -12,9 +12,9 @@ from pydantic import Field
 
 from manna.archives._count import build_count_adql
 from manna.errors import ToolExecutionError, ValidationError, wrap_tool_errors
-from manna.tools import _select
 from manna.tools._constants import _ERROR_DOCSTRING
-from manna.tools.count import _run_count
+from manna.tools.shortcuts import _select
+from manna.tools.shortcuts.count import _run_count
 
 
 @wrap_tool_errors

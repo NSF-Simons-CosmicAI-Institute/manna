@@ -10,8 +10,8 @@ import pytest
 from astropy.table import Table
 from fastmcp import Client
 
-import manna.tools._select as sel
-import manna.tools.find_observations as find_mod
+import manna.tools.shortcuts._select as sel
+import manna.tools.shortcuts.find_observations as find_mod
 from manna.archives._audit import Audit
 from manna.archives._model import Archive, Note
 

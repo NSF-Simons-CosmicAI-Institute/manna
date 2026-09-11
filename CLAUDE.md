@@ -59,12 +59,13 @@ src/manna/
 │   ├── registry.py           # vo_registry_search, vo_registry_describe
 │   ├── cone.py               # vo_cone_search
 │   ├── sia.py                # vo_sia_search
-│   ├── find_observations.py  # vo_find_observations (cross-archive: resolve -> pick archive -> SIA/cone)
-│   ├── count.py               # vo_count_observations
-│   ├── survey.py              # vo_survey_target
-│   ├── inspect.py             # vo_inspect_table
-│   ├── _select.py             # shared resolve + archive-selection helpers for the count/survey/find shortcut tools
-│   └── _constants.py          # shared tool-layer constants (_ERROR_DOCSTRING)
+│   ├── inspect.py            # vo_inspect_table (shortcut over vo_schema_describe + a sample read)
+│   ├── shortcuts/            # shortcut tools: bundle a multi-step task into one call
+│   │   ├── find_observations.py  # vo_find_observations (resolve -> pick archive -> SIA/cone)
+│   │   ├── count.py              # vo_count_observations
+│   │   ├── survey.py             # vo_survey_target
+│   │   └── _select.py            # shared resolve + archive-selection helpers
+│   └── _constants.py         # shared tool-layer constants (_ERROR_DOCSTRING)
 ├── archives/          # archive notes (one <short_name>.py each)
 │   ├── _model.py      # Archive, Schema dataclasses (leaf)
 │   ├── _select.py     # pure parse_allow/sort/select/validate helpers

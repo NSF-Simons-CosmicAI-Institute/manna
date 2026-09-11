@@ -22,8 +22,8 @@ from manna.errors import (
     ValidationError,
     wrap_tool_errors,
 )
-from manna.tools import _select
 from manna.tools._constants import _ERROR_DOCSTRING
+from manna.tools.shortcuts import _select
 
 _tap: TapClient | None = None
 _sleep = time.sleep  # module-level so tests can patch it
