@@ -16,7 +16,7 @@ _CONVO = [
     {
         "role": "assistant",
         "text": "resolving",
-        "tool_uses": [{"id": "tu1", "name": "vo_target_resolve", "input": {"name": "M87"}}],
+        "tool_uses": [{"id": "tu1", "name": "resolve_target_name", "input": {"name": "M87"}}],
     },
     {
         "role": "tool",
@@ -36,7 +36,7 @@ def test_anthropic_messages_shape():
     assert asst["role"] == "assistant"
     kinds = [b["type"] for b in asst["content"]]
     assert kinds == ["text", "tool_use"]
-    assert asst["content"][1]["name"] == "vo_target_resolve"
+    assert asst["content"][1]["name"] == "resolve_target_name"
     # tool results come back as a *user* turn with tool_result blocks
     tool_turn = msgs[2]
     assert tool_turn["role"] == "user"
@@ -55,7 +55,7 @@ def test_openai_messages_prepends_system_and_maps_tool_calls():
     assert asst["role"] == "assistant"
     tc = asst["tool_calls"][0]
     assert tc["type"] == "function"
-    assert tc["function"]["name"] == "vo_target_resolve"
+    assert tc["function"]["name"] == "resolve_target_name"
     assert '"M87"' in tc["function"]["arguments"]  # input JSON-encoded
     # tool result → a `tool` role message keyed by tool_call_id
     tool_msg = msgs[3]
@@ -64,10 +64,10 @@ def test_openai_messages_prepends_system_and_maps_tool_calls():
 
 
 def test_openai_tools_shape():
-    neutral = [{"name": "vo_x", "description": "d", "input_schema": {"type": "object"}}]
+    neutral = [{"name": "tool_x", "description": "d", "input_schema": {"type": "object"}}]
     out = OpenAIBackend._tools(neutral)
     assert out[0]["type"] == "function"
-    assert out[0]["function"]["name"] == "vo_x"
+    assert out[0]["function"]["name"] == "tool_x"
     assert out[0]["function"]["parameters"] == {"type": "object"}
 
 

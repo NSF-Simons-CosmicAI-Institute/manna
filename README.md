@@ -23,28 +23,49 @@ re-verifies it. Every tool below is tagged with the layer it belongs to.
 
 | Tool | Protocol | Layer | Description |
 |---|---|---|---|
-| `vo_archive_list` | — | Archive notes | List known archives with endpoint URLs and usage notes |
-| `vo_schema_describe` | — | Archive notes | Curated per-table schema facts (missing columns, enum values, spatial index hints) |
-| `vo_target_resolve` | Sesame | Connections | Resolve an object name (e.g. "M87", "Cygnus A") to RA/Dec coordinates |
-| `vo_tap_query` | TAP | Connections · Result handling | Submit sync or async ADQL queries; returns inline or promoted results |
-| `vo_tap_status` | TAP | Connections | Poll an async job by ID |
-| `vo_tap_results` | TAP | Connections · Result handling | Return a completed async job's result URL + pyvo fetch recipe (client fetches the data) |
-| `vo_tap_abort` | TAP | Connections | Abort a running async job |
-| `vo_registry_search` | RegTAP | Connections | Search the IVOA registry by keyword or service type |
-| `vo_registry_describe` | RegTAP | Connections · Result handling | Describe a specific registry resource (columns, capabilities) |
-| `vo_cone_search` | SCS | Connections · Result handling | Simple Cone Search for legacy SCS-only archives |
-| `vo_sia_search` | SIA 2.0 | Connections · Result handling | Search for images by position and waveband (returns access URLs to fetch client-side) |
-| `vo_find_observations` | SIA 2.0 / SCS | Shortcut tools | One-call shortcut tool: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `vo_target_resolve` + `vo_archive_list` + `vo_sia_search`/`vo_cone_search` so the model doesn't have to |
-| `vo_count_observations` | TAP | Shortcut tools | Count observations/sources near a target in one call (resolve → select archive → `COUNT`) |
-| `vo_survey_target` | TAP | Shortcut tools | Survey which archives hold data for a target, with per-archive counts |
-| `vo_inspect_table` | TAP | Shortcut tools · Archive notes | Columns + curated enums/notes + a sample of rows for one table, in one call |
+| `list_archives` | — | Archive notes | List known archives with endpoint URLs and usage notes |
+| `describe_table` | — | Archive notes | Curated per-table schema facts (missing columns, enum values, spatial index hints) |
+| `resolve_target_name` | Sesame | Connections | Resolve an object name (e.g. "M87", "Cygnus A") to RA/Dec coordinates |
+| `run_adql_query` | TAP | Connections · Result handling | Submit sync or async ADQL queries; returns inline or promoted results |
+| `get_async_job_status` | TAP | Connections | Poll an async job by ID |
+| `get_async_job_results` | TAP | Connections · Result handling | Return a completed async job's result URL + pyvo fetch recipe (client fetches the data) |
+| `abort_async_job` | TAP | Connections | Abort a running async job |
+| `search_ivoa_registry` | RegTAP | Connections | Search the IVOA registry by keyword or service type |
+| `describe_ivoa_service` | RegTAP | Connections · Result handling | Describe a specific registry resource (columns, capabilities) |
+| `search_catalog_by_position` | SCS | Connections · Result handling | Simple Cone Search for legacy SCS-only archives |
+| `search_images_by_position` | SIA 2.0 | Connections · Result handling | Search for images by position and waveband (returns access URLs to fetch client-side) |
+| `find_observations_of_target` | SIA 2.0 / SCS | Shortcut tools | One-call shortcut tool: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `resolve_target_name` + `list_archives` + `search_images_by_position`/`search_catalog_by_position` so the model doesn't have to |
+| `count_observations_near_target` | TAP | Shortcut tools | Count observations/sources near a target in one call (resolve → select archive → `COUNT`) |
+| `survey_archives_for_target` | TAP | Shortcut tools | Survey which archives hold data for a target, with per-archive counts |
+| `preview_table` | TAP | Shortcut tools · Archive notes | Columns + curated enums/notes + a sample of rows for one table, in one call |
+
+**Renamed in 0.9.0.** Tool names dropped the `vo_` prefix for verb-first,
+descriptive names; clients pinned to the old names must update.
+
+| Before 0.9.0 | Now |
+|---|---|
+| `vo_archive_list` | `list_archives` |
+| `vo_schema_describe` | `describe_table` |
+| `vo_inspect_table` | `preview_table` |
+| `vo_target_resolve` | `resolve_target_name` |
+| `vo_tap_query` | `run_adql_query` |
+| `vo_tap_status` | `get_async_job_status` |
+| `vo_tap_results` | `get_async_job_results` |
+| `vo_tap_abort` | `abort_async_job` |
+| `vo_registry_search` | `search_ivoa_registry` |
+| `vo_registry_describe` | `describe_ivoa_service` |
+| `vo_cone_search` | `search_catalog_by_position` |
+| `vo_sia_search` | `search_images_by_position` |
+| `vo_find_observations` | `find_observations_of_target` |
+| `vo_count_observations` | `count_observations_near_target` |
+| `vo_survey_target` | `survey_archives_for_target` |
 
 The recommended LLM workflow for a positional query:
-1. `vo_target_resolve` — get RA/Dec for a named object
-2. `vo_archive_list` — discover the archive and its endpoint
-3. `vo_schema_describe` — get table-specific quirks before writing ADQL
-4. `vo_registry_describe` — live column introspection
-5. `vo_tap_query` (mode=`async` for data reads) — run the query
+1. `resolve_target_name` — get RA/Dec for a named object
+2. `list_archives` — discover the archive and its endpoint
+3. `describe_table` — get table-specific quirks before writing ADQL
+4. `describe_ivoa_service` — live column introspection
+5. `run_adql_query` (mode=`async` for data reads) — run the query
 
 ## Install
 
@@ -120,7 +141,7 @@ All settings are optional — defaults work for local dev. Set via environment v
 | `MANNA_ARCHIVES` | *(unset)* | Comma-separated archive short_names to activate. Unset/empty ⇒ all archives physically present in `archives/` |
 | `MANNA_INLINE_ROW_LIMIT` | `200` | Max rows in an inline result before it's routed to an async job (TAP) or truncated (cone/SIA) |
 | `MANNA_INLINE_BYTE_LIMIT` | `49152` | Max bytes in an inline result before the same promotion/truncation applies (48 KiB) |
-| `MANNA_REGISTRY_DESCRIBE_BYTE_LIMIT` | `49152` | Above this, `vo_registry_describe` degrades from per-column detail to a table catalog (names + descriptions + column counts) |
+| `MANNA_REGISTRY_DESCRIBE_BYTE_LIMIT` | `49152` | Above this, `describe_ivoa_service` degrades from per-column detail to a table catalog (names + descriptions + column counts) |
 
 See `.env.example` for a template.
 
@@ -138,7 +159,7 @@ This repo is the multi-archive base. Each archive is one self-contained file —
 - **Physical** — delete the unwanted `src/manna/archives/<short_name>.py` files. Discovery picks up whatever remains; no other file needs touching.
 - **Runtime** — set `MANNA_ARCHIVES=datalab,alma` (comma-separated short_names) to narrow a shared image without deleting files. Unset/empty ⇒ every archive active.
 
-A dropped or deselected archive loses only the server's *curated claims* about it — never its reachability. It's still reachable via `vo_registry_search`.
+A dropped or deselected archive loses only the server's *curated claims* about it — never its reachability. It's still reachable via `search_ivoa_registry`.
 
 ## Refreshing recorded cassettes
 

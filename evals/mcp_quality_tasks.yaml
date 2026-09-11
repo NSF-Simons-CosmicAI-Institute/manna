@@ -1,7 +1,7 @@
 # MCP-quality task set: end-to-end, APPROACH-AGNOSTIC, DETERMINISTIC answers.
 #
 # These run under all three approaches (`arm` values mcp / raw_tap / raw_web) to measure the server's
-# lift, so they must NOT reference vo_* tools (no expect_tools / arg_checks) — only a
+# lift, so they must NOT reference MANNA tools (no expect_tools / arg_checks) — only a
 # deterministic `ground_truth` that any approach could satisfy. Accuracy is scored without
 # a judge; efficiency (iterations, tokens, latency) is measured for every approach.
 #
@@ -161,7 +161,7 @@
 # survey or table sampling, so it understates the shortcut tools' value. These tasks target
 # the orchestration the shortcut tools encapsulate: the q3c-vs-CONTAINS geometry pitfall, ALMA's
 # distinct-OUS granularity, NRAO async, cross-archive availability, and live sampling.
-# Still approach-agnostic (no vo_* references) and outcome-scored.
+# Still approach-agnostic (no MANNA tool references) and outcome-scored.
 
 # count-shaped ----------------------------------------------------------------------
 - id: mq-count-datalab-q3c

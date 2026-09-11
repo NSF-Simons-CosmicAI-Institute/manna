@@ -1,4 +1,4 @@
-"""Lifecycle tests for vo_tap_status / vo_tap_results / vo_tap_abort
+"""Lifecycle tests for get_async_job_status / get_async_job_results / abort_async_job
 through an in-memory FastMCP client. Backend is faked — no real HTTP.
 
 Jobs are addressed by their upstream job_url; there is no server-side job
@@ -88,7 +88,7 @@ async def test_status_returns_phase_and_archive(mcp_server, fake_tap):
     )
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_status", {"job_url": DATALAB_JOB})
+        result = await client.call_tool("get_async_job_status", {"job_url": DATALAB_JOB})
         payload = result.structured_content
         assert payload["job_url"] == DATALAB_JOB
         assert payload["phase"] == "EXECUTING"
@@ -109,7 +109,7 @@ async def test_status_on_vanished_job_says_abandon(mcp_server, fake_tap):
     fake_tap.load_raises = JobGoneError(message="gone")
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_status", {"job_url": DATALAB_JOB})
+        result = await client.call_tool("get_async_job_status", {"job_url": DATALAB_JOB})
         payload = result.structured_content
         assert payload["error_class"] == "job_gone"
         assert payload["retry_strategy"] == "abandon"
@@ -120,7 +120,7 @@ async def test_status_phase_error_surfaces_message(mcp_server, fake_tap):
     fake_tap.job = _FakeAsyncJob(phase="ERROR", uws=_uws_error("Syntax error near 'bogus'."))
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_status", {"job_url": ALMA_JOB})
+        result = await client.call_tool("get_async_job_status", {"job_url": ALMA_JOB})
         payload = result.structured_content
         # status itself never raises on ERROR phase — it reports the phase
         # and the message. results is where ERROR raises.
@@ -133,7 +133,7 @@ async def test_results_when_completed_returns_result_url_envelope(mcp_server, fa
     fake_tap.job = _FakeAsyncJob(phase="COMPLETED")
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_results", {"job_url": DATALAB_JOB})
+        result = await client.call_tool("get_async_job_results", {"job_url": DATALAB_JOB})
         payload = result.structured_content
         # No bytes fetched server-side: the client gets URLs + a pyvo recipe.
         assert payload["phase"] == "COMPLETED"
@@ -150,7 +150,7 @@ async def test_results_when_executing_returns_job_not_ready(mcp_server, fake_tap
     fake_tap.job = _FakeAsyncJob(phase="EXECUTING")
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_results", {"job_url": ALMA_JOB})
+        result = await client.call_tool("get_async_job_results", {"job_url": ALMA_JOB})
         payload = result.structured_content
         assert payload["error_class"] == "job_not_ready"
         assert payload["retry_strategy"] == "poll"
@@ -161,7 +161,7 @@ async def test_results_when_error_phase_returns_tap_query_error(mcp_server, fake
     fake_tap.job = _FakeAsyncJob(phase="ERROR", uws=_uws_error("Bad syntax."))
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_results", {"job_url": ALMA_JOB})
+        result = await client.call_tool("get_async_job_results", {"job_url": ALMA_JOB})
         payload = result.structured_content
         assert payload["error_class"] == "tap_query_error"
         assert payload["retry_strategy"] == "fix_and_retry"
@@ -173,7 +173,7 @@ async def test_results_on_vanished_job_says_abandon(mcp_server, fake_tap):
     fake_tap.load_raises = JobGoneError(message="gone")
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_results", {"job_url": ALMA_JOB})
+        result = await client.call_tool("get_async_job_results", {"job_url": ALMA_JOB})
         payload = result.structured_content
         assert payload["error_class"] == "job_gone"
         assert payload["retry_strategy"] == "abandon"
@@ -182,7 +182,7 @@ async def test_results_on_vanished_job_says_abandon(mcp_server, fake_tap):
 @pytest.mark.asyncio
 async def test_abort_deletes_upstream_and_returns_aborted(mcp_server, fake_tap):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_abort", {"job_url": DATALAB_JOB})
+        result = await client.call_tool("abort_async_job", {"job_url": DATALAB_JOB})
         payload = result.structured_content
         assert payload["job_url"] == DATALAB_JOB
         assert payload["phase"] == "ABORTED"
@@ -206,7 +206,7 @@ async def test_abort_is_idempotent_on_already_deleted_job(mcp_server, fake_tap):
     fake_tap.abort_job = _already_gone
 
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_abort", {"job_url": DATALAB_JOB})
+        result = await client.call_tool("abort_async_job", {"job_url": DATALAB_JOB})
         payload = result.structured_content
         assert payload["phase"] == "ABORTED"
         assert payload["job_url"] == DATALAB_JOB

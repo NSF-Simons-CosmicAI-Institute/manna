@@ -1,10 +1,10 @@
-"""Purpose-driven counting shortcut tool: vo_count_observations.
+"""Purpose-driven counting shortcut tool: count_observations_near_target.
 
 One call answers "how many observations/sources are near this target?" by
 resolving the target, selecting an archive by its curated `count_target`, and
 running the archive-correct positional COUNT — sync, or (NRAO) async with a
 bounded poll. A thin shortcut tool over TapClient + the resolver; the atomic
-vo_tap_query stays the escape hatch (the chosen ADQL is surfaced in `plan`).
+run_adql_query stays the escape hatch (the chosen ADQL is surfaced in `plan`).
 """
 
 import time
@@ -75,7 +75,7 @@ def _run_count_async(*, endpoint: str, adql: str) -> dict:
             table = job.fetch_result().to_table()
             return {"status": "ok", "count": _extract_count(table), "job_url": None}
         if phase == "ERROR":
-            # Mirror vo_tap_results' mapping in tools/tap.py: ERROR is a query
+            # Mirror get_async_job_results' mapping in tools/tap.py: ERROR is a query
             # the archive understood and rejected, so it's tap_query_error /
             # fix_and_retry, not a generic archive_error that tells the model
             # to sleep and re-issue a doomed query. The message comes through
@@ -94,19 +94,19 @@ def _run_count_async(*, endpoint: str, adql: str) -> dict:
 
     # Budget exhausted — nothing is recorded server-side (no JobStore, see
     # config.py / shape_promotion): the returned job_url is the whole handle,
-    # same contract as vo_tap_query's async promotion.
+    # same contract as run_adql_query's async promotion.
     return {"status": "pending", "count": None, "job_url": job_url}
 
 
 @wrap_tool_errors
-def vo_count_observations(
+def count_observations_near_target(
     target: Annotated[
         str,
         Field(
             description=(
                 "Object name (CDS Sesame-resolved — 'M87', 'Cygnus A') OR explicit "
                 "ICRS 'RA DEC' in decimal degrees ('187.7059 12.3911', comma optional). "
-                "You do NOT need to call vo_target_resolve first."
+                "You do NOT need to call resolve_target_name first."
             ),
             examples=["M87", "200.0 20.0"],
         ),
@@ -143,7 +143,7 @@ def vo_count_observations(
     (chosen_archive, table, endpoint, adql, count_expr, mode, alternatives,
     usage_notes). If a slow async job outruns the poll budget, returns
     `{"status":"pending","count":null,"job_url":...,"next_steps":...}` — poll
-    vo_tap_status(job_url) until phase=COMPLETED, then vo_tap_results(job_url).
+    get_async_job_status(job_url) until phase=COMPLETED, then get_async_job_results(job_url).
     Pass job_url back verbatim; it is the job's only handle (no server-side
     job id). Soft-fails (no error_class) on an unresolvable target or when no
     archive offers counting.
@@ -202,8 +202,8 @@ def vo_count_observations(
             "plan": plan,
             "next_steps": (
                 f"The count is running async as job_url='{result['job_url']}'. Poll "
-                f"vo_tap_status(job_url='{result['job_url']}') until phase=COMPLETED, "
-                f"then vo_tap_results(job_url='{result['job_url']}') for the single "
+                f"get_async_job_status(job_url='{result['job_url']}') until phase=COMPLETED, "
+                f"then get_async_job_results(job_url='{result['job_url']}') for the single "
                 f"count row. Pass the job_url back verbatim — it is the job's only "
                 f"handle."
             ),
@@ -212,4 +212,6 @@ def vo_count_observations(
     return {"status": "ok", "count": result["count"], "resolved": resolved, "plan": plan}
 
 
-vo_count_observations.__doc__ = (vo_count_observations.__doc__ or "") + _ERROR_DOCSTRING
+count_observations_near_target.__doc__ = (
+    count_observations_near_target.__doc__ or ""
+) + _ERROR_DOCSTRING

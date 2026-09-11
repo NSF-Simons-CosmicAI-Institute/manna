@@ -1,6 +1,6 @@
 """Tool for surfacing the curated archive registry to the LLM.
 
-`vo_archive_list` is the agent-facing entry point into the project's
+`list_archives` is the agent-facing entry point into the project's
 archive notes for well-known IVOA archives. Each returned entry carries
 the canonical endpoint URLs, capabilities, notable tables, and — most
 importantly — `usage_notes` that capture archive-specific gotchas
@@ -11,8 +11,8 @@ The knowledge is now backed by per-archive modules (`archives/<name>.py`):
 this tool surfaces the deployment's active archives via
 `archives._endpoints.active_archives()`, so it honors the `MANNA_ARCHIVES`
 selection. An absent archive simply carries no curated claims — it stays
-reachable via `vo_registry_search`. The tool contract is unchanged: per-table
-`schemas` (served by `vo_schema_describe`) and the internal `priority` are not
+reachable via `search_ivoa_registry`. The tool contract is unchanged: per-table
+`schemas` (served by `describe_table`) and the internal `priority` are not
 echoed here.
 """
 
@@ -28,7 +28,7 @@ from manna.tools._constants import _ERROR_DOCSTRING
 
 
 @wrap_tool_errors
-def vo_archive_list(
+def list_archives(
     short_name: Annotated[
         str | None,
         Field(
@@ -71,8 +71,8 @@ def vo_archive_list(
     arguments it returns every known archive (the usage_notes are verbose,
     so prefer `short_name` once you know which archive you need).
 
-    Archives not listed here still work via `vo_registry_search` followed
-    by `vo_registry_describe` / `vo_tap_query` — this tool only covers the
+    Archives not listed here still work via `search_ivoa_registry` followed
+    by `describe_ivoa_service` / `run_adql_query` — this tool only covers the
     well-known set.
 
     Returns:
@@ -108,7 +108,7 @@ def vo_archive_list(
         wb = waveband.strip().lower()
         selected = tuple(a for a in selected if (a.waveband or "").lower() == wb)
 
-    # `schemas` (surfaced by vo_schema_describe) and the internal ordering
+    # `schemas` (surfaced by describe_table) and the internal ordering
     # `priority` are not part of this tool's contract — drop them so the
     # archive-list envelope stays the identity/usage_notes view it always was.
     archives = []
@@ -126,10 +126,10 @@ def vo_archive_list(
         known = ", ".join(a.short_name for a in active_archives())
         result["hint"] = (
             f"No known archive matched that filter. Available short_name values: {known}. "
-            "Call vo_archive_list with no arguments to see every archive and the catalogs it "
+            "Call list_archives with no arguments to see every archive and the catalogs it "
             "serves (notable_tables) — e.g. NSC / SMASH / DES / DECaPS all live under 'datalab'."
         )
     return result
 
 
-vo_archive_list.__doc__ = (vo_archive_list.__doc__ or "") + _ERROR_DOCSTRING
+list_archives.__doc__ = (list_archives.__doc__ or "") + _ERROR_DOCSTRING

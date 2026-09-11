@@ -23,7 +23,7 @@ from manna.archives._count import CountTarget
 class Pitfall:
     """A pitfall: how a note's claim gets DELIVERED to the model, and when.
 
-    A note in `vo_archive_list` is knowledge the model *can* reach. A pitfall is
+    A note in `list_archives` is knowledge the model *can* reach. A pitfall is
     knowledge we push at it, because the eval showed reachable isn't enough
     (issue #57: the NRAO LOWER/UPPER note was true, probed, and served — and
     the model still wrote LOWER()). Like `Audit`, this is declarative: it
@@ -38,7 +38,7 @@ class Pitfall:
       silently returns a wrong answer (ALMA: COUNT(*) over-counts, no error)
       or it errors so cryptically that the message doesn't imply the fix
       (Data Lab: ADQL geometry surfaces as `function point(...) does not
-      exist`, which never suggests q3c). These go in the `vo_tap_query`
+      exist`, which never suggests q3c). These go in the `run_adql_query`
       description — the expensive channel, re-sent every turn, so the bar is
       high and `guidance` must be terse.
     - **error hint** (``triggers`` set; called *loud* in the code) — the query
@@ -77,8 +77,8 @@ class Note:
 
     `id` is a stable slug, unique within its owning archive — the address a
     stale audit prints so you can jump straight to the note to fix. `text` is
-    the single-claim, LLM-facing prose surfaced by vo_archive_list /
-    vo_schema_describe. `audit` (mandatory) is how the live runner re-checks it.
+    the single-claim, LLM-facing prose surfaced by list_archives /
+    describe_table. `audit` (mandatory) is how the live runner re-checks it.
     `pitfall` (optional) opts the claim into a push channel — see `Pitfall`.
     """
 
@@ -117,7 +117,7 @@ class Schema:
 
     `archive` is the owning archive's short_name. It is redundant with the
     owning `Archive.short_name` (validated in `Archive.__post_init__`) but kept
-    because it is part of the `vo_schema_describe` response contract and lets
+    because it is part of the `describe_table` response contract and lets
     `cross_refs` name tables as `(archive, table)` pairs.
     """
 
@@ -143,12 +143,12 @@ class Archive:
 
     - `usage_notes` — short agent-facing strings capturing archive-specific
       gotchas (non-standard table locations, sync-vs-async routing, ADQL
-      quirks, target-name conventions). Surfaced via `vo_archive_list`.
+      quirks, target-name conventions). Surfaced via `list_archives`.
     - `schemas` — curated per-table `Schema` facts for this archive. Surfaced
-      via `vo_schema_describe`; not echoed by `vo_archive_list`.
+      via `describe_table`; not echoed by `list_archives`.
     - `count_target` — optional CountTarget: how to build a positional COUNT
-      for this archive's primary table (used by vo_count_observations /
-      vo_survey_target). None ⇒ not directly countable (still reachable via
+      for this archive's primary table (used by count_observations_near_target /
+      survey_archives_for_target). None ⇒ not directly countable (still reachable via
       the atomic tools).
     - `priority` — ascending sort key (ties broken by short_name). The explicit
       replacement for the old "declaration order is load-bearing" convention:

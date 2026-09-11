@@ -44,9 +44,9 @@ def _no_backends_reachable(monkeypatch):
 @pytest.mark.parametrize(
     ("tool", "args"),
     [
-        ("vo_tap_query", {"adql": "SELECT 1"}),
-        ("vo_cone_search", {"ra": 10.0, "dec": 20.0, "radius_deg": 0.1}),
-        ("vo_sia_search", {"ra": 10.0, "dec": 20.0, "size_deg": 0.1}),
+        ("run_adql_query", {"adql": "SELECT 1"}),
+        ("search_catalog_by_position", {"ra": 10.0, "dec": 20.0, "radius_deg": 0.1}),
+        ("search_images_by_position", {"ra": 10.0, "dec": 20.0, "size_deg": 0.1}),
     ],
 )
 @pytest.mark.asyncio
@@ -63,7 +63,7 @@ async def test_endpoint_tools_refuse_internal_targets(mcp_server, tool, args, ur
 @pytest.mark.asyncio
 async def test_registry_describe_refuses_internal_url(mcp_server, url):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_registry_describe", {"ivoid_or_url": url})
+        result = await client.call_tool("describe_ivoa_service", {"ivoid_or_url": url})
         payload = result.structured_content
 
     assert payload["error_class"] == "validation_error"
@@ -80,7 +80,7 @@ async def test_registry_describe_still_accepts_an_ivoid(mcp_server):
     """
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_registry_describe", {"ivoid_or_url": "ivo://cadc.nrc.ca/tap"}
+            "describe_ivoa_service", {"ivoid_or_url": "ivo://cadc.nrc.ca/tap"}
         )
         payload = result.structured_content
 

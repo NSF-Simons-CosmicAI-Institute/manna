@@ -1,6 +1,6 @@
-"""Real-archive regression guard for vo_count_observations.
+"""Real-archive regression guard for count_observations_near_target.
 
-Unlike test_vo_count_observations.py (fully faked backends), this exercises the
+Unlike test_count_observations_near_target.py (fully faked backends), this exercises the
 REAL resolver + TapClient end-to-end against recorded HTTP, locking in that each
 archive's curated `count_target` produces a COUNT query the live service
 actually accepts. It covers the three geometry dialects that the fake tests can
@@ -45,7 +45,7 @@ async def test_count_against_live_archive(mcp_server, case):
     if archive is not None:
         args["archive"] = archive
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_count_observations", args)
+        result = await client.call_tool("count_observations_near_target", args)
     out = result.structured_content
 
     # A completed count: explicit ok status + a real integer.

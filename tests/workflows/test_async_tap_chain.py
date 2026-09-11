@@ -3,10 +3,10 @@
 Steps the LLM takes when a sync query times out (or it picks mode='async'
 explicitly):
 
-    1. vo_tap_query(mode='async')      → promotion envelope with job_url
-    2. vo_tap_status(job_url)           → phase
+    1. run_adql_query(mode='async')      → promotion envelope with job_url
+    2. get_async_job_status(job_url)           → phase
     3. (poll until COMPLETED)
-    4. vo_tap_results(job_url)          → result_url + pyvo fetch_recipe
+    4. get_async_job_results(job_url)          → result_url + pyvo fetch_recipe
 
 Per-tool tests already cover each step in isolation. This file verifies
 the *chain* — specifically that the job_url round-trips correctly and the
@@ -80,7 +80,7 @@ async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
     async with Client(mcp_server) as client:
         # Step 1: explicit async kick-off
         promotion = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://data-query.nrao.edu/tap",
                 "adql": "SELECT TOP 5 obs_publisher_did FROM tap_schema.obscore",
@@ -97,12 +97,12 @@ async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
         assert job_url in prom_payload["fetch_recipe"]["code"]
 
         # Step 2: check status — still mid-flight
-        status = await client.call_tool("vo_tap_status", {"job_url": job_url})
+        status = await client.call_tool("get_async_job_status", {"job_url": job_url})
         assert status.structured_content["phase"] == "EXECUTING"
         assert status.structured_content["job_url"] == job_url
 
         # Step 3: try to fetch results — should get job_not_ready
-        early = await client.call_tool("vo_tap_results", {"job_url": job_url})
+        early = await client.call_tool("get_async_job_results", {"job_url": job_url})
         assert early.structured_content["error_class"] == "job_not_ready"
         assert early.structured_content["retry_strategy"] == "poll"
 
@@ -110,11 +110,11 @@ async def test_full_lifecycle_promotion_status_results(mcp_server, fake_tap):
         fake_tap.job.phase = "COMPLETED"
 
         # Step 5: status reports COMPLETED
-        status = await client.call_tool("vo_tap_status", {"job_url": job_url})
+        status = await client.call_tool("get_async_job_status", {"job_url": job_url})
         assert status.structured_content["phase"] == "COMPLETED"
 
         # Step 6: results return a result-URL envelope + fetch recipe
-        results = await client.call_tool("vo_tap_results", {"job_url": job_url})
+        results = await client.call_tool("get_async_job_results", {"job_url": job_url})
         rp = results.structured_content
         assert rp["phase"] == "COMPLETED"
         assert rp["job_url"] == job_url
@@ -136,7 +136,7 @@ async def test_chain_abort_invalidates_subsequent_status(mcp_server, fake_tap):
     sourced from the system that actually owns the job."""
     async with Client(mcp_server) as client:
         promotion = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://almascience.nrao.edu/tap",
                 "adql": "SELECT 1",
@@ -146,22 +146,22 @@ async def test_chain_abort_invalidates_subsequent_status(mcp_server, fake_tap):
         job_url = promotion.structured_content["job_url"]
 
         # Abort
-        abort = await client.call_tool("vo_tap_abort", {"job_url": job_url})
+        abort = await client.call_tool("abort_async_job", {"job_url": job_url})
         assert abort.structured_content["phase"] == "ABORTED"
 
         # Subsequent status: the archive no longer has it
-        status = await client.call_tool("vo_tap_status", {"job_url": job_url})
+        status = await client.call_tool("get_async_job_status", {"job_url": job_url})
         assert status.structured_content["error_class"] == "job_gone"
         assert status.structured_content["retry_strategy"] == "abandon"
 
 
 @pytest.mark.asyncio
 async def test_chain_handles_phase_error_with_message(mcp_server, fake_tap):
-    """Bad ADQL: phase=ERROR → vo_tap_results raises tap_query_error
+    """Bad ADQL: phase=ERROR → get_async_job_results raises tap_query_error
     with the upstream message (when available)."""
     async with Client(mcp_server) as client:
         promotion = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://data-query.nrao.edu/tap",
                 "adql": "SELECT BAD",
@@ -178,7 +178,7 @@ async def test_chain_handles_phase_error_with_message(mcp_server, fake_tap):
             )
         )
 
-        results = await client.call_tool("vo_tap_results", {"job_url": job_url})
+        results = await client.call_tool("get_async_job_results", {"job_url": job_url})
         rp = results.structured_content
         assert rp["error_class"] == "tap_query_error"
         assert rp["retry_strategy"] == "fix_and_retry"
@@ -194,7 +194,7 @@ async def test_chain_handles_phase_error_with_empty_message(mcp_server, fake_tap
     no-diagnostic case is still worth guarding for any archive.)"""
     async with Client(mcp_server) as client:
         promotion = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://data-query.nrao.edu/tap",
                 "adql": "SELECT LOWER(instrument_name) FROM tap_schema.obscore",
@@ -206,7 +206,7 @@ async def test_chain_handles_phase_error_with_empty_message(mcp_server, fake_tap
         fake_tap.job.phase = "ERROR"
         fake_tap.job._job = SimpleNamespace(errorsummary=None)  # archive gave no diagnostic
 
-        results = await client.call_tool("vo_tap_results", {"job_url": job_url})
+        results = await client.call_tool("get_async_job_results", {"job_url": job_url})
         rp = results.structured_content
         assert rp["error_class"] == "tap_query_error"
         # Message must be SOMETHING actionable, even if upstream gave nothing

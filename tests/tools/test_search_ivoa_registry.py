@@ -6,10 +6,10 @@ from manna.tools import registry as ivoa_tools
 
 
 @pytest.mark.vcr
-async def test_vo_registry_search_via_in_memory_client(mcp_server):
+async def test_search_ivoa_registry_via_in_memory_client(mcp_server):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_registry_search",
+            "search_ivoa_registry",
             {"keywords": ["magellanic"], "servicetype": "tap", "maxrec": 5},
         )
         payload = result.structured_content
@@ -32,12 +32,12 @@ class _FakeRegistry:
         return self._services
 
 
-def test_vo_registry_search_archive_error_returns_payload(monkeypatch):
+def test_search_ivoa_registry_archive_error_returns_payload(monkeypatch):
     monkeypatch.setattr(
         ivoa_tools,
         "_get_registry",
         lambda: _FakeRegistry(exc=ArchiveError(message="registry down")),
     )
-    out = ivoa_tools.vo_registry_search(keywords=["x"], servicetype=None, waveband=None, maxrec=5)
+    out = ivoa_tools.search_ivoa_registry(keywords=["x"], servicetype=None, waveband=None, maxrec=5)
     assert out["error_class"] == "archive_error"
     assert out["retry_strategy"] == "wait_and_retry"

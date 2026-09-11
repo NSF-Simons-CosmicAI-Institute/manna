@@ -1,4 +1,4 @@
-"""End-to-end integration test for vo_tap_query through an in-memory MCP client.
+"""End-to-end integration test for run_adql_query through an in-memory MCP client.
 
 The test mounts the real FastMCP server (via the ``mcp_server`` fixture) and
 talks to it with ``fastmcp.Client``. Network traffic is recorded with vcrpy.
@@ -14,10 +14,10 @@ from manna.tools import tap as ivoa_tools
 
 
 @pytest.mark.vcr
-async def test_vo_tap_query_via_in_memory_client(mcp_server):
+async def test_run_adql_query_via_in_memory_client(mcp_server):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": (
@@ -35,12 +35,12 @@ async def test_vo_tap_query_via_in_memory_client(mcp_server):
         assert {"ra", "dec"}.issubset(names)
 
 
-async def test_vo_tap_query_validation_error_surface(mcp_server):
+async def test_run_adql_query_validation_error_surface(mcp_server):
     async with Client(mcp_server) as client:
         # raise_on_error=False so we can inspect the surfaced error shape
         # rather than catching the framework-level ToolError exception.
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": "SELECT TOP 3 ra FROM x",
@@ -76,13 +76,15 @@ class _FakeTap:
         (RuntimeError("upstream blew up"), "internal_error"),
     ],
 )
-def test_vo_tap_query_error_path_returns_structured_payload(exc, expected_error_class, monkeypatch):
-    """When the backend raises, vo_tap_query returns a structured payload
+def test_run_adql_query_error_path_returns_structured_payload(
+    exc, expected_error_class, monkeypatch
+):
+    """When the backend raises, run_adql_query returns a structured payload
     keyed on ``error_class`` (NOT ``isError``). The protocol-level
     ``is_error`` flag is FastMCP's separate concern.
     """
     monkeypatch.setattr(ivoa_tools, "_get_tap", lambda: _FakeTap(exc))
-    payload = ivoa_tools.vo_tap_query(
+    payload = ivoa_tools.run_adql_query(
         endpoint="https://datalab.noirlab.edu/tap",
         adql="SELECT 1",
         maxrec=10,
@@ -106,12 +108,12 @@ def test_vo_tap_query_error_path_returns_structured_payload(exc, expected_error_
 # taught the pitfall continuously and then penalized the model for copying us.
 # --------------------------------------------------------------------------- #
 def _adql_field_examples() -> list[str]:
-    """The `examples` the model actually sees on vo_tap_query's adql parameter."""
+    """The `examples` the model actually sees on run_adql_query's adql parameter."""
     import inspect
 
-    from manna.tools.tap import vo_tap_query
+    from manna.tools.tap import run_adql_query
 
-    param = inspect.signature(vo_tap_query).parameters["adql"]
+    param = inspect.signature(run_adql_query).parameters["adql"]
     field = param.annotation.__metadata__[0]
     return list(field.examples or [])
 
@@ -158,7 +160,7 @@ def test_inline_envelope_carries_cache_fields(monkeypatch):
     from manna.tools import tap as tap_tools
 
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeTapInline())
-    out = tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT ra, dec FROM t", mode="sync")
+    out = tap_tools.run_adql_query(endpoint=_EP, adql="SELECT ra, dec FROM t", mode="sync")
     assert out["query_fingerprint"] == _qfp("tap", _EP, "SELECT ra, dec FROM t")
     assert out["save_recipe"]["path"] == f"manna_cache/{out['query_fingerprint']}.csv"
     assert "catalog.csv" in out["save_recipe"]["code"]
@@ -174,7 +176,7 @@ def test_auto_mode_fast_path_also_carries_cache_fields(monkeypatch):
     from manna.tools import tap as tap_tools
 
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeTapInline())
-    out = tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT ra, dec FROM t", mode="auto")
+    out = tap_tools.run_adql_query(endpoint=_EP, adql="SELECT ra, dec FROM t", mode="auto")
     assert out["query_fingerprint"] == _qfp("tap", _EP, "SELECT ra, dec FROM t")
     assert "save_recipe" in out
     assert "SELECT ra, dec FROM t" in out["load_recipe"]["code"]
@@ -210,8 +212,8 @@ def test_tap_results_fingerprints_job_adql(monkeypatch):
     from manna.tools import tap as tap_tools
 
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeTapWithJob())
-    out = tap_tools.vo_tap_results(job_url="https://example.org/tap/async/42")
-    # Same fingerprint the original vo_tap_query would have produced: the
+    out = tap_tools.get_async_job_results(job_url="https://example.org/tap/async/42")
+    # Same fingerprint the original run_adql_query would have produced: the
     # endpoint is recovered from the job_url, the ADQL from the job itself.
     assert out["query_fingerprint"] == _qfp("tap", _EP, "SELECT ra FROM big_table")
     assert "save_recipe" in out
@@ -219,11 +221,11 @@ def test_tap_results_fingerprints_job_adql(monkeypatch):
 
 def test_tap_results_envelope_does_not_carry_load_recipe(monkeypatch):
     """fetch_recipe already covers loading async results client-side, so
-    vo_tap_results must not attach a load_recipe."""
+    get_async_job_results must not attach a load_recipe."""
     from manna.tools import tap as tap_tools
 
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeTapWithJob())
-    out = tap_tools.vo_tap_results(job_url="https://example.org/tap/async/42")
+    out = tap_tools.get_async_job_results(job_url="https://example.org/tap/async/42")
     assert "load_recipe" not in out
 
 
@@ -242,5 +244,5 @@ def test_tap_results_falls_back_to_job_url_identity(monkeypatch):
 
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeTapWithBareJob())
     job_url = "https://example.org/tap/async/43"
-    out = tap_tools.vo_tap_results(job_url=job_url)
+    out = tap_tools.get_async_job_results(job_url=job_url)
     assert out["query_fingerprint"] == _qfp("tap", _EP, job_url)

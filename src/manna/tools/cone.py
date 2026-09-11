@@ -28,7 +28,7 @@ def _get_cone() -> ConeSearchClient:
 
 
 @wrap_tool_errors
-def vo_cone_search(
+def search_catalog_by_position(
     endpoint: Annotated[
         str,
         Field(
@@ -48,8 +48,8 @@ def vo_cone_search(
 ) -> dict:
     """Run a Simple Cone Search (SCS) against a catalog endpoint.
 
-    Returns the inline tabular envelope, same shape as vo_tap_query.
-    For most uses, prefer vo_tap_query — SCS is here for catalogs that
+    Returns the inline tabular envelope, same shape as run_adql_query.
+    For most uses, prefer run_adql_query — SCS is here for catalogs that
     only expose the legacy protocol.
 
     Successful envelopes carry `query_fingerprint` + `save_recipe`; execute
@@ -74,4 +74,4 @@ def vo_cone_search(
     )
 
 
-vo_cone_search.__doc__ = (vo_cone_search.__doc__ or "") + _ERROR_DOCSTRING
+search_catalog_by_position.__doc__ = (search_catalog_by_position.__doc__ or "") + _ERROR_DOCSTRING

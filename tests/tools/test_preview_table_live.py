@@ -1,4 +1,4 @@
-"""Real-archive regression guard for vo_inspect_table.
+"""Real-archive regression guard for preview_table.
 
 Exercises the REAL TapClient end-to-end against recorded HTTP: the live column
 list from tap_schema.columns AND the best-effort TOP-n sample, both against Data
@@ -22,7 +22,7 @@ from fastmcp import Client
 async def test_inspect_datalab_table_live(mcp_server):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_inspect_table",
+            "preview_table",
             {"table": "nsc_dr2.object", "archive": "datalab", "sample_rows": 3},
         )
     out = result.structured_content

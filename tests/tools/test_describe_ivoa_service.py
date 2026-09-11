@@ -6,10 +6,10 @@ from manna.tools import registry as ivoa_tools
 
 
 @pytest.mark.vcr
-async def test_vo_registry_describe_by_ivoid_via_in_memory_client(mcp_server):
+async def test_describe_ivoa_service_by_ivoid_via_in_memory_client(mcp_server):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_registry_describe",
+            "describe_ivoa_service",
             {"ivoid_or_url": "ivo://eso.org/tap_obs"},
         )
         payload = result.structured_content
@@ -29,11 +29,11 @@ class _FakeRegistry:
         return self._described
 
 
-def test_vo_registry_describe_validation_error(monkeypatch):
+def test_describe_ivoa_service_validation_error(monkeypatch):
     monkeypatch.setattr(
         ivoa_tools,
         "_get_registry",
         lambda: _FakeRegistry(exc=ValidationError(message="bad input")),
     )
-    out = ivoa_tools.vo_registry_describe(ivoid_or_url="garbage")
+    out = ivoa_tools.describe_ivoa_service(ivoid_or_url="garbage")
     assert out["error_class"] == "validation_error"

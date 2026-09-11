@@ -1,4 +1,4 @@
-"""End-to-end test for vo_archive_list through an in-memory MCP client.
+"""End-to-end test for list_archives through an in-memory MCP client.
 
 Verifies that the curated archive registry — particularly the
 usage_notes — surfaces correctly to the LLM via the tool layer.
@@ -9,9 +9,9 @@ from fastmcp import Client
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_returns_curated_set(mcp_server):
+async def test_list_archives_returns_curated_set(mcp_server):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {})
+        result = await client.call_tool("list_archives", {})
         payload = result.structured_content
 
     assert "archives" in payload
@@ -26,12 +26,12 @@ async def test_vo_archive_list_returns_curated_set(mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_nrao_entry_carries_async_usage_note(mcp_server):
+async def test_list_archives_nrao_entry_carries_async_usage_note(mcp_server):
     """The most operationally important note: NRAO needs mode='async'
     for data queries. If this regresses, the LLM falls back to the
     trial-and-error loop we built this tool to avoid."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {})
+        result = await client.call_tool("list_archives", {})
         payload = result.structured_content
 
     nrao = next(a for a in payload["archives"] if a["short_name"] == "nrao")
@@ -46,10 +46,10 @@ async def test_vo_archive_list_nrao_entry_carries_async_usage_note(mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_serializes_tuple_fields_as_lists(mcp_server):
+async def test_list_archives_serializes_tuple_fields_as_lists(mcp_server):
     """Tuples in the dataclass must come out as JSON-friendly lists."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {})
+        result = await client.call_tool("list_archives", {})
         payload = result.structured_content
 
     for entry in payload["archives"]:
@@ -59,11 +59,11 @@ async def test_vo_archive_list_serializes_tuple_fields_as_lists(mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_filter_by_short_name_returns_single_entry(mcp_server):
+async def test_list_archives_filter_by_short_name_returns_single_entry(mcp_server):
     """short_name filter narrows to one archive — the token-saving path
     once the agent knows which archive it wants."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {"short_name": "nrao"})
+        result = await client.call_tool("list_archives", {"short_name": "nrao"})
         payload = result.structured_content
 
     assert payload["count"] == 1
@@ -71,9 +71,9 @@ async def test_vo_archive_list_filter_by_short_name_returns_single_entry(mcp_ser
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_short_name_is_case_insensitive(mcp_server):
+async def test_list_archives_short_name_is_case_insensitive(mcp_server):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {"short_name": "NRAO"})
+        result = await client.call_tool("list_archives", {"short_name": "NRAO"})
         payload = result.structured_content
 
     assert payload["count"] == 1
@@ -81,10 +81,10 @@ async def test_vo_archive_list_short_name_is_case_insensitive(mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_unknown_short_name_returns_empty(mcp_server):
+async def test_list_archives_unknown_short_name_returns_empty(mcp_server):
     """Unknown name soft-fails to an empty list, not an error."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {"short_name": "does-not-exist"})
+        result = await client.call_tool("list_archives", {"short_name": "does-not-exist"})
         payload = result.structured_content
 
     assert payload["count"] == 0
@@ -92,10 +92,10 @@ async def test_vo_archive_list_unknown_short_name_returns_empty(mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_filter_by_waveband(mcp_server):
+async def test_list_archives_filter_by_waveband(mcp_server):
     """waveband filter returns only matching archives; 'radio' is NRAO-only."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {"waveband": "radio"})
+        result = await client.call_tool("list_archives", {"waveband": "radio"})
         payload = result.structured_content
 
     short_names = {a["short_name"] for a in payload["archives"]}
@@ -104,21 +104,21 @@ async def test_vo_archive_list_filter_by_waveband(mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_no_args_still_returns_full_set(mcp_server):
+async def test_list_archives_no_args_still_returns_full_set(mcp_server):
     """Backward compatibility: no arguments returns every known archive."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {})
+        result = await client.call_tool("list_archives", {})
         payload = result.structured_content
 
     assert payload["count"] >= 8
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_includes_capabilities_for_each_archive(mcp_server):
+async def test_list_archives_includes_capabilities_for_each_archive(mcp_server):
     """Every entry should at minimum identify itself by short_name +
     display_name and expose the protocol URL fields (even when None)."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {})
+        result = await client.call_tool("list_archives", {})
         payload = result.structured_content
 
     required_keys = {
@@ -140,12 +140,12 @@ async def test_vo_archive_list_includes_capabilities_for_each_archive(mcp_server
 
 
 @pytest.mark.asyncio
-async def test_vo_archive_list_unknown_short_name_returns_recovery_hint(mcp_server):
+async def test_list_archives_unknown_short_name_returns_recovery_hint(mcp_server):
     """A filter that matches nothing (e.g. a weak model guessing short_name='NSC', which is
     served under 'datalab') must hand back a recovery hint naming the valid short_names —
     not a bare empty list that dead-ends the model."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {"short_name": "NSC"})
+        result = await client.call_tool("list_archives", {"short_name": "NSC"})
         payload = result.structured_content
 
     assert payload["count"] == 0

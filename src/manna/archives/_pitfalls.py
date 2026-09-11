@@ -4,10 +4,10 @@ Two channels, both fed by `Note.pitfall` (see `_model.Pitfall` for the taxonomy)
 
 - `upfront_note_cheatsheet()` — the up-front notes: a compact preventive blob
   appended to the
-  `vo_tap_query` description at `build_mcp()` time. This is the token-expensive
+  `run_adql_query` description at `build_mcp()` time. This is the token-expensive
   channel: the description is re-sent on every turn, so it is deliberately
   capped (`CHEATSHEET_TOKEN_BUDGET`) and carries `guidance` only, never the
-  note's full prose. `vo_archive_list` remains the place for everything else.
+  note's full prose. `list_archives` remains the place for everything else.
 - `error_hint_for()` — the error hints: looked up at failure time, attached to
   the error payload's `hint`. Costs nothing until a query actually trips it.
 
@@ -64,7 +64,7 @@ def pitfall_notes(archive: Archive, *, channel: Literal["upfront", "error_hint"]
 def _cheatsheet_key(archive: Archive) -> str:
     """What the model should match its `endpoint` argument against.
 
-    The TAP host, not `host_substrings[0]` — this blob rides vo_tap_query, and
+    The TAP host, not `host_substrings[0]` — this blob rides run_adql_query, and
     for NRAO those disagree ('data.nrao' never appears in the TAP endpoint
     'data-query.nrao.edu'), which would send the model looking for the wrong
     archive's advice.
@@ -79,7 +79,7 @@ def _cheatsheet_line(archive: Archive, note: Note) -> str:
 
 
 def upfront_note_cheatsheet() -> str:
-    """The preventive blob for the vo_tap_query description, or "" if no active
+    """The preventive blob for the run_adql_query description, or "" if no active
     archive carries an up-front note (e.g. a MANNA_ARCHIVES set that excludes them).
 
     Ordered by archive priority, so the archives we steer toward lead.

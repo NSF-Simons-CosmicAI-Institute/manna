@@ -42,7 +42,7 @@ def test_inspect_returns_columns_enums_and_sample(known_datalab, monkeypatch):
         inspect_mod, "lookup_schema", lambda *, archive, table: None
     )  # no curated notes is fine
 
-    out = inspect_mod.vo_inspect_table(table="nsc_dr2.object", archive="datalab", sample_rows=1)
+    out = inspect_mod.preview_table(table="nsc_dr2.object", archive="datalab", sample_rows=1)
 
     assert {"name": "ra", "datatype": "double"} in out["columns"]
     assert out["sample_status"] == "ok"
@@ -69,7 +69,7 @@ def test_inspect_sample_rows_are_json_safe(known_datalab, monkeypatch):
     monkeypatch.setattr(inspect_mod, "_get_tap", lambda: _Tap(cols=cols, sample=sample))
     monkeypatch.setattr(inspect_mod, "lookup_schema", lambda *, archive, table: None)
 
-    out = inspect_mod.vo_inspect_table(table="nsc_dr2.object", archive="datalab", sample_rows=1)
+    out = inspect_mod.preview_table(table="nsc_dr2.object", archive="datalab", sample_rows=1)
 
     row = out["sample_rows"][0]
     assert row["pmra"] is None
@@ -89,7 +89,7 @@ def test_inspect_sample_soft_fails_on_error(known_datalab, monkeypatch):
     )
     monkeypatch.setattr(inspect_mod, "lookup_schema", lambda *, archive, table: None)
 
-    out = inspect_mod.vo_inspect_table(table="tap_schema.obscore", archive="datalab", sample_rows=5)
+    out = inspect_mod.preview_table(table="tap_schema.obscore", archive="datalab", sample_rows=5)
 
     assert out["columns"] == [{"name": "s_ra", "datatype": "double"}]
     assert out["sample_status"] == "error"
@@ -100,14 +100,14 @@ def test_inspect_sample_disabled_when_zero(known_datalab, monkeypatch):
     cols = Table({"column_name": ["ra"], "datatype": ["double"]})
     monkeypatch.setattr(inspect_mod, "_get_tap", lambda: _Tap(cols=cols))
     monkeypatch.setattr(inspect_mod, "lookup_schema", lambda *, archive, table: None)
-    out = inspect_mod.vo_inspect_table(table="nsc_dr2.object", archive="datalab", sample_rows=0)
+    out = inspect_mod.preview_table(table="nsc_dr2.object", archive="datalab", sample_rows=0)
     assert out["sample_status"] == "disabled"
 
 
 def test_inspect_unknown_archive_soft_fails(monkeypatch):
     monkeypatch.setattr(inspect_mod, "by_short_name", lambda n: None)
     monkeypatch.setattr(inspect_mod, "lookup_schema", lambda *, archive, table: None)
-    out = inspect_mod.vo_inspect_table(table="foo.bar", archive="nope")
+    out = inspect_mod.preview_table(table="foo.bar", archive="nope")
     assert out["known"] is False
     assert "hint" in out
 
@@ -135,7 +135,7 @@ def test_inspect_infers_archive_from_schema_when_archive_omitted(monkeypatch):
     cols = Table({"column_name": ["ra", "dec"], "datatype": ["double", "double"]})
     monkeypatch.setattr(inspect_mod, "_get_tap", lambda: _Tap(cols=cols, sample=Table({})))
 
-    out = inspect_mod.vo_inspect_table(table="nsc_dr2.object", sample_rows=0)
+    out = inspect_mod.preview_table(table="nsc_dr2.object", sample_rows=0)
 
     assert out["archive"] == "datalab"
     assert out["known"] is True
@@ -159,7 +159,7 @@ def test_inspect_infers_archive_from_notable_tables_when_archive_omitted(monkeyp
     cols = Table({"column_name": ["s_ra"], "datatype": ["double"]})
     monkeypatch.setattr(inspect_mod, "_get_tap", lambda: _Tap(cols=cols, sample=Table({})))
 
-    out = inspect_mod.vo_inspect_table(table="tap_schema.obscore", sample_rows=0)
+    out = inspect_mod.preview_table(table="tap_schema.obscore", sample_rows=0)
 
     assert out["archive"] == "alma"
     assert out["known"] is False  # no curated Schema, but archive was still inferred
@@ -179,7 +179,7 @@ def test_inspect_no_match_and_no_archive_soft_fails(monkeypatch):
     monkeypatch.setattr(inspect_mod, "active_archives", lambda: (unrelated,))
     monkeypatch.setattr(inspect_mod, "lookup_schema", lambda *, archive, table: None)
 
-    out = inspect_mod.vo_inspect_table(table="totally.unknown")
+    out = inspect_mod.preview_table(table="totally.unknown")
 
     assert out["known"] is False
     assert out["archive"] is None

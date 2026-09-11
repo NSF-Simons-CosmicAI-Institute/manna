@@ -23,13 +23,13 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     # Optional comma-separated allow-list of hostnames the server may fetch
     # (e.g. "almascience.eso.org,eso.org"). Matches exactly or as a subdomain.
-    # Unset => any *public* host is reachable, which keeps vo_registry_search
+    # Unset => any *public* host is reachable, which keeps search_ivoa_registry
     # discovery working; private/loopback/link-local space is refused either
     # way. See _url_guard.py.
     allowed_hosts: str | None = None
     # Slice 5: async TAP family.
     tap_sync_timeout_seconds: float = 20.0
-    # vo_count_observations: bounded budget for polling an async count job
+    # count_observations_near_target: bounded budget for polling an async count job
     # (NRAO obscore). A COUNT returns one row and completes fast once scheduled;
     # on budget exhaustion the tool returns a pending envelope with the job_url.
     count_async_budget_seconds: float = Field(default=15.0, gt=0)
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # context windows.
     inline_row_limit: int = 200
     inline_byte_limit: int = 48 * 1024
-    # vo_registry_describe degrades from full per-column detail to a table
+    # describe_ivoa_service degrades from full per-column detail to a table
     # catalog (names + descriptions + column counts) once the full introspection
     # payload would exceed this many bytes. Prevents a large service (e.g. Gaia,
     # ~127k tokens of tables × columns) from overflowing the model context. See

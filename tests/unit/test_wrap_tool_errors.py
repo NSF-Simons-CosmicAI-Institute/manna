@@ -54,12 +54,12 @@ def test_decorator_threads_request_id_from_contextvar():
 
 def test_decorator_logger_name_includes_function_name(caplog):
     @wrap_tool_errors
-    def vo_thing():
+    def fake_tool():
         raise DalQueryError(message="x")
 
-    with caplog.at_level("WARNING", logger="manna.tools.vo_thing"):
-        vo_thing()
+    with caplog.at_level("WARNING", logger="manna.tools.fake_tool"):
+        fake_tool()
     # At least one record should be on the per-function logger
-    matching = [r for r in caplog.records if r.name == "manna.tools.vo_thing"]
-    assert matching, "expected a WARNING log on logger 'manna.tools.vo_thing'"
+    matching = [r for r in caplog.records if r.name == "manna.tools.fake_tool"]
+    assert matching, "expected a WARNING log on logger 'manna.tools.fake_tool'"
     assert matching[0].levelname == "WARNING"

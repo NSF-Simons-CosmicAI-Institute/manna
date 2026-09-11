@@ -1,4 +1,4 @@
-"""vo_tap_query mode parameter + auto-promote behavior."""
+"""run_adql_query mode parameter + auto-promote behavior."""
 
 import pytest
 from astropy.table import Table
@@ -48,7 +48,7 @@ def fake_tap(monkeypatch):
 async def test_mode_sync_returns_inline_envelope(mcp_server, fake_tap):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": "SELECT 1",
@@ -67,7 +67,7 @@ async def test_mode_sync_returns_inline_envelope(mcp_server, fake_tap):
 async def test_mode_auto_fast_returns_inline_no_promotion(mcp_server, fake_tap):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": "SELECT 1",
@@ -87,7 +87,7 @@ async def test_mode_auto_promotes_on_timeout(mcp_server, fake_tap):
 
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": "SELECT slow_join",
@@ -111,7 +111,7 @@ async def test_mode_auto_does_not_promote_on_syntax_error(mcp_server, fake_tap):
 
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": "SELECT BAD",
@@ -134,7 +134,7 @@ async def test_mode_auto_does_not_promote_on_generic_archive_error(mcp_server, f
 
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": "SELECT 1",
@@ -154,7 +154,7 @@ async def test_mode_sync_propagates_timeout_as_archive_error(mcp_server, fake_ta
 
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": "SELECT 1",
@@ -184,7 +184,7 @@ async def test_mode_sync_oversize_raises_validation_error(mcp_server, fake_tap):
 
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": "SELECT * FROM big",
@@ -207,7 +207,7 @@ async def test_mode_auto_oversize_promotes_to_async(mcp_server, fake_tap):
 
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://datalab.noirlab.edu/tap",
                 "adql": "SELECT * FROM big",
@@ -228,7 +228,7 @@ async def test_mode_async_skips_sync_and_returns_promotion(mcp_server, fake_tap)
 
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://almascience.nrao.edu/tap",
                 "adql": "SELECT TOP 1 * FROM ivoa.obscore",

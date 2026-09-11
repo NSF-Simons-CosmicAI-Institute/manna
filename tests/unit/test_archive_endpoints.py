@@ -107,18 +107,18 @@ def test_scs_endpoint_urls_has_gaia_ari():
 def test_tap_description_mentions_two_archives_by_name():
     desc = tap_endpoint_description()
     assert "NOIRLab" in desc or "ALMA" in desc
-    assert "vo_registry_search" in desc  # discovery hint preserved
+    assert "search_ivoa_registry" in desc  # discovery hint preserved
 
 
 def test_sia_description_mentions_sia2_and_discovery():
     desc = sia_endpoint_description()
     assert "SIA 2.0" in desc
-    assert "vo_registry_search" in desc
+    assert "search_ivoa_registry" in desc
 
 
 def test_scs_description_mentions_tap_preference():
     desc = scs_endpoint_description()
-    assert "vo_tap_query" in desc
+    assert "run_adql_query" in desc
 
 
 def test_archive_dataclass_shape_supports_the_contract():

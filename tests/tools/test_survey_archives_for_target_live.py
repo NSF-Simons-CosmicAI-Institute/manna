@@ -1,4 +1,4 @@
-"""Real-archive regression guard for vo_survey_target.
+"""Real-archive regression guard for survey_archives_for_target.
 
 Exercises the REAL resolve + fan-out end-to-end against recorded HTTP. Scoped to
 `wavebands=["millimeter"]` so exactly one countable archive (ALMA, sync) is
@@ -19,7 +19,7 @@ from fastmcp import Client
 async def test_survey_millimeter_hits_alma_live(mcp_server):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_survey_target",
+            "survey_archives_for_target",
             {"target": "NGC 253", "radius_deg": 0.1, "wavebands": ["millimeter"]},
         )
     out = result.structured_content

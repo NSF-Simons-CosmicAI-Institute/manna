@@ -98,9 +98,9 @@ def test_check_calls_empty_is_false():
 # _tools_in_order — expected tools as a subsequence
 # --------------------------------------------------------------------------- #
 def test_tools_in_order_subsequence():
-    actual = ["vo_target_resolve", "vo_schema_describe", "vo_tap_query"]
-    assert _tools_in_order(actual, ["vo_target_resolve", "vo_tap_query"])
-    assert not _tools_in_order(actual, ["vo_tap_query", "vo_target_resolve"])
+    actual = ["resolve_target_name", "describe_table", "run_adql_query"]
+    assert _tools_in_order(actual, ["resolve_target_name", "run_adql_query"])
+    assert not _tools_in_order(actual, ["run_adql_query", "resolve_target_name"])
 
 
 # --------------------------------------------------------------------------- #
@@ -126,12 +126,12 @@ def test_ground_truth_contains_and_regex_and_nonempty():
 # _leaked — the redaction invariant
 # --------------------------------------------------------------------------- #
 def test_leaked_detects_bearer_token_in_result():
-    run = _run(trace=[("vo_tap_query", {}, {"msg": "Authorization: Bearer sk-secret"}, False)])
+    run = _run(trace=[("run_adql_query", {}, {"msg": "Authorization: Bearer sk-secret"}, False)])
     assert _leaked(run) == "Bearer "
 
 
 def test_leaked_none_when_clean():
-    run = _run(trace=[("vo_tap_query", {}, {"rows": 3}, False)])
+    run = _run(trace=[("run_adql_query", {}, {"rows": 3}, False)])
     assert _leaked(run) is None
 
 
@@ -142,10 +142,10 @@ def test_score_programmatic_expect_and_forbid_and_leak():
     task = {
         "id": "t",
         "tier": 1,
-        "expect_tools": ["vo_target_resolve"],
-        "forbid_tools": ["vo_tap_abort"],
+        "expect_tools": ["resolve_target_name"],
+        "forbid_tools": ["abort_async_job"],
     }
-    run = _run(trace=[("vo_target_resolve", {}, {"ra": 1}, False)], answer="done")
+    run = _run(trace=[("resolve_target_name", {}, {"ra": 1}, False)], answer="done")
     score = score_programmatic(task, run)
     assert score.checks["expect_tools"] is True
     assert score.checks["forbid_tools"] is True
@@ -157,23 +157,23 @@ def test_score_programmatic_arg_check_and_ground_truth():
     task = {
         "id": "t",
         "tier": 2,
-        "arg_checks": {"vo_tap_query": [{"arg": "mode", "op": "equals", "value": "async"}]},
+        "arg_checks": {"run_adql_query": [{"arg": "mode", "op": "equals", "value": "async"}]},
         "ground_truth": {"type": "contains", "values": ["42"]},
     }
-    good = _run(trace=[("vo_tap_query", {"mode": "async"}, {}, False)], answer="the answer is 42")
+    good = _run(trace=[("run_adql_query", {"mode": "async"}, {}, False)], answer="the answer is 42")
     s = score_programmatic(task, good)
-    assert s.checks["args:vo_tap_query"] is True
+    assert s.checks["args:run_adql_query"] is True
     assert s.checks["ground_truth"] is True
 
-    bad = _run(trace=[("vo_tap_query", {"mode": "sync"}, {}, False)], answer="no number")
+    bad = _run(trace=[("run_adql_query", {"mode": "sync"}, {}, False)], answer="no number")
     s2 = score_programmatic(task, bad)
-    assert s2.checks["args:vo_tap_query"] is False
+    assert s2.checks["args:run_adql_query"] is False
     assert s2.checks["ground_truth"] is False
 
 
 def test_score_programmatic_leak_fails_and_notes():
     task = {"id": "t", "tier": 4}
-    run = _run(trace=[("vo_tap_query", {}, "Traceback (most recent call last): boom", False)])
+    run = _run(trace=[("run_adql_query", {}, "Traceback (most recent call last): boom", False)])
     s = score_programmatic(task, run)
     assert s.checks["no_leak"] is False
     assert any("LEAK" in n for n in s.notes)

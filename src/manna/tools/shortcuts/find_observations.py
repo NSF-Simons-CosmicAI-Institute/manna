@@ -1,17 +1,17 @@
-"""Purpose-driven orchestration tool: vo_find_observations.
+"""Purpose-driven orchestration tool: find_observations_of_target.
 
-The atomic ``vo_*`` tools each expose one IVOA primitive (resolve a name,
+The atomic tools each expose one IVOA primitive (resolve a name,
 list archives, run a SIA / cone search). Answering a real astronomer question
 — *"give me images of M87 in the radio"* — means chaining three of them, and
 the model has to do that planning itself.
 
-``vo_find_observations`` collapses that chain into one call. It is a thin
+``find_observations_of_target`` collapses that chain into one call. It is a thin
 SHORTCUT TOOL over the SAME connections (``backends/`` in the code) the atomic tools use:
 
-    target ──(vo_target_resolve)──▶ ra/dec
-           ──(vo_archive_list)────▶ pick an archive by service + waveband
-           ──(vo_sia_search /
-              vo_cone_search)─────▶ shaped inline envelope
+    target ──(resolve_target_name)──▶ ra/dec
+           ──(list_archives)────▶ pick an archive by service + waveband
+           ──(search_images_by_position /
+              search_catalog_by_position)─────▶ shaped inline envelope
 
 Nothing is hidden: the response carries a ``resolved`` block (what coordinates
 were used) and a ``plan`` block (which archive was chosen, its endpoint, the
@@ -78,7 +78,7 @@ def _no_candidate_payload(*, service: str, waveband: str | None, override: str |
 
 
 @wrap_tool_errors
-def vo_find_observations(
+def find_observations_of_target(
     target: Annotated[
         str,
         Field(
@@ -86,7 +86,7 @@ def vo_find_observations(
                 "Object name (resolved via CDS Sesame — 'M87', 'Cygnus A', "
                 "'3C 273') OR explicit ICRS coordinates as 'RA DEC' in decimal "
                 "degrees ('187.7059 12.3911', comma optional). Names are "
-                "auto-resolved; you do NOT need to call vo_target_resolve first."
+                "auto-resolved; you do NOT need to call resolve_target_name first."
             ),
             examples=["M87", "Cygnus A", "187.7059 12.3911"],
         ),
@@ -131,16 +131,16 @@ def vo_find_observations(
 ) -> dict:
     """Find observations of a target in one call (resolve -> select -> search).
 
-    A purpose-driven shortcut over vo_target_resolve + vo_archive_list +
-    vo_sia_search / vo_cone_search. Pass an object name (auto-resolved) or
+    A purpose-driven shortcut over resolve_target_name + list_archives +
+    search_images_by_position / search_catalog_by_position. Pass an object name (auto-resolved) or
     explicit 'RA DEC'; optionally steer archive choice with `waveband` or an
     explicit `archive`.
 
-    Returns the standard inline tabular envelope (same shape as vo_sia_search /
-    vo_cone_search — typed `columns`, `rows`, explicit `truncated` bool; note
+    Returns the standard inline tabular envelope (same shape as search_images_by_position /
+    search_catalog_by_position — typed `columns`, `rows`, explicit `truncated` bool; note
     this shortcut's envelope does NOT carry the `query_fingerprint` / `save_recipe`
-    cache fields the primitive tools attach — call the underlying vo_sia_search
-    / vo_cone_search directly if you need those) plus:
+    cache fields the primitive tools attach — call the underlying search_images_by_position
+    / search_catalog_by_position directly if you need those) plus:
 
       - `resolved`: {target, ra, dec, frame} — the coordinates actually used.
       - `plan`: {service, chosen_archive, endpoint, alternatives, usage_notes}
@@ -212,4 +212,4 @@ def vo_find_observations(
     return envelope
 
 
-vo_find_observations.__doc__ = (vo_find_observations.__doc__ or "") + _ERROR_DOCSTRING
+find_observations_of_target.__doc__ = (find_observations_of_target.__doc__ or "") + _ERROR_DOCSTRING

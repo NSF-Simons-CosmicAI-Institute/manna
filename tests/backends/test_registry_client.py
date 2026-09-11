@@ -62,7 +62,7 @@ def test_describe_rejects_garbage_input():
 def test_describe_by_url_falls_back_to_direct_tap_when_not_registered(
     monkeypatch,
 ):
-    """Bug repro: vo_registry_describe used to fail with 'No such service'
+    """Bug repro: describe_ivoa_service used to fail with 'No such service'
     on any TAP URL not registered in RegTAP — even when the service was
     live and queryable. This test pins the fallback path: when registry
     has no match, we introspect the TAP service directly.

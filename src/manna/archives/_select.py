@@ -58,7 +58,7 @@ def select_archives(
         logger.warning(
             "MANNA_ARCHIVES selected no archives (allow=%s). The server will "
             "make no curated claims; archives remain reachable via "
-            "vo_registry_search.",
+            "search_ivoa_registry.",
             sorted(allow),
         )
     return selected

@@ -163,10 +163,10 @@ async def _main_async(args: argparse.Namespace) -> int:
 
     if args.no_inject_notes:
         print(
-            "With-and-without: up-front-note cheatsheet STRIPPED from the vo_tap_query description"
+            "With-and-without: up-front-note cheatsheet STRIPPED from the run_adql_query description"
         )
     if args.no_discovery:
-        print("No-discovery: vo_archive_list + vo_schema_describe withheld from the model")
+        print("No-discovery: list_archives + describe_table withheld from the model")
     sem = asyncio.Semaphore(args.concurrency)
     coros = [
         _run_one(
@@ -235,7 +235,7 @@ def main() -> int:
         "--no-inject-notes",
         action="store_true",
         help=(
-            "with-and-without comparison: STRIP the up-front-note cheatsheet from the vo_tap_query description. "
+            "with-and-without comparison: STRIP the up-front-note cheatsheet from the run_adql_query description. "
             "Injection is default-on server-side since #57, so isolating its value means "
             "removing it, not adding it."
         ),
@@ -243,7 +243,7 @@ def main() -> int:
     p.add_argument(
         "--no-discovery",
         action="store_true",
-        help="withhold vo_archive_list + vo_schema_describe (isolate description-injection).",
+        help="withhold list_archives + describe_table (isolate description-injection).",
     )
     args = p.parse_args()
     return asyncio.run(_main_async(args))

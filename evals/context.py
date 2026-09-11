@@ -11,12 +11,12 @@ We strip context *harness-side* rather than adding a flag to production
 globals at call time, so swapping those globals inside a context manager gives a
 clean, fully-reversible stripping with zero production-code risk. The patch point
 is ``archives._endpoints.get_active_archives`` — the module global that
-``active_archives()`` (and hence ``vo_archive_list``) resolves at call time.
+``active_archives()`` (and hence ``list_archives``) resolves at call time.
 
 Stripped:
-  * ``vo_archive_list`` -> every archive keeps its endpoints/tables but loses
+  * ``list_archives`` -> every archive keeps its endpoints/tables but loses
     ``usage_notes`` (the async routing, obscore-location, geometry warnings, ...).
-  * ``vo_schema_describe`` -> always reports ``known: false`` (as if the table
+  * ``describe_table`` -> always reports ``known: false`` (as if the table
     had no curated entry), forcing the model to fall back to live introspection.
 """
 
@@ -33,7 +33,7 @@ from manna.tools import schema as _schema_tool
 def ablated_context():
     """Temporarily blind the server to its archive notes (usage_notes + per-table schemas).
 
-    `vo_archive_list` resolves archives via `archives._endpoints.active_archives()`,
+    `list_archives` resolves archives via `archives._endpoints.active_archives()`,
     which reads `get_active_archives` from the endpoints module globals at
     call time — so swapping that global swaps what the tool sees. The schema
     tool is blinded by forcing every lookup to miss. Restores on exit even if

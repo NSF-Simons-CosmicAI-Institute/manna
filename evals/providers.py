@@ -3,7 +3,7 @@
 Each provider exposes the same tiny interface (an async context manager giving
 `tools` + `call`), so the agent loop in harness.py is approach-agnostic:
 
-  * MCPToolProvider  — the full server: all vo_* tools + archive notes (the thing we sell).
+  * MCPToolProvider  — the full server: all MANNA tools + archive notes (the thing we sell).
   * RawTapToolProvider — one dumb `run_adql(endpoint, adql)` tool, no curation.
   * RawWebToolProvider — one `http_get(url)` tool; the model does everything itself.
 

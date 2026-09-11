@@ -19,7 +19,7 @@ def test_mean_empty_is_zero():
 
 
 def test_dimensions_perfect_single_call():
-    runs = [_run(tools=[("vo_target_resolve", False)])]
+    runs = [_run(tools=[("resolve_target_name", False)])]
     d = _dimensions(runs, accuracy=1.0)
     assert d["accuracy"] == 1.0
     assert d["completion"] == 1.0
@@ -41,14 +41,14 @@ def test_tool_use_zero_when_no_vo_calls():
 
 
 def test_clean_calls_penalizes_tool_errors():
-    runs = [_run(tools=[("vo_tap_query", True), ("vo_tap_query", False)])]
+    runs = [_run(tools=[("run_adql_query", True), ("run_adql_query", False)])]
     d = _dimensions(runs, accuracy=0.0)
     assert d["clean_calls"] == 0.5  # 1 of 2 calls errored
 
 
 def test_efficiency_decreases_with_more_calls():
-    one = _dimensions([_run(tools=[("vo_x", False)])], 1.0)["efficiency"]
-    many = _dimensions([_run(tools=[("vo_x", False)] * 5)], 1.0)["efficiency"]
+    one = _dimensions([_run(tools=[("tool_x", False)])], 1.0)["efficiency"]
+    many = _dimensions([_run(tools=[("tool_x", False)] * 5)], 1.0)["efficiency"]
     assert one == 1.0
     assert 0.0 < many < one
 
@@ -59,7 +59,7 @@ def test_completion_false_on_error_or_empty_answer():
 
 
 def test_accuracy_none_treated_as_zero():
-    d = _dimensions([_run(tools=[("vo_x", False)])], accuracy=None)
+    d = _dimensions([_run(tools=[("tool_x", False)])], accuracy=None)
     assert d["accuracy"] == 0.0
 
 

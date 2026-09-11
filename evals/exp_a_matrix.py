@@ -2,7 +2,7 @@
 curated archive quirks when the model can't (or won't) consult the discovery tools?
 
 Since issue #57 this measures a SHIPPED feature, not a hypothetical: the server
-injects the cheatsheet of up-front notes into vo_tap_query's description by default
+injects the cheatsheet of up-front notes into run_adql_query's description by default
 (archives/_pitfalls.py, derived from notes tagged with a triggerless `Pitfall`). So the
 `inject` axis inverted — cell C now STRIPS the blob rather than cell D adding it.
 The cells and the decisive comparison are otherwise unchanged, so the numbers
@@ -11,7 +11,7 @@ below remain the reference.
 Cells (all full server context; the axis is what the MODEL can reach):
   A = discovery ON,  inject ON    (real-world reference — production default)
   C = discovery OFF, inject OFF   (blind — cheatsheet stripped, model priors only)
-  D = discovery OFF, inject ON    (quirks reach the model only via vo_tap_query desc)
+  D = discovery OFF, inject ON    (quirks reach the model only via run_adql_query desc)
 
 Decisive comparison: C -> D. Scored programmatically (arg-checks = pitfall avoided);
 run against the live model, so pitfall tasks that submit an async query still score from
