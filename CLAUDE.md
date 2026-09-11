@@ -8,23 +8,25 @@ terminology alignment; no contract changes).
 ## Terminology
 
 The paper about MANNA uses plain-language names for its concepts. Use these in
-prose (comments, docstrings, docs); the "Code today" column is what the
-identifier is still called in the source.
+prose (comments, docstrings, docs). The "In the code" column is the identifier
+that still carries a different name; write it once per file as "X (called `Y`
+in the code)". Tool names, `MANNA_*` env vars, payload keys, and the eval
+results-file keys (`arm`, `condition`) are contract and never change.
 
-| Code today | Paper term | What it is |
+| In the code | Paper term | What it is |
 |---|---|---|
 | `backends/` (TapClient, SiaClient, ConeClient, RegistryClient, ResolverClient) | **Connections** | Tools that call the standard archive interfaces |
-| "facade" tools (`vo_find_observations`, `vo_count_observations`, `vo_survey_target`) | **Shortcut tools** | Bundle a multi-step task into one call |
-| `shaper.py`, "envelope", "promotion" | **Result handling** | Inline small results; link + fetch recipe for large ones |
-| `archives/<name>.py`, `Note`, "schema KB", "curated knowledge" | **Archive notes** | One file per archive: addresses, notes about quirks, a check per note |
+| `tools/shortcuts/` (`vo_find_observations`, `vo_count_observations`, `vo_survey_target`; `vo_inspect_table` alongside) | **Shortcut tools** | Bundle a multi-step task into one call |
+| `results.py` (`shape_*`, "envelope", "promotion") | **Result handling** | Inline small results; link + fetch recipe for large ones |
+| `archives/<name>.py`, `Note`, `Schema` (`active_schemas()`) | **Archive notes** | One file per archive: addresses, notes about quirks, a check per note |
 | `Audit` | **Check** | A live probe (or manual marker) that re-verifies a note |
-| `Trap` | **Pitfall** | A note that describes a known way queries go wrong |
-| "silent trap" (no `triggers`; injected into `vo_tap_query` description) | **Up-front note** | Delivered every turn via the tool description |
-| "loud trap" (`triggers` present; rides the error `hint`) | **Error hint** | Delivered only when a failed query matches the pattern |
+| `Pitfall` (`Note.pitfall`, `archives/_pitfalls.py`) | **Pitfall** | A note that describes a known way queries go wrong |
+| `Pitfall.channel == "upfront"` (no `triggers`; `silent_trap_cheatsheet()` injects it into the `vo_tap_query` description) | **Up-front note** | Delivered every turn via the tool description |
+| `Pitfall.channel == "error_hint"` (`triggers` present; `loud_trap_guidance()` rides the error `hint`) | **Error hint** | Delivered only when a failed query matches the pattern |
 | "cheatsheet" | (keep) | The block of up-front notes injected into the description |
-| "ablation" / `condition: ablated` | **With-and-without comparison** | Tier-3 run with archive notes stripped |
-| "arm" (`mcp` / `raw_tap` / `raw_web`) | **Approach** | The three configurations compared in `mcp_quality.py` |
-| "stateless" | "keeps nothing between requests" | — |
+| `condition: ablated` / `ablated_context()` | **With-and-without comparison** | Tier-3 run with archive notes stripped |
+| `arm` (`mcp` / `raw_tap` / `raw_web`) | **Approach** | The three configurations compared in `mcp_quality.py` |
+| "stateless" (in code comments) | "keeps nothing between requests" | No result cache, no job registry, no session map |
 
 **Casing:** *MANNA* in prose; lowercase `manna` for every identifier — package,
 `python -m manna`, `src/manna`, image tags, and the MCP client alias. Never
