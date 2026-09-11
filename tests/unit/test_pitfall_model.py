@@ -1,25 +1,27 @@
-"""The Trap model — the declarative half of trap delivery (issue #57).
+"""The Pitfall model — the declarative half of pitfall delivery (issue #57).
 
 The channel is carried entirely by `triggers`: none ⇒ up-front note (preventive,
-always shown; `is_loud` False), some ⇒ error hint (reactive, fires on a matching
-ADQL; `is_loud` True).
+always shown; `channel == "upfront"`), some ⇒ error hint (reactive, fires on a
+matching ADQL; `channel == "error_hint"`).
 """
 
 import pytest
 
 from manna.archives._audit import Audit
-from manna.archives._model import Note, Trap
+from manna.archives._model import Note, Pitfall
 
 
 def test_triggerless_trap_is_silent_and_never_fires():
-    t = Trap(guidance="use q3c_radial_query")
+    t = Pitfall(guidance="use q3c_radial_query")
+    assert t.channel == "upfront"
     assert t.is_loud is False
     # An up-front note is preventive — it is always shown, never matched.
     assert t.fires_on("SELECT anything") is False
 
 
 def test_loud_trap_fires_case_insensitively():
-    t = Trap(guidance="drop LOWER()", triggers=("LOWER(", "UPPER("))
+    t = Pitfall(guidance="drop LOWER()", triggers=("LOWER(", "UPPER("))
+    assert t.channel == "error_hint"
     assert t.is_loud is True
     assert t.fires_on("select * from x where lower(name) = 'm87'") is True
     assert t.fires_on("SELECT * FROM x WHERE UPPER(name) = 'M87'") is True
@@ -28,11 +30,11 @@ def test_loud_trap_fires_case_insensitively():
 
 def test_empty_guidance_rejected():
     with pytest.raises(ValueError, match="guidance"):
-        Trap(guidance="")
+        Pitfall(guidance="")
 
 
-def test_note_trap_is_optional_and_type_checked():
+def test_note_pitfall_is_optional_and_type_checked():
     audit = Audit.manual("n/a")
-    assert Note(id="n", text="t", audit=audit).trap is None
-    with pytest.raises(TypeError, match="must be a Trap"):
-        Note(id="n", text="t", audit=audit, trap="silent")  # type: ignore[arg-type]
+    assert Note(id="n", text="t", audit=audit).pitfall is None
+    with pytest.raises(TypeError, match="must be a Pitfall"):
+        Note(id="n", text="t", audit=audit, pitfall="silent")  # type: ignore[arg-type]

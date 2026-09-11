@@ -245,22 +245,23 @@ diff to a single file.
   `Note` can't be built without an `Audit`, so every claim is accounted for.
   See `Note`/`Audit` in `archives/_model.py` and `archives/_audit.py`, and the
   offline gate in `tests/archives/test_audits.py`.
-- **Implemented.** A `Note` may also carry a `Trap`, which says how the claim is
+- **Implemented.** A `Note` may also carry a `Pitfall`, which says how the claim is
   *delivered* — because the eval showed reachable knowledge isn't used knowledge
   (issue #57: the NRAO LOWER/UPPER note was true, probed and served by
-  `vo_archive_list`, and the model wrote `LOWER()` anyway). A `Trap` without
-  `triggers` is an *up-front note* (called *silent* in the code): the model gets no
+  `vo_archive_list`, and the model wrote `LOWER()` anyway). A `Pitfall` without
+  `triggers` is an *up-front note* (`channel == "upfront"`; called *silent* in
+  older code): the model gets no
   usable correction signal (no error at all, or one too cryptic to act on), so the
-  `guidance` is pushed up-front — `archives/_traps.py`
+  `guidance` is pushed up-front — `archives/_pitfalls.py`
   derives a cheatsheet from the ACTIVE set and `build_mcp()` appends it to
   `vo_tap_query`'s description. That channel is re-sent every turn, so it is
   capped at `CHEATSHEET_TOKEN_BUDGET` (200): if a new trap doesn't fit, write
   terser `guidance` rather than raise the ceiling, and remember `vo_archive_list`
-  is still the place for everything that isn't a trap. A `Trap` with `triggers`
-  is an *error hint* (called *loud* in the code): the query throws and the
+  is still the place for everything that isn't a trap. A `Pitfall` with `triggers`
+  is an *error hint* (`channel == "error_hint"`; called *loud* in older code): the query throws and the
   triggers spot the cause in the submitted ADQL, so the `guidance` rides the error
-  payload's `hint` and costs nothing until it fires. Gated by `tests/archives/test_traps.py` +
-  `tests/contracts/test_trap_delivery.py`.
+  payload's `hint` and costs nothing until it fires. Gated by `tests/archives/test_pitfalls.py` +
+  `tests/contracts/test_pitfall_delivery.py`.
 - Structured `Schema` fields (`missing_standard_columns`, `value_enums`) are not
   yet under the audit gate — a documented follow-up. If a structured fact needs
   drift protection, give it a prose `Note` (which then carries an audit).

@@ -13,20 +13,21 @@ form accepted.
 """
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from manna.archives._audit import Audit
 from manna.archives._count import CountTarget
 
 
 @dataclass(frozen=True)
-class Trap:
-    """How a note's claim gets DELIVERED to the model, and when.
+class Pitfall:
+    """A pitfall: how a note's claim gets DELIVERED to the model, and when.
 
-    A note in `vo_archive_list` is knowledge the model *can* reach. A trap is
+    A note in `vo_archive_list` is knowledge the model *can* reach. A pitfall is
     knowledge we push at it, because the eval showed reachable isn't enough
     (issue #57: the NRAO LOWER/UPPER note was true, probed, and served — and
     the model still wrote LOWER()). Like `Audit`, this is declarative: it
-    carries no delivery code. `archives/_traps.py` reads these.
+    carries no delivery code. `archives/_pitfalls.py` reads these.
 
     Two kinds, split by whether the model can self-correct from the failure,
     and told apart entirely by ``triggers``:
@@ -51,16 +52,23 @@ class Trap:
     guidance: str
     # Case-insensitive substrings of the submitted ADQL that fire an error hint.
     # Empty ⇒ up-front note (preventive, always shown); non-empty ⇒ error hint
-    # (reactive).
+    # (reactive). `channel` is the one place that reads this distinction.
     triggers: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.guidance:
-            raise ValueError("Trap.guidance must be non-empty")
+            raise ValueError("Pitfall.guidance must be non-empty")
+
+    @property
+    def channel(self) -> Literal["upfront", "error_hint"]:
+        """Up-front notes have no triggers and ride the tool description;
+        error hints have triggers and ride the failure payload's `hint`."""
+        return "error_hint" if self.triggers else "upfront"
 
     @property
     def is_loud(self) -> bool:
-        return bool(self.triggers)
+        """Legacy name for `channel == "error_hint"`."""
+        return self.channel == "error_hint"
 
     def fires_on(self, adql: str) -> bool:
         """Whether `adql` trips this trap. Up-front notes never fire (no triggers)."""
@@ -76,13 +84,13 @@ class Note:
     stale audit prints so you can jump straight to the note to fix. `text` is
     the single-claim, LLM-facing prose surfaced by vo_archive_list /
     vo_schema_describe. `audit` (mandatory) is how the live runner re-checks it.
-    `trap` (optional) opts the claim into a push channel — see `Trap`.
+    `pitfall` (optional) opts the claim into a push channel — see `Pitfall`.
     """
 
     id: str
     text: str
     audit: Audit
-    trap: Trap | None = None
+    pitfall: Pitfall | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -91,8 +99,8 @@ class Note:
             raise ValueError("Note.text must be non-empty")
         if not isinstance(self.audit, Audit):
             raise TypeError(f"Note.audit must be an Audit, got {type(self.audit).__name__}")
-        if self.trap is not None and not isinstance(self.trap, Trap):
-            raise TypeError(f"Note.trap must be a Trap, got {type(self.trap).__name__}")
+        if self.pitfall is not None and not isinstance(self.pitfall, Pitfall):
+            raise TypeError(f"Note.pitfall must be a Pitfall, got {type(self.pitfall).__name__}")
 
 
 def note_texts(notes: tuple[Note, ...]) -> list[str]:

@@ -2,7 +2,7 @@
 
 from manna.archives._audit import Audit
 from manna.archives._count import CountTarget, Q3CRadial
-from manna.archives._model import Archive, Note, Schema, Trap
+from manna.archives._model import Archive, Note, Pitfall, Schema
 
 ARCHIVE = Archive(
     short_name="datalab",
@@ -79,7 +79,7 @@ ARCHIVE = Archive(
             # never hints that q3c is the answer, so the model can't recover from it.
             # Prevention is what exp_a_matrix measured working (C=0/15 blind ->
             # D=12/15 injected).
-            trap=Trap(
+            pitfall=Pitfall(
                 guidance=(
                     "ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT translated and errors. "
                     "For a cone use q3c_radial_query(ra, dec, <ra0>, <dec0>, <radius_deg>) = 't'; "
