@@ -1,9 +1,9 @@
 import pytest
 from astropy.table import Table
 
-import manna.tools._select as sel
-import manna.tools.count as count_mod
-import manna.tools.survey as survey_mod
+import manna.tools.shortcuts._select as sel
+import manna.tools.shortcuts.count as count_mod
+import manna.tools.shortcuts.survey as survey_mod
 from manna.archives._count import ContainsPoint, CountTarget, Q3CRadial
 from manna.archives._model import Archive
 
