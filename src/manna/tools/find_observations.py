@@ -6,7 +6,7 @@ list archives, run a SIA / cone search). Answering a real astronomer question
 the model has to do that planning itself.
 
 ``vo_find_observations`` collapses that chain into one call. It is a thin
-FACADE over the SAME backends the atomic tools use:
+SHORTCUT TOOL over the SAME connections (``backends/`` in the code) the atomic tools use:
 
     target ──(vo_target_resolve)──▶ ra/dec
            ──(vo_archive_list)────▶ pick an archive by service + waveband

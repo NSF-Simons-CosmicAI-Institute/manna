@@ -73,7 +73,7 @@ ARCHIVE = Archive(
                 "multiple executions with different t_min."
             ),
             audit=Audit.count(table="ivoa.obscore", columns=("member_ous_uid",)),
-            # The archetypal silent trap (no triggers): COUNT(*) returns a
+            # The archetypal up-front note (no triggers): COUNT(*) returns a
             # plausible number and no error at all, so nothing downstream can
             # flag the over-count.
             trap=Trap(

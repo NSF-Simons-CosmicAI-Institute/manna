@@ -4,7 +4,7 @@ from fastmcp import Client
 
 from manna.app import build_mcp
 
-# Tools that only read the in-process KB (closed world); everything else
+# Tools that only read the in-process archive notes (closed world); everything else
 # hits live archive services (open world). vo_schema_describe left this set
 # when it started fetching real column lists from tap_schema.columns.
 _LOCAL_TOOLS = {"vo_archive_list"}

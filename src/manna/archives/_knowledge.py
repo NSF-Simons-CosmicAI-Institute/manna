@@ -13,7 +13,7 @@ def active_schema_kb() -> tuple[Schema, ...]:
 
 
 def lookup_schema(*, archive: str, table: str) -> Schema | None:
-    """Linear scan of the active schema KB. None if no curated entry.
+    """Linear scan of the active archive notes' schemas. None if no curated entry.
     Matching is exact (case-sensitive) on both keys."""
     for s in active_schema_kb():
         if s.archive == archive and s.table == table:

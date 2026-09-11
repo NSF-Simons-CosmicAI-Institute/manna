@@ -79,5 +79,5 @@ def test_every_cross_ref_resolves_to_another_schema_entry():
         for archive, table in s.cross_refs:
             assert (archive, table) in by_pair, (
                 f"Schema({s.archive}, {s.table}).cross_refs references "
-                f"{(archive, table)} but no such entry exists in the schema KB"
+                f"{(archive, table)} but no such entry exists in the archive notes"
             )

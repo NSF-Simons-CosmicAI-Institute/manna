@@ -137,7 +137,7 @@ class TaskRun:
     tier: int
     condition: str  # "full" | "ablated"
     model: str
-    arm: str = "mcp"  # "mcp" | "raw_tap" | "raw_web" (MCP-quality comparison arm)
+    arm: str = "mcp"  # "mcp" | "raw_tap" | "raw_web" (MCP-quality comparison approach)
     trace: list[ToolCall] = field(default_factory=list)
     final_answer: str = ""
     steps: int = 0
@@ -181,14 +181,14 @@ class TaskRun:
 # comment said "a real server-side version would derive this from tagged notes on the
 # active archives", and issue #57 did exactly that. The server now ships the blob on
 # vo_tap_query's description by default (archives/_traps.py), so the harness no longer
-# ADDS anything — the ablation arm SUBTRACTS it instead. Keeping a second copy here
+# ADDS anything — the with-and-without comparison SUBTRACTS it instead. Keeping a second copy here
 # would silently drift from what the server actually serves.
 
 
 def strip_cheatsheet(description: str) -> str:
     """`description` with the server-injected trap cheatsheet removed.
 
-    The subtraction lives here, not in the server package: only the ablation arm
+    The subtraction lives here, not in the server package: only the stripped condition
     ever wants the blob back OUT of an otherwise identical tool surface.
     `CHEATSHEET_HEADER` is the seam the server exposes for exactly this cut.
     No-op if the blob isn't there.
@@ -202,9 +202,9 @@ def strip_cheatsheet(description: str) -> str:
 # descriptions or the model's own priors — the clean test for experiment (a).
 _DISCOVERY_TOOLS = {"vo_archive_list", "vo_schema_describe"}
 
-# Env-driven tool-ablation seam: EVAL_EXCLUDE_TOOLS is a comma-separated list of
+# Env-driven tool-withholding seam: EVAL_EXCLUDE_TOOLS is a comma-separated list of
 # tool names withheld from the agent's tool surface for a with/without value-add
-# A/B (e.g. the purpose-built facades vo_count_observations,vo_survey_target,
+# A/B (e.g. the purpose-built shortcut tools vo_count_observations,vo_survey_target,
 # vo_inspect_table). Read per call so a single process picks up the current env;
 # unset/empty => nothing excluded (default = the full shipped tool set).
 _EXCLUDE_TOOLS_ENV = "EVAL_EXCLUDE_TOOLS"
@@ -219,7 +219,7 @@ def _excluded_tools() -> set[str]:
 # — distinct from a real model/tool error. Matched on the exception's class name +
 # message so we don't depend on a specific SDK's exception classes. A run that hits
 # one of these is retried rather than scored as a task failure, which otherwise
-# silently biases an ablation arm that happens to run during a flaky window.
+# silently biases whichever with-and-without condition runs during a flaky window.
 _TRANSIENT_MARKERS = (
     "APIConnectionError",
     "APITimeoutError",
@@ -257,7 +257,7 @@ def _anthropic_tools(
 ) -> list[dict[str, Any]]:
     """Convert FastMCP tool descriptors to Anthropic tool-use format.
 
-    - ``inject_notes``: keep the server's silent-trap cheatsheet on vo_tap_query's
+    - ``inject_notes``: keep the server's cheatsheet of up-front notes on vo_tap_query's
       description. Defaults True because that is now production behaviour; passing
       False STRIPS it, which is how experiment (a) isolates the injection's value.
     - ``no_discovery``: withhold the curated-knowledge tools (vo_archive_list,
@@ -332,12 +332,12 @@ async def run_task(
     no_discovery: bool = False,
     arm: str = "mcp",
 ) -> TaskRun:
-    """Run one task end-to-end under the given context condition and tool arm.
+    """Run one task end-to-end under the given context condition and tool approach.
 
-    `arm` selects the tool provider: 'mcp' (full server), 'raw_tap', or 'raw_web'
+    `arm` selects the approach, i.e. the tool provider: 'mcp' (full server), 'raw_tap', or 'raw_web'
     (the MCP-quality no-curation baselines). inject_notes/no_discovery apply to 'mcp'.
     inject_notes defaults True to mirror production; False strips the server's
-    silent-trap cheatsheet back off.
+    cheatsheet of up-front notes back off.
     """
     from evals.model_backends import make_backend
     from evals.providers import make_provider
@@ -349,7 +349,7 @@ async def run_task(
         model=cfg.label,
         arm=arm,
     )
-    # Ablation only affects the curated KB, i.e. the 'mcp' arm; no-op for raw arms.
+    # Stripping only affects the archive notes, i.e. the 'mcp' approach; no-op for the raw ones.
     ctx = ablated_context if condition == "ablated" else full_context
     started = time.monotonic()
     max_steps, poll_sleep = _max_steps(), _poll_sleep()

@@ -1,8 +1,8 @@
-"""Offline regression tests for the eval ablation (evals/context.py).
+"""Offline regression tests for the eval with-and-without comparison (evals/context.py).
 
-The ablation must actually change what the real tools return — through the
+The stripped condition must actually change what the real tools return — through the
 in-memory MCP client, no network (vo_archive_list / vo_schema_describe read
-local KBs only). Guards against KB-refactor drift (the 0.5.0 archives refactor
+local archive notes only). Guards against archive-notes refactor drift (the 0.5.0 archives refactor
 silently broke the previous patch target).
 """
 

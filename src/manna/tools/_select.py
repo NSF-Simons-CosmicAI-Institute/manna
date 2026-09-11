@@ -1,9 +1,9 @@
-"""Shared resolve + archive-selection helpers for the purpose-built facades.
+"""Shared resolve + archive-selection helpers for the purpose-built shortcut tools.
 
 `vo_find_observations`, `vo_count_observations`, and `vo_survey_target` all
 resolve a target to coordinates and pick an archive by a capability attribute
 (`sia_url` / `scs_url` / `count_target`), filtered by waveband or an explicit
-override. Those pure pieces live here so no facade imports another.
+override. Those pure pieces live here so no shortcut tool imports another.
 """
 
 from manna.archives._endpoints import active_archives

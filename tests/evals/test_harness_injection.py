@@ -1,7 +1,7 @@
 """The harness's inject_notes axis after issue #57.
 
 Injection is now a shipped server default, so the harness no longer ADDS a
-cheatsheet — the ablation arm SUBTRACTS the server's. If stripping ever silently
+cheatsheet — the with-and-without comparison SUBTRACTS the server's. If stripping ever silently
 no-ops, experiment (a)'s C cell stops being a control and the C->D delta
 collapses to noise, so pin it.
 """
@@ -78,12 +78,12 @@ def test_exclude_tools_unset_keeps_everything(monkeypatch):
     assert names == {"vo_tap_query", "vo_archive_list"}
 
 
-# ---------- tier-3 ablation must strip BOTH channels ----------
+# ---------- the tier-3 with-and-without comparison must strip BOTH channels ----------
 
 
 def test_ablated_context_strips_both_trap_channels():
-    """Traps are curated knowledge, so the tier-3 ablation has to take them away
-    too — otherwise the 'without curated context' arm silently keeps the server's
+    """Traps are archive notes, so the tier-3 with-and-without comparison has to take
+    them away too — otherwise the stripped condition silently keeps the server's
     advantage and the with/without delta understates the ROI.
 
     This works because ablated_context() blanks usage_notes on the active set and

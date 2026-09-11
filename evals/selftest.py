@@ -3,8 +3,8 @@
 Exercises the parts that don't need the LLM:
   * score.py programmatic checks (arg-check ops, match any/all, ground truth,
     sequence, leak detection)
-  * context.py ablation, verified through the REAL in-memory tool path
-    (vo_archive_list / vo_schema_describe read local KBs, so no network)
+  * context.py with-and-without stripping, verified through the REAL in-memory tool path
+    (vo_archive_list / vo_schema_describe read local archive notes, so no network)
 
 Run:  uv run python -m evals.selftest
 """
@@ -130,7 +130,7 @@ def test_leak_detection() -> None:
 
 
 async def test_ablation_through_real_tools() -> None:
-    """The ablation must actually change what the tools return."""
+    """Stripping the archive notes must actually change what the tools return."""
     mcp = build_mcp()
     async with Client(mcp) as client:
         full_list = await client.call_tool("vo_archive_list", {"short_name": "nrao"})

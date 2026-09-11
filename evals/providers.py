@@ -1,13 +1,13 @@
-"""Tool providers — the three arms of the MCP-quality comparison.
+"""Tool providers — the three approaches (called `arm` in the code) of the MCP-quality comparison.
 
 Each provider exposes the same tiny interface (an async context manager giving
-`tools` + `call`), so the agent loop in harness.py is arm-agnostic:
+`tools` + `call`), so the agent loop in harness.py is approach-agnostic:
 
-  * MCPToolProvider  — the full server: all vo_* tools + KB (the thing we sell).
+  * MCPToolProvider  — the full server: all vo_* tools + archive notes (the thing we sell).
   * RawTapToolProvider — one dumb `run_adql(endpoint, adql)` tool, no curation.
   * RawWebToolProvider — one `http_get(url)` tool; the model does everything itself.
 
-Comparing full-MCP against the two raw arms quantifies the server's lift in
+Comparing full-MCP against the two raw approaches quantifies the server's lift in
 iterations / tokens / accuracy. The raw providers deliberately do NOT reuse the
 server's shaping/async/error-taxonomy — that curation is exactly what's under test.
 """
@@ -22,7 +22,7 @@ from fastmcp import Client
 from evals.harness import _anthropic_tools, _result_payload
 from manna.app import build_mcp
 
-# Raw arms cap rows/bytes crudely (a naive agent has no result-shaping); the agent
+# Raw approaches cap rows/bytes crudely (a naive agent has no result-shaping); the agent
 # loop also caps what the model sees via MAX_TOOL_RESULT_CHARS.
 _RAW_MAXREC = 2000
 _RAW_ROWS_TO_MODEL = 100
@@ -66,7 +66,7 @@ class ToolProvider:
 
 
 class MCPToolProvider(ToolProvider):
-    """The full MANNA server (arm: 'mcp')."""
+    """The full MANNA server — the 'mcp' approach (arm='mcp')."""
 
     label = "mcp"
 
@@ -97,7 +97,7 @@ class MCPToolProvider(ToolProvider):
 
 
 class RawTapToolProvider(ToolProvider):
-    """Raw TAP access, no curation (arm: 'raw_tap'). One dumb sync ADQL executor."""
+    """Raw TAP access, no curation — the 'raw_tap' approach. One dumb sync ADQL executor."""
 
     label = "raw_tap"
     tools = [
@@ -149,7 +149,7 @@ class RawTapToolProvider(ToolProvider):
 
 
 class RawWebToolProvider(ToolProvider):
-    """Raw web access, no curation (arm: 'raw_web'). One HTTP GET tool."""
+    """Raw web access, no curation — the 'raw_web' approach. One HTTP GET tool."""
 
     label = "raw_web"
     tools = [

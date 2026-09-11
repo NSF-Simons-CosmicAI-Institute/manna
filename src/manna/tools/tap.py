@@ -50,12 +50,12 @@ def _get_tap() -> TapClient:
 
 @contextmanager
 def _trap_hint(*, endpoint: str, adql: str) -> Iterator[None]:
-    """Attach curated loud-trap guidance to a rejected query's `hint`.
+    """Attach a curated error hint to a rejected query's `hint`.
 
     The error payload is the one channel the model reliably reads at failure
     time — issue #57 measured it writing LOWER() against NRAO even with the
     note served by vo_archive_list. So when the archive rejects an ADQL that
-    trips a curated loud trap, the fix rides back with the rejection.
+    trips a trap delivered as an error hint, the fix rides back with the rejection.
 
     Only DalQueryError: that means the archive UNDERSTOOD the query and refused
     it, which is when curated guidance is trustworthy. A timeout or 5xx says

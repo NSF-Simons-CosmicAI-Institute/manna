@@ -30,9 +30,9 @@ def _offline_column_fetch(monkeypatch):
     """Keep `vo_schema_describe`'s live column fetch off the network by default.
 
     The tool queries the archive's `tap_schema.columns` to return real column
-    names. Most tests care about the curated-KB half and would otherwise make a
+    names. Most tests care about the archive-notes half and would otherwise make a
     real call to NOIRLab/NRAO just by describing a table — slow, flaky, and
-    outside the vcrpy cassette path (these are KB tests, not backend tests).
+    outside the vcrpy cassette path (these are archive-notes tests, not backend tests).
 
     Stubbing the fetch to fail exercises the degrade-to-recipe path, which is the
     honest default for an offline run. A test that wants columns opts in by
