@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from astropy.table import Table
 
 from manna.errors import DalQueryError
-from manna.shaper import build_save_recipe
+from manna.results import build_save_recipe
 from manna.tools import cone as cone_tools
 from manna.tools import sia as sia_tools
 from manna.tools import tap as tap_tools
@@ -53,7 +53,7 @@ def test_success_envelopes_carry_cache_fields(monkeypatch):
 def test_tap_success_envelope_carries_load_recipe(monkeypatch):
     """vo_tap_query's inline sync path carries load_recipe (kernel-side pyvo
     transport for large row counts) — cone/sia deliberately don't (their
-    results are small discovery sets, see shaper.build_load_recipe)."""
+    results are small discovery sets, see results.build_load_recipe)."""
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeOk())
     out = tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT 1", mode="sync")
     assert set(out["load_recipe"]) == {"module", "code"}

@@ -13,7 +13,7 @@ from manna.archives._endpoints import (
 )
 from manna.backends.cone import ConeSearchClient
 from manna.errors import wrap_tool_errors
-from manna.shaper import attach_cache_fields, shape_table
+from manna.results import attach_cache_fields, shape_table
 from manna.tools._constants import _ERROR_DOCSTRING
 
 _cone: ConeSearchClient | None = None

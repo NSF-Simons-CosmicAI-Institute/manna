@@ -1,7 +1,7 @@
 from astropy.table import Table
 
 from manna.config import get_settings
-from manna.shaper import (
+from manna.results import (
     TRUNCATION_REASON_INLINE_CAP,
     TRUNCATION_REASON_MAXREC,
     is_oversize,

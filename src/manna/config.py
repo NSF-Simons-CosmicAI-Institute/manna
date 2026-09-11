@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # on budget exhaustion the tool returns a pending envelope with the job_url.
     count_async_budget_seconds: float = Field(default=15.0, gt=0)
     count_async_poll_interval_seconds: float = Field(default=1.0, gt=0)
-    # Inline response caps (shaper.py). A TAP result larger than EITHER limit
+    # Inline response caps (results.py). A TAP result larger than EITHER limit
     # is routed to an async job whose result the client fetches itself (the
     # server never holds the bytes); discovery tools (cone / SIA search)
     # truncate inline instead. Defaults are sized for small-context backends

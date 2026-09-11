@@ -7,7 +7,7 @@ from pydantic import Field
 from manna._url_guard import ensure_safe_url
 from manna.backends.registry import RegistryClient
 from manna.errors import wrap_tool_errors
-from manna.shaper import (
+from manna.results import (
     shape_registry_describe_result,
     shape_registry_search_result,
 )

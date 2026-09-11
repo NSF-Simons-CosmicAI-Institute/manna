@@ -29,7 +29,7 @@ from manna.archives._model import note_texts
 from manna.backends.cone import ConeSearchClient
 from manna.backends.sia import SiaClient
 from manna.errors import ValidationError, wrap_tool_errors
-from manna.shaper import shape_table
+from manna.results import shape_table
 from manna.tools import _select
 from manna.tools._constants import _ERROR_DOCSTRING
 from manna.tools._select import coerce_or_resolve as _coerce_or_resolve

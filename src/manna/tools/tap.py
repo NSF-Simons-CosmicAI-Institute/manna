@@ -25,7 +25,7 @@ from manna.errors import (
     ValidationError,
     wrap_tool_errors,
 )
-from manna.shaper import (
+from manna.results import (
     attach_cache_fields,
     build_load_recipe,
     is_oversize,

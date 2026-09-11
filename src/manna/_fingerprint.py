@@ -1,7 +1,7 @@
 """Stable query fingerprints for the client-side result cache.
 
 The fingerprint names the CSV a client saves a result to
-(``manna_cache/<fingerprint>.csv`` — see shaper.build_save_recipe). It must
+(``manna_cache/<fingerprint>.csv`` — see results.build_save_recipe). It must
 be stable across sessions and across incidental whitespace differences in
 the same query, and distinct for different queries/endpoints/tools.
 
