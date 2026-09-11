@@ -1,3 +1,9 @@
+"""Result handling — inline small results; link + pyvo fetch recipe for large ones.
+
+Envelopes (`shape_*`), the sync→async promotion envelope, and the
+`query_fingerprint` / `save_recipe` cache fields all live here.
+"""
+
 import json
 import math
 from datetime import datetime

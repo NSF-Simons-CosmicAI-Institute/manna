@@ -6,7 +6,7 @@ import csv
 
 import pytest
 
-from manna.shaper import attach_cache_fields, build_load_recipe, build_save_recipe
+from manna.results import attach_cache_fields, build_load_recipe, build_save_recipe
 
 NASTY_QUERY = "SELECT ra, dec FROM t WHERE name = 'M87, \"the big one\"'\n  AND x > 1"
 
