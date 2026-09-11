@@ -2,7 +2,7 @@
 
 <!-- mcp-name: io.github.NSF-Simons-CosmicAI-Institute/manna -->
 
-**MANNA** — *MCP Architecture for NOIRLab and NRAO Archives.*
+**MANNA** — *MCP Architecture for NOIRLab, NRAO, and Additional Archives.*
 
 An MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab,
 NRAO/ALMA, CADC, ESO, Gaia, …) to LLM clients.
@@ -14,23 +14,30 @@ NRAO/ALMA, CADC, ESO, Gaia, …) to LLM clients.
 
 ## Tools
 
-| Tool | Protocol | Description |
-|---|---|---|
-| `vo_archive_list` | — | List known archives with endpoint URLs and usage notes |
-| `vo_schema_describe` | — | Curated per-table schema facts (missing columns, enum values, spatial index hints) |
-| `vo_target_resolve` | Sesame | Resolve an object name (e.g. "M87", "Cygnus A") to RA/Dec coordinates |
-| `vo_tap_query` | TAP | Submit sync or async ADQL queries; returns inline or promoted results |
-| `vo_tap_status` | TAP | Poll an async job by ID |
-| `vo_tap_results` | TAP | Return a completed async job's result URL + pyvo fetch recipe (client fetches the data) |
-| `vo_tap_abort` | TAP | Abort a running async job |
-| `vo_registry_search` | RegTAP | Search the IVOA registry by keyword or service type |
-| `vo_registry_describe` | RegTAP | Describe a specific registry resource (columns, capabilities) |
-| `vo_cone_search` | SCS | Simple Cone Search for legacy SCS-only archives |
-| `vo_sia_search` | SIA 2.0 | Search for images by position and waveband (returns access URLs to fetch client-side) |
-| `vo_find_observations` | SIA 2.0 / SCS | One-call facade: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `vo_target_resolve` + `vo_archive_list` + `vo_sia_search`/`vo_cone_search` so the model doesn't have to |
-| `vo_count_observations` | TAP | Count observations/sources near a target in one call (resolve → select archive → `COUNT`) |
-| `vo_survey_target` | TAP | Survey which archives hold data for a target, with per-archive counts |
-| `vo_inspect_table` | TAP | Columns + curated enums/notes + a sample of rows for one table, in one call |
+MANNA has four layers. **Connections** call the standard IVOA interfaces
+(TAP, SIA, SCS, RegTAP, Sesame). **Shortcut tools** bundle a multi-step task into
+one call. **Result handling** returns small results inline and a link plus a
+fetch recipe for large ones. **Archive notes** are one file per archive holding
+its addresses and notes about its quirks, each note with a check that
+re-verifies it. Every tool below is tagged with the layer it belongs to.
+
+| Tool | Protocol | Layer | Description |
+|---|---|---|---|
+| `vo_archive_list` | — | Archive notes | List known archives with endpoint URLs and usage notes |
+| `vo_schema_describe` | — | Archive notes | Curated per-table schema facts (missing columns, enum values, spatial index hints) |
+| `vo_target_resolve` | Sesame | Connections | Resolve an object name (e.g. "M87", "Cygnus A") to RA/Dec coordinates |
+| `vo_tap_query` | TAP | Connections · Result handling | Submit sync or async ADQL queries; returns inline or promoted results |
+| `vo_tap_status` | TAP | Connections | Poll an async job by ID |
+| `vo_tap_results` | TAP | Connections · Result handling | Return a completed async job's result URL + pyvo fetch recipe (client fetches the data) |
+| `vo_tap_abort` | TAP | Connections | Abort a running async job |
+| `vo_registry_search` | RegTAP | Connections | Search the IVOA registry by keyword or service type |
+| `vo_registry_describe` | RegTAP | Connections · Result handling | Describe a specific registry resource (columns, capabilities) |
+| `vo_cone_search` | SCS | Connections · Result handling | Simple Cone Search for legacy SCS-only archives |
+| `vo_sia_search` | SIA 2.0 | Connections · Result handling | Search for images by position and waveband (returns access URLs to fetch client-side) |
+| `vo_find_observations` | SIA 2.0 / SCS | Shortcut tools | One-call facade: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `vo_target_resolve` + `vo_archive_list` + `vo_sia_search`/`vo_cone_search` so the model doesn't have to |
+| `vo_count_observations` | TAP | Shortcut tools | Count observations/sources near a target in one call (resolve → select archive → `COUNT`) |
+| `vo_survey_target` | TAP | Shortcut tools | Survey which archives hold data for a target, with per-archive counts |
+| `vo_inspect_table` | TAP | Shortcut tools · Archive notes | Columns + curated enums/notes + a sample of rows for one table, in one call |
 
 The recommended LLM workflow for a positional query:
 1. `vo_target_resolve` — get RA/Dec for a named object

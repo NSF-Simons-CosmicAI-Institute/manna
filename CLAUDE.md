@@ -1,9 +1,30 @@
 # MANNA — Claude Code context
 
-MANNA (MCP Architecture for NOIRLab and NRAO Archives) is an MCP server exposing
+MANNA (MCP Architecture for NOIRLab, NRAO, and Additional Archives) is an MCP server exposing
 IVOA-compliant astronomical archives (NOIRLab Astro Data Lab, NRAO/ALMA, …) to LLM
-clients. STABLE summer project (CosmicAI). Current version: 0.6.2 (stateless
-query-cache envelopes).
+clients. STABLE summer project (CosmicAI). Current version: 0.8.0 (internal
+terminology alignment; no contract changes).
+
+## Terminology
+
+The paper about MANNA uses plain-language names for its concepts. Use these in
+prose (comments, docstrings, docs); the "Code today" column is what the
+identifier is still called in the source.
+
+| Code today | Paper term | What it is |
+|---|---|---|
+| `backends/` (TapClient, SiaClient, ConeClient, RegistryClient, ResolverClient) | **Connections** | Tools that call the standard archive interfaces |
+| "facade" tools (`vo_find_observations`, `vo_count_observations`, `vo_survey_target`) | **Shortcut tools** | Bundle a multi-step task into one call |
+| `shaper.py`, "envelope", "promotion" | **Result handling** | Inline small results; link + fetch recipe for large ones |
+| `archives/<name>.py`, `Note`, "schema KB", "curated knowledge" | **Archive notes** | One file per archive: addresses, notes about quirks, a check per note |
+| `Audit` | **Check** | A live probe (or manual marker) that re-verifies a note |
+| `Trap` | **Pitfall** | A note that describes a known way queries go wrong |
+| "silent trap" (no `triggers`; injected into `vo_tap_query` description) | **Up-front note** | Delivered every turn via the tool description |
+| "loud trap" (`triggers` present; rides the error `hint`) | **Error hint** | Delivered only when a failed query matches the pattern |
+| "cheatsheet" | (keep) | The block of up-front notes injected into the description |
+| "ablation" / `condition: ablated` | **With-and-without comparison** | Tier-3 run with archive notes stripped |
+| "arm" (`mcp` / `raw_tap` / `raw_web`) | **Approach** | The three configurations compared in `mcp_quality.py` |
+| "stateless" | "keeps nothing between requests" | — |
 
 **Casing:** *MANNA* in prose; lowercase `manna` for every identifier — package,
 `python -m manna`, `src/manna`, image tags, and the MCP client alias. Never
