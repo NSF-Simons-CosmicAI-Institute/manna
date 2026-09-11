@@ -10,10 +10,10 @@ SCS_ENDPOINT = "https://gaia.ari.uni-heidelberg.de/cone/gaiadr2?"
 
 
 @pytest.mark.vcr
-async def test_vo_cone_search_via_in_memory_client(mcp_server):
+async def test_search_catalog_by_position_via_in_memory_client(mcp_server):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_cone_search",
+            "search_catalog_by_position",
             {
                 "endpoint": SCS_ENDPOINT,
                 "ra": 185.43,
@@ -39,13 +39,13 @@ class _FakeCone:
         raise self._exc
 
 
-def test_vo_cone_search_error_path(monkeypatch):
+def test_search_catalog_by_position_error_path(monkeypatch):
     monkeypatch.setattr(
         ivoa_tools,
         "_get_cone",
         lambda: _FakeCone(exc=DalQueryError(message="bad cone request")),
     )
-    out = ivoa_tools.vo_cone_search(
+    out = ivoa_tools.search_catalog_by_position(
         endpoint=SCS_ENDPOINT,
         ra=185.0,
         dec=-31.0,
@@ -62,7 +62,7 @@ class _FakeConeTable:
 
 def test_cone_envelope_carries_cache_fields(monkeypatch):
     monkeypatch.setattr(ivoa_tools, "_get_cone", lambda: _FakeConeTable())
-    out = ivoa_tools.vo_cone_search(
+    out = ivoa_tools.search_catalog_by_position(
         endpoint=SCS_ENDPOINT, ra=185.43, dec=-31.99, radius_deg=0.01, maxrec=20
     )
     identity = "ra=185.430000 dec=-31.990000 radius=0.010000"

@@ -86,7 +86,7 @@ def test_survey_aggregates_all_countable(fleet, monkeypatch):
     monkeypatch.setenv("MANNA_COUNT_ASYNC_BUDGET_SECONDS", "1")
     monkeypatch.setenv("MANNA_COUNT_ASYNC_POLL_INTERVAL_SECONDS", "1")
     try:
-        out = survey_mod.vo_survey_target(target="M87")
+        out = survey_mod.survey_archives_for_target(target="M87")
     finally:
         get_settings.cache_clear()
 
@@ -104,7 +104,7 @@ def test_survey_wavebands_filter(fleet, monkeypatch):
     monkeypatch.setattr(
         survey_mod, "_run_count", lambda **k: {"status": "ok", "count": 1, "job_url": None}
     )
-    out = survey_mod.vo_survey_target(target="M87", wavebands=["optical"])
+    out = survey_mod.survey_archives_for_target(target="M87", wavebands=["optical"])
     assert [r["archive"] for r in out["archives"]] == ["datalab"]
 
 
@@ -118,7 +118,7 @@ def test_survey_per_archive_error_isolated(fleet, monkeypatch):
 
     monkeypatch.setattr(survey_mod, "_run_count", flaky)
 
-    out = survey_mod.vo_survey_target(target="M87")
+    out = survey_mod.survey_archives_for_target(target="M87")
     by = {r["archive"]: r for r in out["archives"]}
     assert by["alma"]["status"] == "error"
     assert by["datalab"]["count"] == 5
@@ -139,7 +139,7 @@ def test_survey_non_tool_execution_error_isolated(fleet, monkeypatch):
 
     monkeypatch.setattr(survey_mod, "_run_count", flaky)
 
-    out = survey_mod.vo_survey_target(target="M87")
+    out = survey_mod.survey_archives_for_target(target="M87")
 
     # The whole call must still succeed (no top-level error_class) ...
     assert "error_class" not in out
@@ -156,15 +156,15 @@ def test_survey_unresolvable_soft_fails(fleet, monkeypatch):
     monkeypatch.setattr(
         sel, "get_resolver", lambda: type("R", (), {"resolve": lambda s, n: None})()
     )
-    out = survey_mod.vo_survey_target(target="XYZZY")
+    out = survey_mod.survey_archives_for_target(target="XYZZY")
     assert out["resolved"] is False
 
 
 def test_survey_empty_target_validation_error(fleet):
-    out = survey_mod.vo_survey_target(target="")
+    out = survey_mod.survey_archives_for_target(target="")
     assert out.get("error_class") == "validation_error"
 
 
 def test_survey_whitespace_target_validation_error(fleet):
-    out = survey_mod.vo_survey_target(target="   ")
+    out = survey_mod.survey_archives_for_target(target="   ")
     assert out.get("error_class") == "validation_error"

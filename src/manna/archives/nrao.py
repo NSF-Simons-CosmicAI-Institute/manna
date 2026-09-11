@@ -126,7 +126,7 @@ ARCHIVE = Archive(
                 ),
             ),
             # The pitfall issue #57 is named after: true, probed, and served by
-            # vo_archive_list — and the model wrote LOWER() anyway, in BOTH eval
+            # list_archives — and the model wrote LOWER() anyway, in BOTH eval
             # conditions. It throws, so the fix rides the error hint rather than
             # the description budget (an error hint: triggers decide when it fires).
             pitfall=Pitfall(
@@ -248,10 +248,10 @@ ARCHIVE = Archive(
             text=(
                 "VLA-specific extension columns beyond standard ObsCore: array "
                 "configuration (A/B/C/D + hybrids), project code, antenna count, "
-                "spectral-window setup. Inspect columns via vo_registry_describe."
+                "spectral-window setup. Inspect columns via describe_ivoa_service."
             ),
             audit=Audit.manual(
-                "General pointer to vo_registry_describe for column introspection "
+                "General pointer to describe_ivoa_service for column introspection "
                 "— already covered structurally by the obscore-extension-columns "
                 "count probe; the advisory framing itself isn't separately "
                 "falsifiable."

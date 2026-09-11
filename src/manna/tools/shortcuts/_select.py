@@ -1,6 +1,6 @@
 """Shared resolve + archive-selection helpers for the purpose-built shortcut tools.
 
-`vo_find_observations`, `vo_count_observations`, and `vo_survey_target` all
+`find_observations_of_target`, `count_observations_near_target`, and `survey_archives_for_target` all
 resolve a target to coordinates and pick an archive by a capability attribute
 (`sia_url` / `scs_url` / `count_target`), filtered by waveband or an explicit
 override. Those pure pieces live here so no shortcut tool imports another.
@@ -73,7 +73,9 @@ def no_candidate_payload(
         filt.append(f"archive={override!r}")
     filt_text = " and ".join(filt) if filt else "the given filter"
     registry_hint = (
-        f"vo_registry_search(servicetype={servicetype!r})" if servicetype else "vo_registry_search"
+        f"search_ivoa_registry(servicetype={servicetype!r})"
+        if servicetype
+        else "search_ivoa_registry"
     )
     return {
         "count": 0,

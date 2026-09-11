@@ -37,9 +37,9 @@ def test_success_envelopes_carry_cache_fields(monkeypatch):
     monkeypatch.setattr(cone_tools, "_get_cone", lambda: _FakeOk())
     monkeypatch.setattr(sia_tools, "_get_sia", lambda: _FakeOk())
     envelopes = [
-        tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT 1", mode="sync"),
-        cone_tools.vo_cone_search(endpoint=_EP, ra=1.0, dec=2.0, radius_deg=0.1),
-        sia_tools.vo_sia_search(endpoint=_EP, ra=1.0, dec=2.0, size_deg=0.1),
+        tap_tools.run_adql_query(endpoint=_EP, adql="SELECT 1", mode="sync"),
+        cone_tools.search_catalog_by_position(endpoint=_EP, ra=1.0, dec=2.0, radius_deg=0.1),
+        sia_tools.search_images_by_position(endpoint=_EP, ra=1.0, dec=2.0, size_deg=0.1),
     ]
     for env in envelopes:
         assert isinstance(env["query_fingerprint"], str)
@@ -51,11 +51,11 @@ def test_success_envelopes_carry_cache_fields(monkeypatch):
 
 
 def test_tap_success_envelope_carries_load_recipe(monkeypatch):
-    """vo_tap_query's inline sync path carries load_recipe (kernel-side pyvo
+    """run_adql_query's inline sync path carries load_recipe (kernel-side pyvo
     transport for large row counts) — cone/sia deliberately don't (their
     results are small discovery sets, see results.build_load_recipe)."""
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeOk())
-    out = tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT 1", mode="sync")
+    out = tap_tools.run_adql_query(endpoint=_EP, adql="SELECT 1", mode="sync")
     assert set(out["load_recipe"]) == {"module", "code"}
 
 
@@ -64,7 +64,7 @@ def test_tap_success_envelope_load_recipe_is_fused_with_save(monkeypatch):
     the model can skip (live runs: models ran load_recipe + plotted but
     never ran the standalone save cell). One cell does both."""
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeOk())
-    out = tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT 1", mode="sync")
+    out = tap_tools.run_adql_query(endpoint=_EP, adql="SELECT 1", mode="sync")
     code = out["load_recipe"]["code"]
     assert "manna_cache/catalog.csv" in code
     assert "csv.QUOTE_ALL" in code
@@ -77,9 +77,9 @@ def test_error_payloads_never_carry_cache_fields(monkeypatch):
     monkeypatch.setattr(cone_tools, "_get_cone", lambda: _FakeErr())
     monkeypatch.setattr(sia_tools, "_get_sia", lambda: _FakeErr())
     payloads = [
-        tap_tools.vo_tap_query(endpoint=_EP, adql="SELECT 1", mode="sync"),
-        cone_tools.vo_cone_search(endpoint=_EP, ra=1.0, dec=2.0, radius_deg=0.1),
-        sia_tools.vo_sia_search(endpoint=_EP, ra=1.0, dec=2.0, size_deg=0.1),
+        tap_tools.run_adql_query(endpoint=_EP, adql="SELECT 1", mode="sync"),
+        cone_tools.search_catalog_by_position(endpoint=_EP, ra=1.0, dec=2.0, radius_deg=0.1),
+        sia_tools.search_images_by_position(endpoint=_EP, ra=1.0, dec=2.0, size_deg=0.1),
     ]
     for p in payloads:
         assert "error_class" in p
@@ -102,12 +102,12 @@ class _FakeTapWithErrorJob:
 
 
 def test_async_results_error_payload_never_carries_cache_fields(monkeypatch):
-    """vo_tap_results on a job that ended in ERROR must surface the standard
+    """get_async_job_results on a job that ended in ERROR must surface the standard
     error envelope (error_class + retry_strategy) and must NOT carry
     query_fingerprint/save_recipe — those are attached only on the success
     path, after shape_result_url, which this path never reaches."""
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeTapWithErrorJob())
-    payload = tap_tools.vo_tap_results(job_url="https://example.org/tap/async/99")
+    payload = tap_tools.get_async_job_results(job_url="https://example.org/tap/async/99")
     assert "error_class" in payload
     assert "retry_strategy" in payload
     assert "query_fingerprint" not in payload

@@ -11,10 +11,10 @@ _SIA_EP = "https://example.org/sia"
 
 
 @pytest.mark.vcr
-async def test_vo_sia_search_via_in_memory_client(mcp_server):
+async def test_search_images_by_position_via_in_memory_client(mcp_server):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_sia_search",
+            "search_images_by_position",
             {
                 "endpoint": SIA_ENDPOINT,
                 "ra": 185.43,
@@ -38,13 +38,13 @@ class _FakeSia:
         raise self._exc
 
 
-def test_vo_sia_search_error_path(monkeypatch):
+def test_search_images_by_position_error_path(monkeypatch):
     monkeypatch.setattr(
         ivoa_tools,
         "_get_sia",
         lambda: _FakeSia(exc=ArchiveError(message="sia down")),
     )
-    out = ivoa_tools.vo_sia_search(
+    out = ivoa_tools.search_images_by_position(
         endpoint=SIA_ENDPOINT,
         ra=185.0,
         dec=-31.0,
@@ -63,15 +63,17 @@ class _FakeSiaTable:
 
 def test_sia_envelope_carries_cache_fields(monkeypatch):
     monkeypatch.setattr(ivoa_tools, "_get_sia", lambda: _FakeSiaTable())
-    out = ivoa_tools.vo_sia_search(endpoint=_SIA_EP, ra=187.7, dec=12.39, size_deg=0.1)
+    out = ivoa_tools.search_images_by_position(endpoint=_SIA_EP, ra=187.7, dec=12.39, size_deg=0.1)
     identity = "ra=187.700000 dec=12.390000 size=0.100000 band= fmt="
     assert out["query_fingerprint"] == _qfp("sia", _SIA_EP, identity)
 
 
 def test_sia_band_changes_fingerprint(monkeypatch):
     monkeypatch.setattr(ivoa_tools, "_get_sia", lambda: _FakeSiaTable())
-    plain = ivoa_tools.vo_sia_search(endpoint=_SIA_EP, ra=187.7, dec=12.39, size_deg=0.1)
-    banded = ivoa_tools.vo_sia_search(
+    plain = ivoa_tools.search_images_by_position(
+        endpoint=_SIA_EP, ra=187.7, dec=12.39, size_deg=0.1
+    )
+    banded = ivoa_tools.search_images_by_position(
         endpoint=_SIA_EP, ra=187.7, dec=12.39, size_deg=0.1, band="optical"
     )
     assert plain["query_fingerprint"] != banded["query_fingerprint"]

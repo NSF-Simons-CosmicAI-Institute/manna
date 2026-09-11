@@ -1,4 +1,4 @@
-"""End-to-end tests for vo_target_resolve through an in-memory MCP client."""
+"""End-to-end tests for resolve_target_name through an in-memory MCP client."""
 
 import pytest
 from fastmcp import Client
@@ -27,7 +27,7 @@ def patch_resolve_not_found(monkeypatch):
 @pytest.mark.asyncio
 async def test_known_object_returns_ra_dec(mcp_server, patch_resolve_found):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_target_resolve", {"name": "M87"})
+        result = await client.call_tool("resolve_target_name", {"name": "M87"})
         payload = result.structured_content
 
     assert payload["resolved"] is True
@@ -42,7 +42,7 @@ async def test_known_object_returns_ra_dec(mcp_server, patch_resolve_found):
 async def test_unknown_name_returns_resolved_false(mcp_server, patch_resolve_not_found):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_target_resolve",
+            "resolve_target_name",
             {"name": "XYZZY_NOT_A_REAL_OBJECT_99999"},
         )
         payload = result.structured_content
@@ -55,7 +55,7 @@ async def test_unknown_name_returns_resolved_false(mcp_server, patch_resolve_not
 @pytest.mark.asyncio
 async def test_empty_name_returns_validation_error(mcp_server):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_target_resolve", {"name": ""})
+        result = await client.call_tool("resolve_target_name", {"name": ""})
         payload = result.structured_content
 
     assert payload["error_class"] == "validation_error"
@@ -65,7 +65,7 @@ async def test_empty_name_returns_validation_error(mcp_server):
 @pytest.mark.asyncio
 async def test_whitespace_only_name_returns_validation_error(mcp_server):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_target_resolve", {"name": "   "})
+        result = await client.call_tool("resolve_target_name", {"name": "   "})
         payload = result.structured_content
 
     assert payload["error_class"] == "validation_error"
@@ -75,7 +75,7 @@ async def test_whitespace_only_name_returns_validation_error(mcp_server):
 async def test_name_is_stripped_before_lookup(mcp_server, patch_resolve_found):
     """Leading/trailing whitespace is stripped; the stored name is clean."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_target_resolve", {"name": "  M87  "})
+        result = await client.call_tool("resolve_target_name", {"name": "  M87  "})
         payload = result.structured_content
 
     assert payload["resolved"] is True

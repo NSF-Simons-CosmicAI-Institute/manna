@@ -25,11 +25,11 @@ class _FakeTool:
 def _tools():
     return [
         _FakeTool(
-            "vo_tap_query",
+            "run_adql_query",
             f"Run an ADQL query.\n\n{upfront_note_cheatsheet()}",
             {"type": "object"},
         ),
-        _FakeTool("vo_archive_list", "List archives.", {"type": "object"}),
+        _FakeTool("list_archives", "List archives.", {"type": "object"}),
     ]
 
 
@@ -40,12 +40,12 @@ def _desc(out, name):
 def test_default_keeps_the_server_injected_cheatsheet():
     """Default must mirror production — the harness measures what we ship."""
     out = _anthropic_tools(_tools())
-    assert "q3c_radial_query" in _desc(out, "vo_tap_query")
+    assert "q3c_radial_query" in _desc(out, "run_adql_query")
 
 
 def test_ablation_strips_the_cheatsheet_but_keeps_the_tool_guidance():
     out = _anthropic_tools(_tools(), inject_notes=False)
-    desc = _desc(out, "vo_tap_query")
+    desc = _desc(out, "run_adql_query")
     assert "q3c_radial_query" not in desc
     assert "COUNT(DISTINCT member_ous_uid)" not in desc
     # Only the blob goes — the tool's own description must survive.
@@ -54,28 +54,28 @@ def test_ablation_strips_the_cheatsheet_but_keeps_the_tool_guidance():
 
 def test_stripping_leaves_other_tools_untouched():
     out = _anthropic_tools(_tools(), inject_notes=False)
-    assert _desc(out, "vo_archive_list") == "List archives."
+    assert _desc(out, "list_archives") == "List archives."
 
 
 def test_no_discovery_withholds_the_curated_tools():
     names = {t["name"] for t in _anthropic_tools(_tools(), no_discovery=True)}
-    assert "vo_archive_list" not in names
-    assert "vo_tap_query" in names
+    assert "list_archives" not in names
+    assert "run_adql_query" in names
 
 
 def test_exclude_tools_env_withholds_named_tools(monkeypatch):
     """EVAL_EXCLUDE_TOOLS is the with/without value-add A/B seam: named tools
     are withheld from the agent's surface; everything else survives."""
-    monkeypatch.setenv("EVAL_EXCLUDE_TOOLS", "vo_archive_list, vo_missing_tool")
+    monkeypatch.setenv("EVAL_EXCLUDE_TOOLS", "list_archives, missing_tool")
     names = {t["name"] for t in _anthropic_tools(_tools())}
-    assert "vo_archive_list" not in names  # excluded
-    assert "vo_tap_query" in names  # untouched
+    assert "list_archives" not in names  # excluded
+    assert "run_adql_query" in names  # untouched
 
 
 def test_exclude_tools_unset_keeps_everything(monkeypatch):
     monkeypatch.delenv("EVAL_EXCLUDE_TOOLS", raising=False)
     names = {t["name"] for t in _anthropic_tools(_tools())}
-    assert names == {"vo_tap_query", "vo_archive_list"}
+    assert names == {"run_adql_query", "list_archives"}
 
 
 # ---------- the tier-3 with-and-without comparison must strip BOTH channels ----------

@@ -181,7 +181,7 @@ class TapClient:
                     message=(
                         "The archive no longer has this job — it was deleted or "
                         "aged out of its job store. Re-submit the query with "
-                        "vo_tap_query if you still need the result."
+                        "run_adql_query if you still need the result."
                     )
                 ) from e
             raise ArchiveError(message=str(e)) from e

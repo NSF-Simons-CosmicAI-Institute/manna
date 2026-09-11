@@ -148,12 +148,12 @@ ARCHIVE = Archive(
                 "(https://almascience.nrao.edu/sia2) for positional image "
                 "discovery. It returns the same extended-ObsCore columns as the "
                 "TAP view, so the obscore filtering knowledge applies. Use "
-                "vo_sia_search for 'what ALMA images cover this position' without "
+                "search_images_by_position for 'what ALMA images cover this position' without "
                 "writing ADQL."
             ),
             audit=Audit.manual(
                 "Service-capability description — verify by exercising "
-                "vo_sia_search, not a TAP probe."
+                "search_images_by_position, not a TAP probe."
             ),
         ),
         Note(

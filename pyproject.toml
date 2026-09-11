@@ -4,7 +4,7 @@
 # why it exists). Bare `manna` is admin-prohibited on PyPI (name-retention
 # blocklist); a release request is on file with pypi/support.
 name = "manna-mcp"
-version = "0.8.0"
+version = "0.9.0"
 description = "MANNA — MCP Architecture for NOIRLab, NRAO, and Additional Archives"
 requires-python = ">=3.12"
 readme = "README.md"

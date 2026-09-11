@@ -28,7 +28,7 @@ def _get_sia() -> SiaClient:
 
 
 @wrap_tool_errors
-def vo_sia_search(
+def search_images_by_position(
     endpoint: Annotated[
         str,
         Field(
@@ -82,7 +82,7 @@ def vo_sia_search(
     version='auto' you don't need to know which — SIA2 is tried first and
     SIA1 is used as a fallback.
 
-    For all-sky discovery first, see vo_registry_search with
+    For all-sky discovery first, see search_ivoa_registry with
     servicetype='sia'.
 
     Successful envelopes carry `query_fingerprint` + `save_recipe`; execute
@@ -110,4 +110,4 @@ def vo_sia_search(
     )
 
 
-vo_sia_search.__doc__ = (vo_sia_search.__doc__ or "") + _ERROR_DOCSTRING
+search_images_by_position.__doc__ = (search_images_by_position.__doc__ or "") + _ERROR_DOCSTRING

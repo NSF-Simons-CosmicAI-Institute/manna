@@ -149,7 +149,7 @@ def test_shape_result_url_next_steps_command_recipe_execution():
     assert "fetch_recipe.alternative" in joined
     # Last resort for clients that cannot execute code at all.
     assert "SELECT TOP" in joined
-    assert "vo_tap_query" in joined
+    assert "run_adql_query" in joined
 
 
 def test_shape_result_url_omits_alternative_step_without_result_url():

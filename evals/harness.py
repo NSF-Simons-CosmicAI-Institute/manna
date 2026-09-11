@@ -22,7 +22,7 @@ from evals.context import ablated_context, full_context
 from manna.archives._pitfalls import CHEATSHEET_HEADER
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
-# Async TAP lifecycles poll vo_tap_status repeatedly, so this must be generous.
+# Async TAP lifecycles poll get_async_job_status repeatedly, so this must be generous.
 # Defaults; the live values are read from env at run_task() call time (via _max_steps /
 # _poll_sleep) so evals/.env — loaded after import — can still override them.
 MAX_STEPS = 20
@@ -44,7 +44,7 @@ def _poll_sleep() -> float:
 
 
 # Cap the size of a single tool result fed back to the model. A large
-# vo_registry_describe / preview payload can otherwise blow the model's context
+# describe_ivoa_service / preview payload can otherwise blow the model's context
 # window in one shot. The FULL result is still recorded in the trace for scoring;
 # only what the model sees is trimmed (a real client would manage context too).
 MAX_TOOL_RESULT_CHARS = 24000
@@ -180,7 +180,7 @@ class TaskRun:
 # The hand-written cheatsheet constant that used to live here is gone: its own
 # comment said "a real server-side version would derive this from tagged notes on the
 # active archives", and issue #57 did exactly that. The server now ships the blob on
-# vo_tap_query's description by default (archives/_pitfalls.py), so the harness no longer
+# run_adql_query's description by default (archives/_pitfalls.py), so the harness no longer
 # ADDS anything — the with-and-without comparison SUBTRACTS it instead. Keeping a second copy here
 # would silently drift from what the server actually serves.
 
@@ -200,12 +200,12 @@ def strip_cheatsheet(description: str) -> str:
 # Tools that surface the server's CURATED archive knowledge. Withholding them
 # (no_discovery) forces the quirks to reach the model only via injected tool
 # descriptions or the model's own priors — the clean test for experiment (a).
-_DISCOVERY_TOOLS = {"vo_archive_list", "vo_schema_describe"}
+_DISCOVERY_TOOLS = {"list_archives", "describe_table"}
 
 # Env-driven tool-withholding seam: EVAL_EXCLUDE_TOOLS is a comma-separated list of
 # tool names withheld from the agent's tool surface for a with/without value-add
-# A/B (e.g. the purpose-built shortcut tools vo_count_observations,vo_survey_target,
-# vo_inspect_table). Read per call so a single process picks up the current env;
+# A/B (e.g. the purpose-built shortcut tools count_observations_near_target,survey_archives_for_target,
+# preview_table). Read per call so a single process picks up the current env;
 # unset/empty => nothing excluded (default = the full shipped tool set).
 _EXCLUDE_TOOLS_ENV = "EVAL_EXCLUDE_TOOLS"
 
@@ -257,11 +257,11 @@ def _anthropic_tools(
 ) -> list[dict[str, Any]]:
     """Convert FastMCP tool descriptors to Anthropic tool-use format.
 
-    - ``inject_notes``: keep the server's cheatsheet of up-front notes on vo_tap_query's
+    - ``inject_notes``: keep the server's cheatsheet of up-front notes on run_adql_query's
       description. Defaults True because that is now production behaviour; passing
       False STRIPS it, which is how experiment (a) isolates the injection's value.
-    - ``no_discovery``: withhold the curated-knowledge tools (vo_archive_list,
-      vo_schema_describe) so the model can't consult them.
+    - ``no_discovery``: withhold the curated-knowledge tools (list_archives,
+      describe_table) so the model can't consult them.
     - ``EVAL_EXCLUDE_TOOLS`` (env): additionally withhold any named tools — the
       seam for the purpose-built-tools value-add A/B (with vs without).
     """
@@ -273,7 +273,7 @@ def _anthropic_tools(
         if t.name in excluded:
             continue
         desc = t.description or ""
-        if not inject_notes and t.name == "vo_tap_query":
+        if not inject_notes and t.name == "run_adql_query":
             desc = strip_cheatsheet(desc)
         out.append(
             {
@@ -318,7 +318,7 @@ def _tool_result_content(payload: Any) -> str:
 
 def _is_nonterminal_poll(tool: str, payload: Any) -> bool:
     return (
-        tool == "vo_tap_status"
+        tool == "get_async_job_status"
         and isinstance(payload, dict)
         and str(payload.get("phase", "")).upper() in _NONTERMINAL_PHASES
     )

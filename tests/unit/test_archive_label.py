@@ -48,7 +48,7 @@ def test_module_holds_no_unbounded_request_keyed_cache():
     `_CACHE` used to memoize label-by-endpoint for the life of the process,
     with no cap and no eviction, in a server every tenant shares. Its keys came
     straight from tool arguments, so one caller could grow it without bound —
-    `vo_tap_abort` in particular swallows upstream errors and still labels the
+    `abort_async_job` in particular swallows upstream errors and still labels the
     response, so every call was a guaranteed write. It bought ~0.01us per call
     against tool calls costing 10ms-1s of network, so it is gone rather than
     merely capped.

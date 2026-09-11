@@ -213,7 +213,7 @@ def build_save_recipe(
     execution time. The embedded values use !r so the generated snippet
     stays valid Python for any query text. `maxrec` records the upstream
     row cap that was in effect (or '' when unknown, e.g. from
-    vo_tap_results) — without it, a result capped upstream catalogs as
+    get_async_job_results) — without it, a result capped upstream catalogs as
     truncated=False with no record of the cap, and a capped CSV can be
     mistaken for the full result.
 
@@ -279,7 +279,7 @@ def attach_cache_fields(
     catalog row always matches what the envelope claims — a truncated
     inline result is recorded as truncated and never mistaken for the
     full result by the client-side cache. `maxrec` is the upstream row
-    cap in effect for this query (None when unknown, e.g. vo_tap_results,
+    cap in effect for this query (None when unknown, e.g. get_async_job_results,
     where the original maxrec isn't recoverable from the job). Error
     payloads never pass through here (wrap_tool_errors short-circuits
     before shaping).
@@ -287,7 +287,7 @@ def attach_cache_fields(
     `load_recipe` (from build_load_recipe) is passed by the inline sync TAP
     paths only — it re-executes the query kernel-side so the client never
     has to paste inline rows into a cell to build `df`. When None (the
-    async vo_tap_results path, where fetch_recipe already covers loading),
+    async get_async_job_results path, where fetch_recipe already covers loading),
     no `load_recipe` key is added to the envelope.
 
     When `load_recipe` is given, its `code` is fused with the save
@@ -375,7 +375,7 @@ def shape_result_url(
             "instead — it needs only astropy."
         )
     next_steps.append(
-        "Only if you cannot execute code at all: re-run vo_tap_query with a "
+        "Only if you cannot execute code at all: re-run run_adql_query with a "
         "narrower query (SELECT TOP N, tighter WHERE, or aggregates like "
         "COUNT/GROUP BY) so the result fits inline."
     )
@@ -441,7 +441,7 @@ def _column_ucd(col) -> str | None:
 
 
 def shape_registry_search_result(services: list[dict], *, maxrec: int) -> dict:
-    """Envelope for vo_registry_search results."""
+    """Envelope for search_ivoa_registry results."""
     truncated = len(services) > maxrec
     visible = services[:maxrec] if truncated else services
     return {
@@ -487,7 +487,7 @@ def _filter_describe_tables(tables: list[dict], table_filter: str) -> list[dict]
 
 
 def shape_registry_describe_result(described: dict, *, table_filter: str | None = None) -> dict:
-    """Envelope for vo_registry_describe.
+    """Envelope for describe_ivoa_service.
 
     When `table_filter` is given, the table set is narrowed (case-insensitive
     substring over name/description) before shaping — a narrow filter yields a
@@ -568,9 +568,9 @@ def shape_registry_describe_result(described: dict, *, table_filter: str | None 
 def _describe_hint(tables_omitted: int, total_tables: int, table_filter: str | None) -> str:
     text = (
         "Per-column detail was omitted because this result exceeds the inline "
-        "budget. To get one table's columns, call vo_tap_query with ADQL like "
+        "budget. To get one table's columns, call run_adql_query with ADQL like "
         '"SELECT column_name, datatype, ucd, description FROM tap_schema.columns '
-        "WHERE table_name = '<table>'\", or try vo_schema_describe for curated tables."
+        "WHERE table_name = '<table>'\", or try describe_table for curated tables."
     )
     if tables_omitted > 0:
         text += f" {tables_omitted} table(s) were omitted from this catalog entirely."
@@ -615,14 +615,14 @@ def shape_promotion(
     phase: str,
     submitted_at: datetime,
 ) -> dict[str, Any]:
-    """Envelope returned when vo_tap_query goes async (explicit mode=async,
+    """Envelope returned when run_adql_query goes async (explicit mode=async,
     auto-mode timeout fallback, or an oversize sync result).
 
     Shape-disjoint from the inline tabular envelope: there are no rows.
     The LLM branches on the literal `mode: "async"`.
 
     The upstream `job_url` is the job's only handle — pass it back to
-    vo_tap_status / vo_tap_results / vo_tap_abort. There is deliberately no
+    get_async_job_status / get_async_job_results / abort_async_job. There is deliberately no
     server-side job id: the server holds no per-job state, so nothing in this
     process can be reached by a caller who did not submit the job.
     """
@@ -633,9 +633,9 @@ def shape_promotion(
         "submitted_at": submitted_at.isoformat(),
         "archive": archive,
         "next_steps": [
-            "Poll vo_tap_status(job_url) until phase is COMPLETED or ERROR — "
+            "Poll get_async_job_status(job_url) until phase is COMPLETED or ERROR — "
             "pass back the job_url from this response, verbatim.",
-            "When COMPLETED, call vo_tap_results(job_url) to get the "
+            "When COMPLETED, call get_async_job_results(job_url) to get the "
             "result_url and a fetch_recipe.",
             "Then execute the fetch_recipe code with your code-execution "
             "tool to load the data — do not abandon the job or re-submit "

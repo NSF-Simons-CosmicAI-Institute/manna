@@ -1,7 +1,7 @@
-"""End-to-end workflow: vo_schema_describe → vo_tap_query(async) chain.
+"""End-to-end workflow: describe_table → run_adql_query(async) chain.
 
 Simulates the LLM action:
-    1. Call vo_schema_describe to get the curated enum + async-required
+    1. Call describe_table to get the curated enum + async-required
        guidance for NRAO's obscore.
     2. Use the discovered instrument_name='GBT' value (exact case from
        the enum) in an async ADQL submit.
@@ -56,7 +56,7 @@ async def test_describe_then_async_query_with_enum_value(mcp_server, fake_tap):
     async with Client(mcp_server) as client:
         # Step 1: describe the table
         describe = await client.call_tool(
-            "vo_schema_describe",
+            "describe_table",
             {"archive": "nrao", "table": "tap_schema.obscore"},
         )
         dp = describe.structured_content
@@ -74,7 +74,7 @@ async def test_describe_then_async_query_with_enum_value(mcp_server, fake_tap):
             "CIRCLE('ICRS', 184.74, 47.30, 0.5))"
         )
         promotion = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {"endpoint": nrao_tap, "adql": adql, "mode": "async"},
         )
         prom = promotion.structured_content

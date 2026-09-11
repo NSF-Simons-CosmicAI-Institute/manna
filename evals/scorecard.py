@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from evals._common import is_manna_tool
 from evals._common import mean as _mean
 
 # Dimension weights (tunable). Composite = WORKFLOW_W*workflow + COMPAT_W*compatibility.
@@ -29,9 +30,7 @@ WORKFLOW_W, COMPAT_W = 0.5, 0.5
 
 def _dimensions(runs: list[dict[str, Any]], accuracy: float | None) -> dict[str, float]:
     n = len(runs) or 1
-    tool_use = (
-        sum(any(str(c["tool"]).startswith("vo_") for c in r.get("trace", [])) for r in runs) / n
-    )
+    tool_use = sum(any(is_manna_tool(c["tool"]) for c in r.get("trace", [])) for r in runs) / n
     completion = (
         sum(bool((r.get("final_answer") or "").strip()) and not r.get("error") for r in runs) / n
     )

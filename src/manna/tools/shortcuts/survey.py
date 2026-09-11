@@ -1,8 +1,8 @@
-"""Multi-archive availability shortcut tool: vo_survey_target.
+"""Multi-archive availability shortcut tool: survey_archives_for_target.
 
 "What data exists for this target, everywhere?" — resolves the target once,
 then fans the curated per-archive count out over every countable archive and
-aggregates the results. An aggregator over vo_count_observations' substrate;
+aggregates the results. An aggregator over count_observations_near_target' substrate;
 per-archive failures are isolated into a row status, never a hard failure.
 """
 
@@ -18,7 +18,7 @@ from manna.tools.shortcuts.count import _run_count
 
 
 @wrap_tool_errors
-def vo_survey_target(
+def survey_archives_for_target(
     target: Annotated[
         str,
         Field(
@@ -50,7 +50,7 @@ def vo_survey_target(
     error} is always explicit — never a silent zero. A `summary` block totals
     archives_with_data / wavebands / pending / errors. Soft-fails (no
     error_class) on an unresolvable target. For a single archive with finer
-    control, drop to vo_count_observations or vo_tap_query.
+    control, drop to count_observations_near_target or run_adql_query.
     """
     target_clean = target.strip()
     if not target_clean:
@@ -94,8 +94,8 @@ def vo_survey_target(
                     job_url=res["job_url"],
                     next_steps=(
                         f"The count is running async as job_url='{res['job_url']}'. Poll "
-                        f"vo_tap_status(job_url='{res['job_url']}') until phase=COMPLETED, "
-                        f"then vo_tap_results(job_url='{res['job_url']}') for the single "
+                        f"get_async_job_status(job_url='{res['job_url']}') until phase=COMPLETED, "
+                        f"then get_async_job_results(job_url='{res['job_url']}') for the single "
                         f"count row. Pass the job_url back verbatim — it is the job's only "
                         f"handle."
                     ),
@@ -132,4 +132,4 @@ def vo_survey_target(
     }
 
 
-vo_survey_target.__doc__ = (vo_survey_target.__doc__ or "") + _ERROR_DOCSTRING
+survey_archives_for_target.__doc__ = (survey_archives_for_target.__doc__ or "") + _ERROR_DOCSTRING

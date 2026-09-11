@@ -27,7 +27,7 @@ def mcp_server():
 
 @pytest.fixture(autouse=True)
 def _offline_column_fetch(monkeypatch):
-    """Keep `vo_schema_describe`'s live column fetch off the network by default.
+    """Keep `describe_table`'s live column fetch off the network by default.
 
     The tool queries the archive's `tap_schema.columns` to return real column
     names. Most tests care about the archive-notes half and would otherwise make a

@@ -68,7 +68,7 @@ def test_job_store_module_is_gone():
 async def test_promotion_envelope_carries_job_url_and_no_job_id(mcp_server, fake_tap):
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://almascience.eso.org/tap",
                 "adql": "SELECT 1",
@@ -92,7 +92,7 @@ async def test_next_steps_reference_job_url(mcp_server, fake_tap):
     """
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": "https://almascience.eso.org/tap",
                 "adql": "SELECT 1",
@@ -108,7 +108,7 @@ async def test_next_steps_reference_job_url(mcp_server, fake_tap):
 @pytest.mark.asyncio
 async def test_status_takes_a_job_url(mcp_server, fake_tap):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_status", {"job_url": ALMA_JOB_URL})
+        result = await client.call_tool("get_async_job_status", {"job_url": ALMA_JOB_URL})
         payload = result.structured_content
 
     assert payload["phase"] == "COMPLETED"
@@ -120,7 +120,7 @@ async def test_status_takes_a_job_url(mcp_server, fake_tap):
 @pytest.mark.asyncio
 async def test_results_takes_a_job_url(mcp_server, fake_tap):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_results", {"job_url": ALMA_JOB_URL})
+        result = await client.call_tool("get_async_job_results", {"job_url": ALMA_JOB_URL})
         payload = result.structured_content
 
     assert payload["job_url"] == ALMA_JOB_URL
@@ -131,7 +131,7 @@ async def test_results_takes_a_job_url(mcp_server, fake_tap):
 @pytest.mark.asyncio
 async def test_abort_takes_a_job_url(mcp_server, fake_tap):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_tap_abort", {"job_url": ALMA_JOB_URL})
+        result = await client.call_tool("abort_async_job", {"job_url": ALMA_JOB_URL})
         payload = result.structured_content
 
     assert payload["phase"] == "ABORTED"
@@ -139,7 +139,9 @@ async def test_abort_takes_a_job_url(mcp_server, fake_tap):
     assert fake_tap.aborted == [ALMA_JOB_URL]
 
 
-@pytest.mark.parametrize("tool", ["vo_tap_status", "vo_tap_results", "vo_tap_abort"])
+@pytest.mark.parametrize(
+    "tool", ["get_async_job_status", "get_async_job_results", "abort_async_job"]
+)
 @pytest.mark.asyncio
 async def test_job_url_is_ssrf_guarded(mcp_server, fake_tap, tool):
     """job_url is user-supplied and gets fetched — and abort sends DELETE.

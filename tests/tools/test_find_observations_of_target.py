@@ -1,8 +1,8 @@
-"""Tests for vo_find_observations — the purpose-driven orchestration shortcut tool.
+"""Tests for find_observations_of_target — the purpose-driven orchestration shortcut tool.
 
 This tool absorbs the resolve -> select-archive -> search chain into one call.
 It is a thin shortcut tool over the SAME backends the atomic tools use; the atomic
-tools (vo_target_resolve / vo_archive_list / vo_sia_search / vo_cone_search)
+tools (resolve_target_name / list_archives / search_images_by_position / search_catalog_by_position)
 stay the precision escape hatch.
 """
 
@@ -91,7 +91,7 @@ def test_explicit_coords_skip_the_resolver(two_radio_and_optical, monkeypatch):
     monkeypatch.setattr(sel, "get_resolver", lambda: resolver)
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
-    out = find_mod.vo_find_observations(target="187.7 12.4", service="image")
+    out = find_mod.find_observations_of_target(target="187.7 12.4", service="image")
 
     assert resolver.calls == []  # never resolved a literal coordinate pair
     assert sia.calls[0]["ra"] == pytest.approx(187.7)
@@ -104,7 +104,7 @@ def test_comma_separated_coords_are_accepted(two_radio_and_optical, monkeypatch)
     sia = _FakeSearch()
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
-    find_mod.vo_find_observations(target="187.7, 12.4", service="image")
+    find_mod.find_observations_of_target(target="187.7, 12.4", service="image")
 
     assert sia.calls[0]["ra"] == pytest.approx(187.7)
     assert sia.calls[0]["dec"] == pytest.approx(12.4)
@@ -116,7 +116,7 @@ def test_name_is_resolved_via_sesame(two_radio_and_optical, monkeypatch):
     monkeypatch.setattr(sel, "get_resolver", lambda: resolver)
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
-    out = find_mod.vo_find_observations(target="M87", service="image")
+    out = find_mod.find_observations_of_target(target="M87", service="image")
 
     assert resolver.calls == ["M87"]
     assert sia.calls[0]["ra"] == pytest.approx(187.70593)
@@ -128,7 +128,7 @@ def test_unresolvable_name_soft_fails(two_radio_and_optical, monkeypatch):
     # search backend must never be reached
     monkeypatch.setattr(find_mod, "_get_sia", lambda: _FakeSearch())
 
-    out = find_mod.vo_find_observations(target="XYZZY_NOPE", service="image")
+    out = find_mod.find_observations_of_target(target="XYZZY_NOPE", service="image")
 
     assert out["resolved"] is False
     assert out["target"] == "XYZZY_NOPE"
@@ -136,7 +136,7 @@ def test_unresolvable_name_soft_fails(two_radio_and_optical, monkeypatch):
 
 
 def test_empty_target_is_a_validation_error(two_radio_and_optical):
-    out = find_mod.vo_find_observations(target="   ", service="image")
+    out = find_mod.find_observations_of_target(target="   ", service="image")
     assert out["error_class"] == "validation_error"
     assert out["retry_strategy"] == "fix_and_retry"
 
@@ -149,7 +149,7 @@ def test_waveband_picks_the_highest_priority_matching_archive(two_radio_and_opti
     monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
-    out = find_mod.vo_find_observations(target="Src", service="image", waveband="radio")
+    out = find_mod.find_observations_of_target(target="Src", service="image", waveband="radio")
 
     assert out["plan"]["chosen_archive"] == "radio_a"  # priority 1 beats radio_b
     assert sia.calls[0]["endpoint"] == "http://radio-a/sia"
@@ -161,7 +161,7 @@ def test_archive_override_wins_over_waveband(two_radio_and_optical, monkeypatch)
     monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
-    out = find_mod.vo_find_observations(target="Src", service="image", archive="radio_b")
+    out = find_mod.find_observations_of_target(target="Src", service="image", archive="radio_b")
 
     assert out["plan"]["chosen_archive"] == "radio_b"
     assert sia.calls[0]["endpoint"] == "http://radio-b/sia"
@@ -172,7 +172,7 @@ def test_catalog_service_uses_the_cone_backend_and_scs_url(two_radio_and_optical
     monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_cone", lambda: cone)
 
-    out = find_mod.vo_find_observations(target="Src", service="catalog", waveband="optical")
+    out = find_mod.find_observations_of_target(target="Src", service="catalog", waveband="optical")
 
     assert out["plan"]["chosen_archive"] == "opt"
     assert cone.calls[0]["endpoint"] == "http://opt/scs"
@@ -182,7 +182,7 @@ def test_catalog_service_uses_the_cone_backend_and_scs_url(two_radio_and_optical
 def test_no_matching_archive_returns_a_recovery_hint(two_radio_and_optical, monkeypatch):
     monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     # image service + a waveband that only has a catalog archive => no candidate
-    out = find_mod.vo_find_observations(target="Src", service="image", waveband="optical")
+    out = find_mod.find_observations_of_target(target="Src", service="image", waveband="optical")
 
     assert out["count"] == 0
     assert "hint" in out
@@ -195,7 +195,7 @@ def test_plan_block_surfaces_chosen_archive_usage_notes(two_radio_and_optical, m
     monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: _FakeSearch())
 
-    out = find_mod.vo_find_observations(target="Src", service="image", waveband="radio")
+    out = find_mod.find_observations_of_target(target="Src", service="image", waveband="radio")
 
     assert out["plan"]["usage_notes"] == ["radio_a: async only for obscore"]
     assert out["plan"]["service"] == "image"
@@ -205,7 +205,7 @@ def test_result_uses_shape_table_envelope(two_radio_and_optical, monkeypatch):
     monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: _FakeSearch())
 
-    out = find_mod.vo_find_observations(target="Src", service="image", waveband="radio")
+    out = find_mod.find_observations_of_target(target="Src", service="image", waveband="radio")
 
     # shape_table's contract: typed columns, row arrays, explicit truncated bool
     assert out["truncated"] is False
@@ -219,7 +219,7 @@ def test_radius_and_maxrec_are_threaded_to_the_backend(two_radio_and_optical, mo
     monkeypatch.setattr(sel, "get_resolver", lambda: _FakeResolver((1.0, 2.0)))
     monkeypatch.setattr(find_mod, "_get_sia", lambda: sia)
 
-    find_mod.vo_find_observations(
+    find_mod.find_observations_of_target(
         target="Src", service="image", waveband="radio", radius_deg=0.25, maxrec=7
     )
 
@@ -241,7 +241,7 @@ async def test_tool_is_registered_and_callable(mcp_server, monkeypatch):
     )
     async with Client(mcp_server) as client:
         result = await client.call_tool(
-            "vo_find_observations",
+            "find_observations_of_target",
             {"target": "M87", "service": "image", "waveband": "radio"},
         )
     payload = result.structured_content

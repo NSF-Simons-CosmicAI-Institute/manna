@@ -31,8 +31,8 @@ can be added or removed like a plugin, per deployment.
   (`MANNA_ARCHIVES` allowlist from a shared image).
 - **Absence ≠ inaccessible.** Dropping an archive removes the server's *claims*
   about it (usage_notes, schema quirks, endpoint examples, cosmetic label),
-  never its reachability — it's still reachable via `vo_registry_search` →
-  `vo_registry_describe` → `vo_tap_query`.
+  never its reachability — it's still reachable via `search_ivoa_registry` →
+  `describe_ivoa_service` → `run_adql_query`.
 - Preserve the existing tool contracts and public symbols (`KNOWN_ARCHIVES`,
   `SCHEMA_KB`, `Archive`, `Schema`, the helpers). This is an internal
   reorganization, not an API change.
@@ -97,7 +97,7 @@ class Archive:
 ```
 
 `Schema.archive` is redundant with the owning `Archive.short_name`, but kept: it
-is part of the `vo_schema_describe` response contract and lets `cross_refs` name
+is part of the `describe_table` response contract and lets `cross_refs` name
 tables as `(archive, table)`. `Archive.__post_init__` enforces the match at
 construction, so a hand-built archive can't drift.
 
@@ -166,11 +166,11 @@ deleted. Both helpers resolve from the active archive set at call time, so they
 honor a mid-process re-selection. Consumers of the derived helpers:
 
 - `_archive_label._STATIC_MAP` — from `host_substring_to_short_name()`.
-- `tools/archives.py::vo_archive_list` — iterates `active_archives()`; drops the
+- `tools/archives.py::list_archives` — iterates `active_archives()`; drops the
   internal `schemas` / `priority` from its envelope (served by
-  `vo_schema_describe` / used only for ordering).
+  `describe_table` / used only for ordering).
 - `tools/{tap,sia,cone}.py` — `*_endpoint_description()` / `*_endpoint_urls()`.
-- `tools/schema.py::vo_schema_describe` — `lookup_schema()`.
+- `tools/schema.py::describe_table` — `lookup_schema()`.
 
 ## 4. Deployment selection
 
@@ -196,8 +196,8 @@ reachability:
 
 | Removed with the archive                       | Still works without it |
 |------------------------------------------------|------------------------|
-| `usage_notes` in `vo_archive_list`             | `vo_tap_query` to any URL |
-| `Schema` quirks in `vo_schema_describe`        | `vo_registry_describe` live introspection |
+| `usage_notes` in `list_archives`             | `run_adql_query` to any URL |
+| `Schema` quirks in `describe_table`        | `describe_ivoa_service` live introspection |
 | Endpoint examples in TAP/SIA/SCS tool schemas  | passing the URL explicitly |
 | Cosmetic `archive` label on envelopes          | hostname-derived label (`_label_from_host`) |
 
@@ -250,15 +250,15 @@ diff to a single file.
 - **Implemented.** A `Note` may also carry a `Pitfall`, which says how the claim is
   *delivered* — because the eval showed reachable knowledge isn't used knowledge
   (issue #57: the NRAO LOWER/UPPER note was true, probed and served by
-  `vo_archive_list`, and the model wrote `LOWER()` anyway). A `Pitfall` without
+  `list_archives`, and the model wrote `LOWER()` anyway). A `Pitfall` without
   `triggers` is an *up-front note* (`channel == "upfront"`; called *silent* in
   older code): the model gets no
   usable correction signal (no error at all, or one too cryptic to act on), so the
   `guidance` is pushed up-front — `archives/_pitfalls.py`
   derives a cheatsheet from the ACTIVE set and `build_mcp()` appends it to
-  `vo_tap_query`'s description. That channel is re-sent every turn, so it is
+  `run_adql_query`'s description. That channel is re-sent every turn, so it is
   capped at `CHEATSHEET_TOKEN_BUDGET` (200): if a new pitfall doesn't fit, write
-  terser `guidance` rather than raise the ceiling, and remember `vo_archive_list`
+  terser `guidance` rather than raise the ceiling, and remember `list_archives`
   is still the place for everything that isn't a pitfall. A `Pitfall` with `triggers`
   is an *error hint* (`channel == "error_hint"`; called *loud* in older code): the query throws and the
   triggers spot the cause in the submitted ADQL, so the `guidance` rides the error

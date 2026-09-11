@@ -57,7 +57,7 @@ def test_unknown_match_policy_is_rejected():
 
 def _run(*adqls) -> TaskRun:
     r = TaskRun("t", 3, "full", "m")
-    r.trace = [ToolCall("vo_tap_query", {"adql": a}, {}, False) for a in adqls]
+    r.trace = [ToolCall("run_adql_query", {"adql": a}, {}, False) for a in adqls]
     r.final_answer = "done"
     return r
 
@@ -72,13 +72,13 @@ def test_recovery_task_scores_the_hint_channel():
         "SELECT TOP 10 * FROM tap_schema.obscore WHERE LOWER(target_name) = 'm87'",
         "SELECT TOP 10 * FROM tap_schema.obscore WHERE target_name = 'M87'",
     )
-    assert score_programmatic(task, recovered).checks["args:vo_tap_query"] is True
+    assert score_programmatic(task, recovered).checks["args:run_adql_query"] is True
 
     stuck = _run(
         "SELECT TOP 10 * FROM tap_schema.obscore WHERE LOWER(target_name) = 'm87'",
         "SELECT TOP 10 * FROM tap_schema.obscore WHERE LOWER(target_name) LIKE '%m87%'",
     )
-    assert score_programmatic(task, stuck).checks["args:vo_tap_query"] is False
+    assert score_programmatic(task, stuck).checks["args:run_adql_query"] is False
 
 
 def test_prevention_task_still_demands_never_tripping_it():
@@ -90,4 +90,4 @@ def test_prevention_task_still_demands_never_tripping_it():
         "SELECT TOP 10 * FROM tap_schema.obscore WHERE LOWER(target_name) = 'm87'",
         "SELECT TOP 10 * FROM tap_schema.obscore WHERE target_name = 'M87'",
     )
-    assert score_programmatic(task, recovered).checks["args:vo_tap_query"] is False
+    assert score_programmatic(task, recovered).checks["args:run_adql_query"] is False

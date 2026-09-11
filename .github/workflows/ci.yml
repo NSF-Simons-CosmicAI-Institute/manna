@@ -62,7 +62,7 @@ jobs:
           npx -y @modelcontextprotocol/inspector \
             --cli http://localhost:8000/mcp --method tools/list \
             | tee inspector.json
-          grep -q '"name": "vo_tap_query"' inspector.json
+          grep -q '"name": "run_adql_query"' inspector.json
       - name: Stop container
         if: always()
         run: docker stop manna-ci || true

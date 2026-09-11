@@ -28,7 +28,7 @@ def clear_archive_caches():
     get_active_archives.cache_clear()
 
 
-# ---------- up-front notes -> vo_tap_query description ----------
+# ---------- up-front notes -> run_adql_query description ----------
 
 
 def test_cheatsheet_covers_the_tagged_silent_pitfalls():
@@ -48,7 +48,7 @@ def test_cheatsheet_stays_within_the_token_budget():
 
 
 def test_cheatsheet_keys_each_line_to_the_tap_host():
-    """The model joins on the `endpoint` it passes to vo_tap_query. NRAO's
+    """The model joins on the `endpoint` it passes to run_adql_query. NRAO's
     host_substrings[0] is 'data.nrao', which never appears in its TAP endpoint
     'data-query.nrao.edu' — keying on that would point at the wrong archive."""
     lines = {line.split(" (")[0]: line for line in upfront_note_cheatsheet().splitlines()[1:]}

@@ -34,10 +34,10 @@ ARCHIVE = Archive(
             id="ivoa-registered",
             text=(
                 "Data Lab is fully registered in the IVOA registry under "
-                "`ivo://noirlab.edu/...` — vo_registry_search and vo_registry_describe "
+                "`ivo://noirlab.edu/...` — search_ivoa_registry and describe_ivoa_service "
                 "both work normally."
             ),
-            audit=Audit.manual("Registry-presence claim — verify via vo_registry_search."),
+            audit=Audit.manual("Registry-presence claim — verify via search_ivoa_registry."),
         ),
         Note(
             id="schema-object-convention",
@@ -142,7 +142,7 @@ ARCHIVE = Archive(
             text=(
                 "Image access is SIA 1.0 (not SIA2), exposed per survey/image-type: "
                 "/sia/coadd_all (all coadds), or /sia/coadd/ls_dr9, /sia/coadd/des_dr1, "
-                "/sia/calibrated/smash_dr2. vo_sia_search drives these via its SIA1 fallback "
+                "/sia/calibrated/smash_dr2. search_images_by_position drives these via its SIA1 fallback "
                 "(version='auto'). Returned access_url values are on-the-fly cutout links "
                 "you fetch client-side."
             ),
@@ -151,7 +151,7 @@ ARCHIVE = Archive(
         Note(
             id="cone-returns-all-columns",
             text=(
-                "vo_cone_search works (e.g. /scs/nsc_dr2/object) but SCS returns EVERY column "
+                "search_catalog_by_position works (e.g. /scs/nsc_dr2/object) but SCS returns EVERY column "
                 "of these very wide tables. When you need only a few columns, prefer a TAP "
                 "query with an explicit column list plus a q3c_radial_query filter."
             ),

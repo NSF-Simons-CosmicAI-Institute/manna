@@ -52,7 +52,7 @@ class ArchiveError(ToolExecutionError):
 class TimeoutArchiveError(ArchiveError):
     """A sync request that exceeded the client timeout.
 
-    Distinct Python type so vo_tap_query's auto-promote path can branch on
+    Distinct Python type so run_adql_query's auto-promote path can branch on
     the failure mode directly, instead of substring-matching the error
     message. The wire contract is unchanged: error_class stays
     'archive_error' and a sync-mode caller sees an ordinary archive_error.
@@ -71,10 +71,10 @@ TapQueryError = DalQueryError
 
 @dataclass
 class JobNotReadyError(ToolExecutionError):
-    """Raised by vo_tap_results when the job exists but hasn't finished yet.
+    """Raised by get_async_job_results when the job exists but hasn't finished yet.
 
-    The retry_strategy "poll" tells the LLM to call vo_tap_status in a
-    loop instead of retrying vo_tap_results immediately.
+    The retry_strategy "poll" tells the LLM to call get_async_job_status in a
+    loop instead of retrying get_async_job_results immediately.
     """
 
     error_class: str = "job_not_ready"

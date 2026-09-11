@@ -1,10 +1,10 @@
 """Contract tests for pitfall delivery (issue #57).
 
 Knowledge the model *can* reach is not knowledge it *uses*: the NRAO LOWER/UPPER
-note was true, live-probed and served by vo_archive_list, and the model still
+note was true, live-probed and served by list_archives, and the model still
 wrote LOWER() in both eval conditions. These pin the two push channels:
 
-- up-front notes -> appended to the registered vo_tap_query description
+- up-front notes -> appended to the registered run_adql_query description
 - error hints   -> the error payload's `hint`, next to error_class/retry_strategy
 """
 
@@ -25,7 +25,7 @@ async def _tap_description() -> str:
     that proves the injection survived registration."""
     async with Client(build_mcp()) as client:
         tools = await client.list_tools()
-    return next(t.description or "" for t in tools if t.name == "vo_tap_query")
+    return next(t.description or "" for t in tools if t.name == "run_adql_query")
 
 
 # ---------- channel 1: description injection ----------
@@ -51,7 +51,7 @@ async def test_injection_appends_and_does_not_replace_the_docstring():
 async def test_cheatsheet_is_a_small_share_of_the_description():
     """Guardrail on the expensive channel: the injected blob must stay within
     budget as a *registered* description, not just in isolation."""
-    base = tap_tool.vo_tap_query.__doc__ or ""
+    base = tap_tool.run_adql_query.__doc__ or ""
     injected = len(await _tap_description()) - len(base)
     assert 0 < estimate_tokens("x" * injected) <= CHEATSHEET_TOKEN_BUDGET
 
@@ -70,7 +70,7 @@ def test_rejected_lower_query_against_nrao_gets_the_curated_hint(monkeypatch):
         tap_tool, "_get_tap", lambda: type("C", (), {"query": staticmethod(_boom)})()
     )
 
-    payload = tap_tool.vo_tap_query(endpoint=NRAO, adql=LOWER_ADQL, mode="sync")
+    payload = tap_tool.run_adql_query(endpoint=NRAO, adql=LOWER_ADQL, mode="sync")
 
     assert payload["error_class"] == "tap_query_error"
     assert payload["retry_strategy"] == "fix_and_retry"
@@ -93,7 +93,7 @@ def test_hint_rides_every_mode(monkeypatch):
     )
 
     for mode in ("sync", "auto", "async"):
-        payload = tap_tool.vo_tap_query(endpoint=NRAO, adql=LOWER_ADQL, mode=mode)
+        payload = tap_tool.run_adql_query(endpoint=NRAO, adql=LOWER_ADQL, mode=mode)
         assert "LOWER()" in payload.get("hint", ""), f"mode={mode} lost the hint"
 
 
@@ -107,7 +107,7 @@ def test_clean_adql_gets_no_hint(monkeypatch):
         tap_tool, "_get_tap", lambda: type("C", (), {"query": staticmethod(_boom)})()
     )
 
-    payload = tap_tool.vo_tap_query(
+    payload = tap_tool.run_adql_query(
         endpoint=NRAO, adql="SELECT TOP 1 * FROM tap_schema.obscore", mode="sync"
     )
     assert "hint" not in payload
@@ -124,7 +124,7 @@ def test_timeout_gets_no_hint(monkeypatch):
         tap_tool, "_get_tap", lambda: type("C", (), {"query": staticmethod(_boom)})()
     )
 
-    payload = tap_tool.vo_tap_query(endpoint=NRAO, adql=LOWER_ADQL, mode="sync")
+    payload = tap_tool.run_adql_query(endpoint=NRAO, adql=LOWER_ADQL, mode="sync")
     assert payload["error_class"] == "archive_error"
     assert "hint" not in payload
 
@@ -137,7 +137,7 @@ def test_existing_hint_is_never_overwritten(monkeypatch):
         tap_tool, "_get_tap", lambda: type("C", (), {"query": staticmethod(_boom)})()
     )
 
-    payload = tap_tool.vo_tap_query(endpoint=NRAO, adql=LOWER_ADQL, mode="sync")
+    payload = tap_tool.run_adql_query(endpoint=NRAO, adql=LOWER_ADQL, mode="sync")
     assert payload["hint"] == "upstream hint wins"
 
 

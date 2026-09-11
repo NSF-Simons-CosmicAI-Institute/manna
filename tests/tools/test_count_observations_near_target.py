@@ -80,7 +80,7 @@ def test_sync_count_returns_integer(one_optical, monkeypatch):
         sel, "get_resolver", lambda: type("R", (), {"resolve": lambda s, n: (187.7, 12.4)})()
     )
 
-    out = count_mod.vo_count_observations(target="M87", waveband="optical")
+    out = count_mod.count_observations_near_target(target="M87", waveband="optical")
 
     assert out["count"] == 842
     assert out["status"] == "ok"
@@ -97,7 +97,7 @@ def test_literal_coords_skip_resolver(one_optical, monkeypatch):
         "get_resolver",
         lambda: type("R", (), {"resolve": lambda s, n: (_ for _ in ()).throw(AssertionError())})(),
     )
-    out = count_mod.vo_count_observations(target="187.7 12.4", waveband="optical")
+    out = count_mod.count_observations_near_target(target="187.7 12.4", waveband="optical")
     assert out["count"] == 5
 
 
@@ -106,7 +106,7 @@ def test_unresolvable_soft_fails(one_optical, monkeypatch):
     monkeypatch.setattr(
         sel, "get_resolver", lambda: type("R", (), {"resolve": lambda s, n: None})()
     )
-    out = count_mod.vo_count_observations(target="XYZZY", waveband="optical")
+    out = count_mod.count_observations_near_target(target="XYZZY", waveband="optical")
     assert out["resolved"] is False
 
 
@@ -115,7 +115,7 @@ def test_no_countable_archive_soft_fails(monkeypatch):
     monkeypatch.setattr(
         sel, "get_resolver", lambda: type("R", (), {"resolve": lambda s, n: (1.0, 2.0)})()
     )
-    out = count_mod.vo_count_observations(target="M87")
+    out = count_mod.count_observations_near_target(target="M87")
     assert out["count"] == 0
     assert "hint" in out
 
@@ -133,7 +133,7 @@ def test_async_completes_within_budget(monkeypatch):
     monkeypatch.setattr(count_mod, "_get_tap", lambda: tap)
     monkeypatch.setattr(count_mod, "_sleep", lambda s: None)
 
-    out = count_mod.vo_count_observations(target="200.0 20.0", waveband="radio")
+    out = count_mod.count_observations_near_target(target="200.0 20.0", waveband="radio")
     assert out["count"] == 17
     assert tap.submitted  # went async
 
@@ -147,7 +147,7 @@ def _uws_error(message):
 
 def test_async_error_phase_maps_to_tap_query_error(monkeypatch):
     """ERROR must surface as tap_query_error/fix_and_retry carrying the
-    upstream UWS errorSummary message — mirroring vo_tap_results' mapping
+    upstream UWS errorSummary message — mirroring get_async_job_results' mapping
     in tools/tap.py — not a generic archive_error/wait_and_retry that tells
     the model to sleep and re-issue a doomed query.
     """
@@ -165,7 +165,7 @@ def test_async_error_phase_maps_to_tap_query_error(monkeypatch):
     monkeypatch.setattr(count_mod, "_get_tap", lambda: tap)
     monkeypatch.setattr(count_mod, "_sleep", lambda s: None)
 
-    out = count_mod.vo_count_observations(target="200.0 20.0", waveband="radio")
+    out = count_mod.count_observations_near_target(target="200.0 20.0", waveband="radio")
 
     assert out["error_class"] == "tap_query_error"
     assert out["retry_strategy"] == "fix_and_retry"
@@ -189,7 +189,7 @@ def test_async_aborted_phase_maps_to_validation_error(monkeypatch):
     monkeypatch.setattr(count_mod, "_get_tap", lambda: tap)
     monkeypatch.setattr(count_mod, "_sleep", lambda s: None)
 
-    out = count_mod.vo_count_observations(target="200.0 20.0", waveband="radio")
+    out = count_mod.count_observations_near_target(target="200.0 20.0", waveband="radio")
 
     assert out["error_class"] == "validation_error"
     assert out["retry_strategy"] == "abandon"
@@ -213,7 +213,7 @@ def test_async_budget_exhausted_returns_pending(monkeypatch):
     get_settings.cache_clear()
     monkeypatch.setenv("MANNA_COUNT_ASYNC_BUDGET_SECONDS", "2")
     try:
-        out = count_mod.vo_count_observations(target="200.0 20.0", waveband="radio")
+        out = count_mod.count_observations_near_target(target="200.0 20.0", waveband="radio")
         assert out["status"] == "pending"
         assert out["count"] is None
         assert out["job_url"].startswith("http")
