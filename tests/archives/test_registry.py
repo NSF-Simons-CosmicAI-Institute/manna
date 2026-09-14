@@ -99,13 +99,14 @@ def test_every_cross_ref_resolves_within_the_full_set():
 # ---------- construction / validation catches developer errors ----------
 
 
-def _archive(short_name, *, schemas=(), priority=100):
+def _archive(short_name, *, schemas=(), priority=100, paused=None):
     return Archive(
         short_name=short_name,
         display_name=short_name,
         host_substrings=(),
         schemas=schemas,
         priority=priority,
+        paused=paused,
     )
 
 
@@ -132,6 +133,39 @@ def test_validate_rejects_duplicate_table_pairs():
     )
     with pytest.raises(ValueError, match="Duplicate Schema entry"):
         _select.validate_archives((dupe,))
+
+
+def test_archive_rejects_empty_paused_reason():
+    with pytest.raises(ValueError, match="paused"):
+        _archive("x", paused="")
+
+
+# ---------- paused archives (pure) ----------
+
+
+def test_select_none_drops_paused_archives_and_logs_why(caplog):
+    caplog.set_level("INFO", logger="manna.archives._select")
+    live = _archive("live")
+    halted = _archive("halted", paused="TAP rebuild in progress (2026-09)")
+    selected = _select.select_archives((live, halted), allow=None)
+    assert [a.short_name for a in selected] == ["live"]
+    assert "halted" in caplog.text
+    assert "TAP rebuild in progress" in caplog.text
+    assert "MANNA_ARCHIVES" in caplog.text
+
+
+def test_select_explicit_name_activates_a_paused_archive():
+    live = _archive("live")
+    halted = _archive("halted", paused="TAP rebuild in progress (2026-09)")
+    selected = _select.select_archives((live, halted), allow=frozenset({"halted"}))
+    assert [a.short_name for a in selected] == ["halted"]
+
+
+def test_select_explicit_list_keeps_paused_and_unpaused_together():
+    live = _archive("live", priority=1)
+    halted = _archive("halted", paused="reason", priority=2)
+    selected = _select.select_archives((live, halted), allow=frozenset({"live", "halted"}))
+    assert [a.short_name for a in selected] == ["live", "halted"]
 
 
 # ---------- parse_allow (pure) ----------

@@ -154,6 +154,12 @@ class Archive:
       replacement for the old "declaration order is load-bearing" convention:
       the first TAP-having archives become the endpoint examples shown to the
       LLM, so lower numbers are the archives we steer toward.
+    - `paused` — None (default) or a dated, one-sentence reason. Non-None means
+      the archive ships and is discoverable but is left OUT of the default
+      active set; the reason is logged at boot. Naming the archive in
+      `MANNA_ARCHIVES` activates it regardless — pausing is a default, not a
+      lock. Use it when an archive's service is being rebuilt or asks for
+      less traffic, and you want to keep its notes for when it returns.
 
     An archive is discovered by the registry (see `archives/__init__.py`) as
     the module-level `ARCHIVE` in an `archives/<short_name>.py` file. Dropping
@@ -175,9 +181,14 @@ class Archive:
     schemas: tuple[Schema, ...] = field(default_factory=tuple)
     count_target: CountTarget | None = None
     priority: int = 100
+    paused: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "usage_notes", _normalize_notes(self.usage_notes))
+        if self.paused is not None and not self.paused.strip():
+            raise ValueError(
+                f"Archive {self.short_name!r}: paused must be None or a non-empty reason"
+            )
         # Every schema must belong to this archive. Enforced at construction so
         # a hand-built archive — in a test or any non-discovery caller — can't
         # drift either.

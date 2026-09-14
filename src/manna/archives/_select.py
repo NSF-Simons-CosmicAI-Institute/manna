@@ -35,14 +35,29 @@ def select_archives(
     *,
     allow: frozenset[str] | None,
 ) -> tuple[Archive, ...]:
-    """Filter `archives` to the allow-set, sorted. `allow=None` => all.
+    """Filter `archives` to the allow-set, sorted.
+
+    `allow=None` (MANNA_ARCHIVES unset) => every archive that is not paused.
+    A paused archive (`Archive.paused` is a reason string) is logged and left
+    out; naming it in the allow-set activates it regardless, so pausing is a
+    default, not a lock.
 
     Unknown names in `allow` are logged and ignored — a config typo must
     never crash the server. An empty result is allowed (logged as a
     warning); the server still boots and stays useful via registry discovery.
     """
     if allow is None:
-        return sort_archives(archives)
+        for a in archives:
+            if a.paused is not None:
+                logger.info(
+                    "Archive %r is paused and left out of the default active set: %s "
+                    "Set MANNA_ARCHIVES to a comma-separated list that includes %r "
+                    "to activate it.",
+                    a.short_name,
+                    a.paused,
+                    a.short_name,
+                )
+        return sort_archives(tuple(a for a in archives if a.paused is None))
 
     known = {a.short_name.lower() for a in archives}
     unknown = allow - known
