@@ -70,7 +70,10 @@ def partition_by_archive(tasks: list[Task]) -> tuple[list[Task], list[tuple[Task
 
 def print_skipped(skipped: list[tuple[Task, str]]) -> None:
     for t, need in skipped:
-        print(f"  [SKIP] {t['id']:24s} requires archive {need!r}; set MANNA_ARCHIVES to include it")
+        print(
+            f"  [SKIP] {t['id']:24s} requires archive {need!r}; "
+            f"add it to MANNA_ARCHIVES (shell env or evals/.env)"
+        )
 
 
 @dataclass

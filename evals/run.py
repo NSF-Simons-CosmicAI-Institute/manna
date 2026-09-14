@@ -135,7 +135,10 @@ async def _main_async(args: argparse.Namespace) -> int:
     if skipped:
         print_skipped(skipped)
     if not tasks:
-        print("No tasks matched the filters.")
+        if skipped:
+            print("All matched tasks were skipped (see [SKIP] lines above).")
+        else:
+            print("No tasks matched the filters.")
         return 1
 
     if args.dry_run:
@@ -200,6 +203,7 @@ async def _main_async(args: argparse.Namespace) -> int:
             "summary": summary,
             "scores": [s.to_dict() for s in scores],
             "runs": [r.to_dict() for r in runs],
+            "skipped": [t["id"] for t, _ in skipped],
         },
         prefix="run",
     )
@@ -208,9 +212,13 @@ async def _main_async(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    from evals._env import load_env
+    from evals._env import load_env, refresh_active_set
 
     load_env()
+    # The active set is cached at import (tools/tap.py builds its endpoint
+    # examples at import time), before .env is loaded. Re-read it so a
+    # MANNA_ARCHIVES line in evals/.env can re-enable a paused archive.
+    refresh_active_set()
     p = argparse.ArgumentParser(description="Run the MANNA agentic eval.")
     p.add_argument(
         "--tier",

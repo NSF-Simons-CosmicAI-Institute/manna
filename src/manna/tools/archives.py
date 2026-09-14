@@ -50,7 +50,7 @@ def list_archives(
                 "(case-insensitive), e.g. 'radio', 'optical', 'millimeter'. "
                 "Combines with short_name (both must match)."
             ),
-            examples=["radio", "optical", "millimeter"],
+            examples=["millimeter", "optical", "radio"],
         ),
     ] = None,
 ) -> dict:

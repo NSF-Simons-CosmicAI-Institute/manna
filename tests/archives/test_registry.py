@@ -25,9 +25,12 @@ EXPECTED_ORDER = [
     "sdss",
 ]
 
-# Archives in the DEFAULT active set (MANNA_ARCHIVES unset). nrao ships
-# paused — see archives/nrao.py::paused — so it is discovered but not active.
-DEFAULT_ACTIVE = [n for n in EXPECTED_ORDER if n != "nrao"]
+# Archives shipped paused — see archives/nrao.py::paused — discovered but not
+# in the default active set.
+PAUSED = {"nrao"}
+
+# Archives in the DEFAULT active set (MANNA_ARCHIVES unset).
+DEFAULT_ACTIVE = [n for n in EXPECTED_ORDER if n not in PAUSED]
 
 
 @pytest.fixture
@@ -251,6 +254,7 @@ def test_nrao_ships_paused():
     nrao = next(a for a in discover_archives() if a.short_name == "nrao")
     assert nrao.paused is not None
     assert "nrao" not in DEFAULT_ACTIVE
+    assert "nrao" in PAUSED
 
 
 def test_naming_a_paused_archive_in_env_activates_it(monkeypatch, clear_archive_caches):

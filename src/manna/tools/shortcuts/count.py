@@ -122,7 +122,7 @@ def count_observations_near_target(
                 "Optional waveband to steer archive choice — 'radio', 'optical', "
                 "'millimeter'. Omit to use the highest-priority countable archive."
             ),
-            examples=["radio", "optical"],
+            examples=["millimeter", "optical", "radio"],
         ),
     ] = None,
     archive: Annotated[
@@ -137,8 +137,9 @@ def count_observations_near_target(
 
     Selects an archive by its curated `count_target` and runs the
     archive-correct positional COUNT: q3c for Data Lab, CONTAINS/CIRCLE for
-    Gaia/ESO obscore, INTERSECTS + COUNT(DISTINCT member_ous_uid) for
-    ALMA. An archive whose count_target is mode='async' runs with a bounded poll.
+    Gaia's gaia_source and ESO's obscore, INTERSECTS + COUNT(DISTINCT
+    member_ous_uid) for ALMA. An archive whose count_target is mode='async'
+    runs with a bounded poll.
 
     Returns `count` (int) plus a `resolved` block and a `plan` block
     (chosen_archive, table, endpoint, adql, count_expr, mode, alternatives,

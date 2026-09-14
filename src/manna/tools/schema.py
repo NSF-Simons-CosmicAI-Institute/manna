@@ -91,7 +91,13 @@ def _attach_columns(payload: dict, *, archive: str, table: str) -> dict:
     endpoint = known_archive.tap_url if known_archive else None
     if not endpoint:
         # No endpoint to ask, and a recipe naming an archive we can't identify is
-        # noise. Leave the miss envelope bare; list_archives is the way out.
+        # noise. Leave the miss envelope bare except for a recovery hint;
+        # list_archives is the way out.
+        payload["hint"] = (
+            f"No active archive has short_name {archive!r}. Call list_archives "
+            "for the valid short_names; a paused or unlisted archive is still "
+            "reachable via search_ivoa_registry + describe_ivoa_service."
+        )
         return payload
 
     columns = _fetch_columns(endpoint, table)
@@ -128,10 +134,10 @@ def describe_table(
         Field(
             description=(
                 "Fully qualified table name as it appears in the "
-                "archive's TAP schema (e.g. 'tap_schema.obscore', "
-                "'ivoa.obscore', 'nsc_dr2.object')."
+                "archive's TAP schema (e.g. 'ivoa.obscore', "
+                "'nsc_dr2.object')."
             ),
-            examples=["tap_schema.obscore", "ivoa.obscore", "nsc_dr2.object"],
+            examples=["ivoa.obscore", "nsc_dr2.object"],
         ),
     ],
 ) -> dict:

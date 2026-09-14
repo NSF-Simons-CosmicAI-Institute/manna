@@ -30,7 +30,7 @@ must work if the service is up). If the control fails, the whole archive is UNRE
 its notes are not judged — so a network blip is never misreported as "the notes went stale".
 
     uv run python -m evals.audit                 # check every note
-    uv run python -m evals.audit --archive nrao  # just one archive's notes
+    MANNA_ARCHIVES=nrao uv run python -m evals.audit --archive nrao  # nrao ships paused
     uv run python -m evals.audit --list          # list notes, run nothing
     uv run python -m evals.audit --probeable     # skip MANUAL rows in the report
 """

@@ -108,7 +108,7 @@ def find_observations_of_target(
                 "'optical', 'infrared', 'millimeter'. Omit to use the "
                 "highest-priority archive offering this service."
             ),
-            examples=["radio", "optical"],
+            examples=["millimeter", "optical", "radio"],
         ),
     ] = None,
     radius_deg: Annotated[

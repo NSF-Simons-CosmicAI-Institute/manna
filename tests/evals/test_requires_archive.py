@@ -39,3 +39,33 @@ def test_partition_runs_nrao_tasks_when_active(nrao_active):
     runnable, skipped = partition_by_archive(_all_tasks())
     assert skipped == []
     assert any(t.get("requires_archive") == "nrao" for t in runnable)
+
+
+def test_runners_reread_the_active_set_after_load_env(monkeypatch):
+    """The active set is cached at import; the runners must clear it after
+    load_env() or a MANNA_ARCHIVES line in evals/.env can never re-enable a
+    paused archive."""
+    from evals._env import refresh_active_set
+    from manna.archives import get_active_archives
+    from manna.config import get_settings
+
+    get_settings.cache_clear()
+    get_active_archives.cache_clear()
+    assert "nrao" not in {a.short_name for a in get_active_archives()}  # cached default
+
+    monkeypatch.setenv("MANNA_ARCHIVES", "datalab,nrao")
+    refresh_active_set()
+    try:
+        assert [a.short_name for a in get_active_archives()] == ["datalab", "nrao"]
+    finally:
+        get_settings.cache_clear()
+        get_active_archives.cache_clear()
+
+
+def test_exp_a_matrix_task_set_excludes_nrao_by_default():
+    from evals.exp_a_matrix import PITFALL_TASKS, runnable_pitfall_tasks
+
+    ids = {t["id"] for t in runnable_pitfall_tasks()}
+    assert ids  # something is left to run
+    assert not {i for i in ids if "nrao" in i}
+    assert set(PITFALL_TASKS) - ids  # the NRAO ones were dropped

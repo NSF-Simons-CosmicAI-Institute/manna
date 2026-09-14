@@ -38,7 +38,7 @@ def survey_archives_for_target(
             # countable archives) — the safe default rather than "match
             # nothing".
             description="Optional list of wavebands to restrict the fan-out.",
-            examples=[["radio", "optical"]],
+            examples=[["millimeter", "optical", "radio"]],
         ),
     ] = None,
 ) -> dict:

@@ -113,6 +113,8 @@ async def test_list_archives_paused_archive_is_absent_by_default(mcp_server):
 
     assert payload["count"] == 0
     assert payload["archives"] == []
+    assert "nrao" not in payload["hint"]
+    assert "alma" in payload["hint"]
 
 
 @pytest.mark.asyncio

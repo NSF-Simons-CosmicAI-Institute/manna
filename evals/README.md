@@ -106,6 +106,11 @@ Tier-3 tasks (and `--condition both`) run twice — full vs. ablated — and the
 prints the **pitfall-avoidance delta**, the headline "is this server worth it" number.
 Keep `--concurrency` low (default 3) against a single-GPU-hosted model.
 
+With nrao shipped paused, tier-3 runs only two of its seven pitfalls by default
+(`t3-datalab-geometry`, `t3-alma-granularity`) — activate nrao via `MANNA_ARCHIVES`
+for the rest, and don't compare a with/without delta against the July 2026 numbers
+as if the denominator were the same.
+
 ## Clean-state run recipe
 
 Stale persona env exports (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`,
