@@ -115,7 +115,7 @@ def run_adql_query(
         Field(
             description=(
                 "ADQL query. Geometry support is archive-specific: standard "
-                "CIRCLE/POINT/CONTAINS work on obscore services (ALMA, NRAO) but "
+                "CIRCLE/POINT/CONTAINS work on obscore services (ALMA, ESO) but "
                 "NOT on Astro Data Lab, which passes them to PostgreSQL and needs "
                 "q3c_radial_query(...) = 't' instead — call list_archives for the "
                 "archive's quirks before composing. Use SELECT TOP N to cap row "

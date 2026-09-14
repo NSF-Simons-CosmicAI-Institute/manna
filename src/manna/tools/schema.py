@@ -117,10 +117,10 @@ def describe_table(
         str,
         Field(
             description=(
-                "Archive short_name (e.g. 'nrao', 'datalab', 'alma'). "
+                "Archive short_name (e.g. 'alma', 'datalab', 'gaia'). "
                 "Use list_archives to discover available names."
             ),
-            examples=["nrao", "datalab", "alma"],
+            examples=["alma", "datalab", "gaia"],
         ),
     ],
     table: Annotated[

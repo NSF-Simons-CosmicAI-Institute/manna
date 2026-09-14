@@ -30,8 +30,9 @@ class Settings(BaseSettings):
     # Slice 5: async TAP family.
     tap_sync_timeout_seconds: float = 20.0
     # count_observations_near_target: bounded budget for polling an async count job
-    # (NRAO obscore). A COUNT returns one row and completes fast once scheduled;
-    # on budget exhaustion the tool returns a pending envelope with the job_url.
+    # (an archive whose count_target runs async). A COUNT returns one row and
+    # completes fast once scheduled; on budget exhaustion the tool returns a
+    # pending envelope with the job_url.
     count_async_budget_seconds: float = Field(default=15.0, gt=0)
     count_async_poll_interval_seconds: float = Field(default=1.0, gt=0)
     # Inline response caps (results.py). A TAP result larger than EITHER limit

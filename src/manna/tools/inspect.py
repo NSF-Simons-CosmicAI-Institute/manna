@@ -92,7 +92,7 @@ def preview_table(
         str | None,
         Field(
             description="Archive short_name. If omitted, inferred from curated schema knowledge.",
-            examples=["datalab", "nrao"],
+            examples=["datalab", "alma"],
         ),
     ] = None,
     sample_rows: Annotated[

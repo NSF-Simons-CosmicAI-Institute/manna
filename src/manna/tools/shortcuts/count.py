@@ -2,9 +2,10 @@
 
 One call answers "how many observations/sources are near this target?" by
 resolving the target, selecting an archive by its curated `count_target`, and
-running the archive-correct positional COUNT — sync, or (NRAO) async with a
-bounded poll. A thin shortcut tool over TapClient + the resolver; the atomic
-run_adql_query stays the escape hatch (the chosen ADQL is surfaced in `plan`).
+running the archive-correct positional COUNT — sync, or async with a bounded
+poll for archives whose `count_target.mode` is 'async'. A thin shortcut tool
+over TapClient + the resolver; the atomic run_adql_query stays the escape
+hatch (the chosen ADQL is surfaced in `plan`).
 """
 
 import time
@@ -127,8 +128,8 @@ def count_observations_near_target(
     archive: Annotated[
         str | None,
         Field(
-            description="Optional short_name override ('nrao', 'datalab') to skip auto-selection.",
-            examples=["nrao", "datalab"],
+            description="Optional short_name override ('alma', 'datalab') to skip auto-selection.",
+            examples=["alma", "datalab"],
         ),
     ] = None,
 ) -> dict:
@@ -136,8 +137,8 @@ def count_observations_near_target(
 
     Selects an archive by its curated `count_target` and runs the
     archive-correct positional COUNT: q3c for Data Lab, CONTAINS/CIRCLE for
-    Gaia/ESO/NRAO obscore, INTERSECTS + COUNT(DISTINCT member_ous_uid) for
-    ALMA. NRAO runs async with a bounded poll.
+    Gaia/ESO obscore, INTERSECTS + COUNT(DISTINCT member_ous_uid) for
+    ALMA. An archive whose count_target is mode='async' runs with a bounded poll.
 
     Returns `count` (int) plus a `resolved` block and a `plan` block
     (chosen_archive, table, endpoint, adql, count_expr, mode, alternatives,

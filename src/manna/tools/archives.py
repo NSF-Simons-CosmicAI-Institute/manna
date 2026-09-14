@@ -34,12 +34,12 @@ def list_archives(
         Field(
             description=(
                 "Optional. Return only the archive with this short_name "
-                "(case-insensitive), e.g. 'nrao'. Use this when you already "
+                "(case-insensitive), e.g. 'alma'. Use this when you already "
                 "know which archive you want — it returns a single entry "
                 "instead of the full set, saving context. Unknown names "
                 "return an empty list (count: 0)."
             ),
-            examples=["nrao", "datalab", "alma"],
+            examples=["alma", "datalab", "gaia"],
         ),
     ] = None,
     waveband: Annotated[

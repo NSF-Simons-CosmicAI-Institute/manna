@@ -119,10 +119,10 @@ def find_observations_of_target(
         str | None,
         Field(
             description=(
-                "Optional short_name override ('nrao', 'datalab') to skip "
+                "Optional short_name override ('alma', 'datalab') to skip "
                 "auto-selection. Use when you already know the archive."
             ),
-            examples=["nrao", "datalab"],
+            examples=["alma", "datalab"],
         ),
     ] = None,
     maxrec: Annotated[
