@@ -22,7 +22,14 @@ def lookup_schema(*, archive: str, table: str) -> Schema | None:
 
 
 def schema_to_dict(s: Schema) -> dict:
-    """Serialize a Schema for inclusion in a tool's JSON envelope."""
+    """Serialize a Schema for inclusion in a tool's JSON envelope.
+
+    `cross_refs` is narrowed to archives in the active set: a reference to a
+    paused or deselected archive would send the model to a `describe_table`
+    call that answers `known: false`. The dataclass keeps the full tuple.
+    """
     d = dataclass_to_jsonable_dict(s)
     d["notes"] = note_texts(s.notes)  # Notes -> LLM-facing text
+    active = {a.short_name for a in get_active_archives()}
+    d["cross_refs"] = [[archive, table] for archive, table in s.cross_refs if archive in active]
     return d

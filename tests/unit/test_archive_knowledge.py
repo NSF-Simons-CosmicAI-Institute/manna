@@ -86,3 +86,29 @@ def test_every_cross_ref_resolves_to_another_schema_entry():
                 f"Schema({s.archive}, {s.table}).cross_refs references "
                 f"{(archive, table)} but no such entry exists in the archive notes"
             )
+
+
+# ---------- schema_to_dict: cross_refs never point at an inactive archive ----------
+
+
+def _alma_obscore():
+    s = lookup_schema(archive="alma", table="ivoa.obscore")
+    assert s is not None
+    return s
+
+
+def test_schema_to_dict_drops_cross_refs_to_inactive_archives():
+    """ALMA's obscore cross-refs NRAO's obscore. With nrao paused, the envelope
+    must not send the model to an archive describe_table would report as
+    unknown. The dataclass itself keeps the full tuple."""
+    from manna.archives._knowledge import schema_to_dict
+
+    s = _alma_obscore()
+    assert ("nrao", "tap_schema.obscore") in s.cross_refs
+    assert ["nrao", "tap_schema.obscore"] not in schema_to_dict(s)["cross_refs"]
+
+
+def test_schema_to_dict_keeps_cross_refs_to_active_archives(nrao_active):
+    from manna.archives._knowledge import schema_to_dict
+
+    assert ["nrao", "tap_schema.obscore"] in schema_to_dict(_alma_obscore())["cross_refs"]
