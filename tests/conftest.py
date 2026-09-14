@@ -16,6 +16,8 @@ import pytest
 from vcr.stubs import VCRHTTPResponse
 
 from manna.app import build_mcp
+from manna.archives import discover_archives, get_active_archives
+from manna.config import get_settings
 from manna.tools import schema as _schema_tool
 
 
@@ -23,6 +25,25 @@ from manna.tools import schema as _schema_tool
 def mcp_server():
     """In-memory FastMCP instance for tests that talk to it via fastmcp.Client."""
     return build_mcp()
+
+
+@pytest.fixture
+def nrao_active(monkeypatch):
+    """Activate every shipped archive, including the paused `nrao`.
+
+    NRAO ships paused (see archives/nrao.py::paused), so by default no tool
+    surfaces its notes. A test that checks NRAO content flowing through the
+    tools opts in with this fixture. List it BEFORE `mcp_server` in the test's
+    parameters: build_mcp() bakes the up-front-note cheatsheet into the
+    run_adql_query description at build time, so the active set must already
+    be widened when the server is built.
+    """
+    monkeypatch.setenv("MANNA_ARCHIVES", ",".join(a.short_name for a in discover_archives()))
+    get_settings.cache_clear()
+    get_active_archives.cache_clear()
+    yield
+    get_settings.cache_clear()
+    get_active_archives.cache_clear()
 
 
 @pytest.fixture(autouse=True)

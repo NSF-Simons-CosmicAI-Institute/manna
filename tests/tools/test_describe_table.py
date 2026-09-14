@@ -35,7 +35,7 @@ def fake_columns(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_known_entry_returns_envelope_with_curated_fields(mcp_server):
+async def test_known_entry_returns_envelope_with_curated_fields(nrao_active, mcp_server):
     """Pins the structured fields for the NRAO obscore entry so a regression
     in the seed data fails loudly."""
     async with Client(mcp_server) as client:
@@ -62,7 +62,7 @@ async def test_known_entry_returns_envelope_with_curated_fields(mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_notes_are_plain_strings_with_no_audit_leak(mcp_server):
+async def test_notes_are_plain_strings_with_no_audit_leak(nrao_active, mcp_server):
     """§7 envelope invariant: `notes` is a list[str] — Audit metadata must
     never leak into the LLM-facing payload."""
     async with Client(mcp_server) as client:
@@ -134,7 +134,7 @@ def test_hit_returns_real_columns(fake_columns):
     assert "column_list_recipe" not in result
 
 
-def test_datatype_passes_through_verbatim(fake_columns):
+def test_datatype_passes_through_verbatim(nrao_active, fake_columns):
     """The archives disagree — datalab 'adql:DOUBLE', alma 'int', nrao
     'votable:char' (different TAP_SCHEMA versions). An LLM reads all three, so
     normalizing would only add a way to be wrong about a type."""

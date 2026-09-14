@@ -31,7 +31,7 @@ def clear_archive_caches():
 # ---------- up-front notes -> run_adql_query description ----------
 
 
-def test_cheatsheet_covers_the_tagged_silent_pitfalls():
+def test_cheatsheet_covers_the_tagged_silent_pitfalls(nrao_active):
     cs = upfront_note_cheatsheet()
     # ALMA granularity: the archetypal up-front note (COUNT(*) over-counts, no error).
     assert "COUNT(DISTINCT member_ous_uid)" in cs
@@ -47,7 +47,7 @@ def test_cheatsheet_stays_within_the_token_budget():
     assert estimate_tokens(upfront_note_cheatsheet()) <= CHEATSHEET_TOKEN_BUDGET
 
 
-def test_cheatsheet_keys_each_line_to_the_tap_host():
+def test_cheatsheet_keys_each_line_to_the_tap_host(nrao_active):
     """The model joins on the `endpoint` it passes to run_adql_query. NRAO's
     host_substrings[0] is 'data.nrao', which never appears in its TAP endpoint
     'data-query.nrao.edu' — keying on that would point at the wrong archive."""
@@ -92,13 +92,13 @@ def test_cheatsheet_empty_when_no_active_archive_tags_a_pitfall(monkeypatch, cle
         "SELECT TOP 10 * FROM tap_schema.obscore WHERE UPPER(target_name) = 'M87'",
     ],
 )
-def test_error_hint_matches_nrao_lower_upper(adql):
+def test_error_hint_matches_nrao_lower_upper(nrao_active, adql):
     guidance = error_hint_for("nrao", adql)
     assert guidance is not None
     assert "LOWER()" in guidance
 
 
-def test_error_hint_absent_on_clean_adql_and_other_archives():
+def test_error_hint_absent_on_clean_adql_and_other_archives(nrao_active):
     clean = "SELECT TOP 10 * FROM tap_schema.obscore WHERE target_name = '3C274'"
     assert error_hint_for("nrao", clean) is None
     # LOWER() is fine at Data Lab — the pitfall is NRAO's, not a global rule.
@@ -107,7 +107,7 @@ def test_error_hint_absent_on_clean_adql_and_other_archives():
     assert error_hint_for("nonesuch", "SELECT LOWER(x) FROM y") is None
 
 
-def test_pitfall_notes_partitions_by_channel():
+def test_pitfall_notes_partitions_by_channel(nrao_active):
     nrao = next(a for a in get_active_archives() if a.short_name == "nrao")
     assert [n.id for n in pitfall_notes(nrao, channel="error_hint")] == ["lower-upper-fail"]
     assert "lower-upper-fail" not in [n.id for n in pitfall_notes(nrao, channel="upfront")]

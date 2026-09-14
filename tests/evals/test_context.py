@@ -14,22 +14,22 @@ from manna.app import build_mcp
 
 async def test_ablation_strips_and_restores_through_real_tools():
     async with Client(build_mcp()) as client:
-        full = await client.call_tool("list_archives", {"short_name": "nrao"})
+        full = await client.call_tool("list_archives", {"short_name": "alma"})
         full_schema = await client.call_tool(
-            "describe_table", {"archive": "nrao", "table": "tap_schema.obscore"}
+            "describe_table", {"archive": "alma", "table": "ivoa.obscore"}
         )
         assert len(full.structured_content["archives"][0]["usage_notes"]) > 0
         assert full_schema.structured_content["known"] is True
 
         with ablated_context():
-            ab = await client.call_tool("list_archives", {"short_name": "nrao"})
+            ab = await client.call_tool("list_archives", {"short_name": "alma"})
             ab_schema = await client.call_tool(
-                "describe_table", {"archive": "nrao", "table": "tap_schema.obscore"}
+                "describe_table", {"archive": "alma", "table": "ivoa.obscore"}
             )
         assert ab.structured_content["archives"][0]["usage_notes"] == []
         assert ab_schema.structured_content["known"] is False
 
-        after = await client.call_tool("list_archives", {"short_name": "nrao"})
+        after = await client.call_tool("list_archives", {"short_name": "alma"})
         assert len(after.structured_content["archives"][0]["usage_notes"]) > 0
 
 

@@ -37,10 +37,10 @@ def test_schema_cross_refs_is_nested_tuple_shape():
 
 
 def test_lookup_schema_finds_known_entry():
-    s = lookup_schema(archive="nrao", table="tap_schema.obscore")
+    s = lookup_schema(archive="alma", table="ivoa.obscore")
     assert s is not None
-    assert s.archive == "nrao"
-    assert s.table == "tap_schema.obscore"
+    assert s.archive == "alma"
+    assert s.table == "ivoa.obscore"
 
 
 def test_lookup_schema_returns_none_for_unknown_pair():
@@ -48,8 +48,8 @@ def test_lookup_schema_returns_none_for_unknown_pair():
 
 
 def test_lookup_schema_is_case_sensitive():
-    assert lookup_schema(archive="NRAO", table="tap_schema.obscore") is None
-    assert lookup_schema(archive="nrao", table="TAP_SCHEMA.OBSCORE") is None
+    assert lookup_schema(archive="ALMA", table="ivoa.obscore") is None
+    assert lookup_schema(archive="alma", table="IVOA.OBSCORE") is None
 
 
 # ---------- active_schemas() view integrity ----------
@@ -73,9 +73,14 @@ def test_no_two_schemas_share_an_archive_table_pair():
 
 
 def test_every_cross_ref_resolves_to_another_schema_entry():
-    """Holds for the full shipped set (the default test deployment)."""
-    by_pair = {(s.archive, s.table): s for s in active_schemas()}
-    for s in active_schemas():
+    """Holds over the full SHIPPED set (discover_archives), not the active set:
+    a paused archive (nrao) may legitimately be the target of a cross_ref
+    while absent from the default active set."""
+    from manna.archives import discover_archives
+
+    shipped = tuple(s for a in discover_archives() for s in a.schemas)
+    by_pair = {(s.archive, s.table): s for s in shipped}
+    for s in shipped:
         for archive, table in s.cross_refs:
             assert (archive, table) in by_pair, (
                 f"Schema({s.archive}, {s.table}).cross_refs references "
