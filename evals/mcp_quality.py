@@ -184,6 +184,12 @@ async def _main(args: argparse.Namespace) -> int:
     cfg = ModelConfig.from_env()
     judge = judge_from_env()
     tasks = load_tasks(TASKS_PATH)
+
+    from evals.score import partition_by_archive, print_skipped
+
+    tasks, skipped = partition_by_archive(tasks)
+    if skipped:
+        print_skipped(skipped)
     arms = args.arm or ARMS
     version = _server_version()
     print(f"Model: {cfg.label}  |  server: {version}  |  judge: {judge.label if judge else 'none'}")

@@ -279,7 +279,17 @@ def main() -> int:
     if args.archive:
         archives = tuple(a for a in archives if a.short_name == args.archive)
         if not archives:
-            print(f"no archive {args.archive!r} in the active set")
+            from manna.archives import discover_archives
+
+            paused = next(
+                (a for a in discover_archives() if a.short_name == args.archive and a.paused),
+                None,
+            )
+            if paused is not None:
+                print(f"archive {args.archive!r} is paused: {paused.paused}")
+                print(f"  run with MANNA_ARCHIVES={args.archive} to audit it anyway")
+            else:
+                print(f"no archive {args.archive!r} in the active set")
             return 2
 
     notes = collect_audits(archives)

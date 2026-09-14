@@ -128,6 +128,12 @@ async def _main_async(args: argparse.Namespace) -> int:
     if args.task:
         wanted = set(args.task)
         tasks = [t for t in tasks if t["id"] in wanted]
+
+    from evals.score import partition_by_archive, print_skipped
+
+    tasks, skipped = partition_by_archive(tasks)
+    if skipped:
+        print_skipped(skipped)
     if not tasks:
         print("No tasks matched the filters.")
         return 1
