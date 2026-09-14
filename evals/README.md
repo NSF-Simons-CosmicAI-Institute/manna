@@ -178,6 +178,6 @@ manual pile). Non-zero exit on STALE or ENDPT-DEAD (cron/CI-friendly).
 
 ```bash
 uv run python -m evals.audit --list          # list notes, no probes
-uv run python -m evals.audit --archive nrao  # one archive
+MANNA_ARCHIVES=nrao uv run python -m evals.audit --archive nrao  # one archive (nrao ships paused, so name it)
 uv run python -m evals.audit                 # all notes vs live archives
 ```
