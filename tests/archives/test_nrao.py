@@ -142,3 +142,12 @@ def test_nrao_count_target():
     assert ct.geometry == ContainsPoint("s_ra", "s_dec")
     assert ct.count_expr == "COUNT(*)"
     assert ct.mode == "async"
+
+
+def test_nrao_is_paused_with_a_dated_reason_and_the_reenable_hint():
+    """NRAO's TAP is being rebuilt (2026-09) and MANNA traffic was loading it,
+    so the archive ships paused. The notes stay; the reason must say how to
+    turn it back on."""
+    assert ARCHIVE.paused is not None
+    assert "2026-09" in ARCHIVE.paused
+    assert "MANNA_ARCHIVES" in ARCHIVE.paused

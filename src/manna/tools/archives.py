@@ -108,14 +108,16 @@ def list_archives(
         wb = waveband.strip().lower()
         selected = tuple(a for a in selected if (a.waveband or "").lower() == wb)
 
-    # `schemas` (surfaced by describe_table) and the internal ordering
-    # `priority` are not part of this tool's contract — drop them so the
-    # archive-list envelope stays the identity/usage_notes view it always was.
+    # `schemas` (surfaced by describe_table), the internal ordering `priority`,
+    # and the deployment-selection knob `paused` are not part of this tool's
+    # contract — drop them so the archive-list envelope stays the
+    # identity/usage_notes view it always was.
     archives = []
     for a in selected:
         d = dataclass_to_jsonable_dict(a)
         d.pop("schemas", None)
         d.pop("priority", None)
+        d.pop("paused", None)
         d["usage_notes"] = note_texts(a.usage_notes)
         archives.append(d)
     result: dict = {"archives": archives, "count": len(archives)}

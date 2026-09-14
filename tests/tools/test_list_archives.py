@@ -104,7 +104,6 @@ async def test_list_archives_filter_by_waveband(mcp_server):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="nrao not paused yet — Task 3")
 async def test_list_archives_paused_archive_is_absent_by_default(mcp_server):
     """nrao ships paused: no entry, count 0, and the recovery hint still names
     the archives that ARE active."""
@@ -165,3 +164,15 @@ async def test_list_archives_unknown_short_name_returns_recovery_hint(mcp_server
     assert payload["archives"] == []
     assert "hint" in payload
     assert "datalab" in payload["hint"]
+
+
+@pytest.mark.asyncio
+async def test_list_archives_never_echoes_the_paused_field(nrao_active, mcp_server):
+    """`paused` is a deployment-selection knob, not archive knowledge: an
+    activated archive must look like any other to the model."""
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("list_archives", {"short_name": "nrao"})
+        payload = result.structured_content
+
+    assert payload["count"] == 1
+    assert "paused" not in payload["archives"][0]

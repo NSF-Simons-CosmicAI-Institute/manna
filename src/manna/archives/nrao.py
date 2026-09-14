@@ -357,4 +357,16 @@ ARCHIVE = Archive(
         mode="async",
     ),
     priority=30,
+    # Paused 2026-09-11 after a conversation with the NRAO software engineering
+    # team: data-query.nrao.edu/tap is not production-grade, MANNA's probes and
+    # eval runs were loading it, and NRAO is rebuilding the service in the
+    # coming months. Every note above is kept for the rebuild. Re-enable with
+    # MANNA_ARCHIVES (see archives/_select.py) — the tests that exercise NRAO
+    # content use the `nrao_active` fixture.
+    paused=(
+        "Paused 2026-09-11 at NRAO's request: data-query.nrao.edu/tap is not "
+        "production-grade, MANNA traffic was overloading it, and NRAO is "
+        "rebuilding the service. Notes are kept for the rebuild; set "
+        "MANNA_ARCHIVES to a list that includes 'nrao' to re-enable."
+    ),
 )
