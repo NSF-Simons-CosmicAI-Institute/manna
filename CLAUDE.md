@@ -17,7 +17,7 @@ contract.
 | In the code | Paper term | What it is |
 |---|---|---|
 | `backends/` (TapClient, SiaClient, ConeClient, RegistryClient, ResolverClient) | **Connections** | Tools that call the standard archive interfaces |
-| `tools/shortcuts/` (`find_observations_of_target`, `count_observations_near_target`, `survey_archives_for_target`; `preview_table` alongside) | **Shortcut tools** | Bundle a multi-step task into one call |
+| `tools/workflows/` (`find_observations_of_target`, `count_observations_near_target`, `survey_archives_for_target`; `preview_table` alongside) | **Workflow tools** | Bundle a multi-step task into one call |
 | `results.py` (`shape_*`, "envelope", "promotion") | **Result handling** | Inline small results; link + fetch recipe for large ones |
 | `archives/<name>.py`, `Note`, `Schema` (`active_schemas()`) | **Archive notes** | One file per archive: addresses, notes about quirks, a check per note |
 | `Audit` | **Check** | A live probe (or manual marker) that re-verifies a note |
@@ -62,8 +62,8 @@ src/manna/
 │   ├── registry.py           # search_ivoa_registry, describe_ivoa_service
 │   ├── cone.py               # search_catalog_by_position
 │   ├── sia.py                # search_images_by_position
-│   ├── inspect.py            # preview_table (shortcut over describe_table + a sample read)
-│   ├── shortcuts/            # shortcut tools: bundle a multi-step task into one call
+│   ├── inspect.py            # preview_table (a workflow over describe_table + a sample read)
+│   ├── workflows/            # workflow tools: bundle a multi-step task into one call
 │   │   ├── find_observations.py  # find_observations_of_target (resolve -> pick archive -> SIA/cone)
 │   │   ├── count.py              # count_observations_near_target
 │   │   ├── survey.py             # survey_archives_for_target
