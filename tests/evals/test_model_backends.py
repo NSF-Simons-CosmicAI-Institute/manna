@@ -44,6 +44,28 @@ def test_anthropic_messages_shape():
     assert tool_turn["content"][0]["tool_use_id"] == "tu1"
 
 
+@pytest.mark.asyncio
+async def test_anthropic_backend_rejects_a_non_json_body():
+    """A proxy that answers with an HTML page (HTTP 200) makes the SDK return a
+    plain `str`; the backend must raise the retryable ProxyResponseError rather
+    than die on `.content` (observed 2026-09-15 on the NOIRLab nginx)."""
+    from types import SimpleNamespace
+
+    from evals.model_backends import ProxyResponseError
+
+    class _Messages:
+        async def create(self, **_kw):
+            return "<!DOCTYPE html><html><head><title>Astro Data Lab</title></head></html>"
+
+    cfg = SimpleNamespace(
+        api_key="k", base_url=None, extra_headers=None, label="fake", model="m", max_tokens=8
+    )
+    backend = AnthropicBackend(cfg)  # type: ignore[arg-type]
+    backend._client = SimpleNamespace(messages=_Messages())  # type: ignore[assignment]
+    with pytest.raises(ProxyResponseError, match="non-JSON body"):
+        await backend.complete("system", [{"role": "user", "text": "hi"}], [])
+
+
 # --------------------------------------------------------------------------- #
 # OpenAI Chat Completions shape
 # --------------------------------------------------------------------------- #
