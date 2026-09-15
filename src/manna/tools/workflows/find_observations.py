@@ -6,7 +6,7 @@ list archives, run a SIA / cone search). Answering a real astronomer question
 the model has to do that planning itself.
 
 ``find_observations_of_target`` collapses that chain into one call. It is a thin
-SHORTCUT TOOL over the SAME connections (``backends/`` in the code) the atomic tools use:
+WORKFLOW TOOL over the SAME connections (``backends/`` in the code) the atomic tools use:
 
     target ──(resolve_target_name)──▶ ra/dec
            ──(list_archives)────▶ pick an archive by service + waveband
@@ -31,8 +31,8 @@ from manna.backends.sia import SiaClient
 from manna.errors import ValidationError, wrap_tool_errors
 from manna.results import shape_table
 from manna.tools._constants import _ERROR_DOCSTRING
-from manna.tools.shortcuts import _select
-from manna.tools.shortcuts._select import coerce_or_resolve as _coerce_or_resolve
+from manna.tools.workflows import _select
+from manna.tools.workflows._select import coerce_or_resolve as _coerce_or_resolve
 
 _sia: SiaClient | None = None
 _cone: ConeSearchClient | None = None
@@ -131,14 +131,14 @@ def find_observations_of_target(
 ) -> dict:
     """Find observations of a target in one call (resolve -> select -> search).
 
-    A purpose-driven shortcut over resolve_target_name + list_archives +
+    A purpose-driven workflow over resolve_target_name + list_archives +
     search_images_by_position / search_catalog_by_position. Pass an object name (auto-resolved) or
     explicit 'RA DEC'; optionally steer archive choice with `waveband` or an
     explicit `archive`.
 
     Returns the standard inline tabular envelope (same shape as search_images_by_position /
     search_catalog_by_position — typed `columns`, `rows`, explicit `truncated` bool; note
-    this shortcut's envelope does NOT carry the `query_fingerprint` / `save_recipe`
+    this workflow tool's envelope does NOT carry the `query_fingerprint` / `save_recipe`
     cache fields the primitive tools attach — call the underlying search_images_by_position
     / search_catalog_by_position directly if you need those) plus:
 

@@ -1,9 +1,9 @@
-"""Shared resolve + archive-selection helpers for the purpose-built shortcut tools.
+"""Shared resolve + archive-selection helpers for the purpose-built workflow tools.
 
 `find_observations_of_target`, `count_observations_near_target`, and `survey_archives_for_target` all
 resolve a target to coordinates and pick an archive by a capability attribute
 (`sia_url` / `scs_url` / `count_target`), filtered by waveband or an explicit
-override. Those pure pieces live here so no shortcut tool imports another.
+override. Those pure pieces live here so no workflow tool imports another.
 """
 
 from manna.archives._endpoints import active_archives

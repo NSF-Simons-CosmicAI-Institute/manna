@@ -160,8 +160,8 @@
 
 # --- purpose-built-tool coverage (2026-07): exercise count/survey/inspect ----------
 # The pre-existing suite is coords/find-URL heavy and never probes multi-archive
-# survey or table sampling, so it understates the shortcut tools' value. These tasks target
-# the orchestration the shortcut tools encapsulate: the q3c-vs-CONTAINS geometry pitfall, ALMA's
+# survey or table sampling, so it understates the workflow tools' value. These tasks target
+# the orchestration the workflow tools encapsulate: the q3c-vs-CONTAINS geometry pitfall, ALMA's
 # distinct-OUS granularity, NRAO async, cross-archive availability, and live sampling.
 # Still approach-agnostic (no MANNA tool references) and outcome-scored.
 

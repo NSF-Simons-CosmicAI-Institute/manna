@@ -1,9 +1,9 @@
-"""Purpose-driven counting shortcut tool: count_observations_near_target.
+"""Purpose-driven counting workflow tool: count_observations_near_target.
 
 One call answers "how many observations/sources are near this target?" by
 resolving the target, selecting an archive by its curated `count_target`, and
 running the archive-correct positional COUNT — sync, or async with a bounded
-poll for archives whose `count_target.mode` is 'async'. A thin shortcut tool
+poll for archives whose `count_target.mode` is 'async'. A thin workflow tool
 over TapClient + the resolver; the atomic run_adql_query stays the escape
 hatch (the chosen ADQL is surfaced in `plan`).
 """
@@ -24,7 +24,7 @@ from manna.errors import (
     wrap_tool_errors,
 )
 from manna.tools._constants import _ERROR_DOCSTRING
-from manna.tools.shortcuts import _select
+from manna.tools.workflows import _select
 
 _tap: TapClient | None = None
 _sleep = time.sleep  # module-level so tests can patch it
