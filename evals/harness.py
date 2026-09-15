@@ -227,6 +227,7 @@ _TRANSIENT_MARKERS = (
     "timed out",
     "Timeout",
     "Overloaded",
+    "ProxyResponseError",  # proxy served an HTML page instead of JSON (model_backends)
 )
 
 

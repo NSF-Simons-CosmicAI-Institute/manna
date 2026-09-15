@@ -24,6 +24,17 @@ if TYPE_CHECKING:
     from evals.harness import ModelConfig
 
 
+class ProxyResponseError(RuntimeError):
+    """The model endpoint answered with something that is not a Messages response.
+
+    Seen 2026-09-15: the NOIRLab nginx in front of dlai01's vLLM intermittently
+    served a Next.js HTML page with HTTP 200 for ~45 minutes, so the SDK handed
+    back a `str` instead of a Message and every run died on `.content`. This is
+    an endpoint blip, not a model or tool failure, so the harness retries it
+    (its class name is in harness._TRANSIENT_MARKERS).
+    """
+
+
 @dataclass
 class Completion:
     text: str
@@ -120,6 +131,12 @@ class AnthropicBackend(ModelBackend):
             messages=self._messages(conversation),
             tools=tools,  # already {name, description, input_schema}
         )
+        if not hasattr(resp, "content"):
+            head = str(resp)[:80].replace("\n", " ")
+            raise ProxyResponseError(
+                f"non-JSON body from the model endpoint ({type(resp).__name__}, "
+                f"{len(str(resp))} chars, starts {head!r})"
+            )
         text = "".join(b.text for b in resp.content if b.type == "text").strip()
         tool_uses = [
             {"id": b.id, "name": b.name, "input": dict(b.input)}
