@@ -59,7 +59,7 @@ async def test_cheatsheet_is_a_small_share_of_the_description():
 # ---------- channel 2: error-hint enrichment ----------
 
 
-def test_rejected_lower_query_against_nrao_gets_the_curated_hint(monkeypatch):
+def test_rejected_lower_query_against_nrao_gets_the_curated_hint(nrao_active, monkeypatch):
     """A DalQueryError means the archive understood the ADQL and refused it —
     that's when curated guidance is trustworthy."""
 
@@ -77,7 +77,7 @@ def test_rejected_lower_query_against_nrao_gets_the_curated_hint(monkeypatch):
     assert "LOWER()" in payload["hint"]
 
 
-def test_hint_rides_every_mode(monkeypatch):
+def test_hint_rides_every_mode(nrao_active, monkeypatch):
     """auto and async must not lose the hint — auto only intercepts timeouts,
     and async fails at submit."""
 

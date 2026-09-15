@@ -50,7 +50,7 @@ def fake_tap(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_describe_then_async_query_with_enum_value(mcp_server, fake_tap):
+async def test_describe_then_async_query_with_enum_value(nrao_active, mcp_server, fake_tap):
     """Discover the GBT enum value, then submit an async ADQL using it.
     Verify the value flows into the bound query."""
     async with Client(mcp_server) as client:

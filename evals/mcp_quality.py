@@ -184,6 +184,12 @@ async def _main(args: argparse.Namespace) -> int:
     cfg = ModelConfig.from_env()
     judge = judge_from_env()
     tasks = load_tasks(TASKS_PATH)
+
+    from evals.score import partition_by_archive, print_skipped
+
+    tasks, skipped = partition_by_archive(tasks)
+    if skipped:
+        print_skipped(skipped)
     arms = args.arm or ARMS
     version = _server_version()
     print(f"Model: {cfg.label}  |  server: {version}  |  judge: {judge.label if judge else 'none'}")
@@ -243,6 +249,7 @@ async def _main(args: argparse.Namespace) -> int:
         "task_ids": [t["id"] for t in tasks],
         "mcp_breakdown": breakdown,
         "runs": [r.to_dict() for _, r, _ in results],
+        "skipped": [t["id"] for t, _ in skipped],
     }
     out = write_results(record, prefix="mcp-quality")
     print(f"\nWrote {out}")
@@ -253,9 +260,13 @@ async def _main(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    from evals._env import load_env
+    from evals._env import load_env, refresh_active_set
 
     load_env()
+    # The active set is cached at import (tools/tap.py builds its endpoint
+    # examples at import time), before .env is loaded. Re-read it so a
+    # MANNA_ARCHIVES line in evals/.env can re-enable a paused archive.
+    refresh_active_set()
     p = argparse.ArgumentParser(description="MCP-quality approach comparison + diff.")
     p.add_argument("--n", type=int, default=1, help="reps per (approach, task)")
     p.add_argument("--arm", action="append", choices=ARMS, help="restrict approaches; repeatable")

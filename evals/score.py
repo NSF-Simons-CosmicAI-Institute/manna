@@ -43,6 +43,39 @@ def load_tasks(path: Path | None = None, tier: int | None = None) -> list[dict[s
     return tasks
 
 
+Task = dict[str, Any]
+
+
+def partition_by_archive(tasks: list[Task]) -> tuple[list[Task], list[tuple[Task, str]]]:
+    """Split tasks into (runnable, skipped) by their optional `requires_archive`.
+
+    A task that names an archive not in the active set is skipped rather than
+    run: nrao ships paused, and running its tasks against a default server
+    would load the endpoint we agreed to leave alone. Activate the archive via
+    MANNA_ARCHIVES to run them.
+    """
+    from manna.archives import get_active_archives
+
+    active = {a.short_name for a in get_active_archives()}
+    runnable: list[Task] = []
+    skipped: list[tuple[Task, str]] = []
+    for t in tasks:
+        need = t.get("requires_archive")
+        if need and need not in active:
+            skipped.append((t, need))
+        else:
+            runnable.append(t)
+    return runnable, skipped
+
+
+def print_skipped(skipped: list[tuple[Task, str]]) -> None:
+    for t, need in skipped:
+        print(
+            f"  [SKIP] {t['id']:24s} requires archive {need!r}; "
+            f"add it to MANNA_ARCHIVES (shell env or evals/.env)"
+        )
+
+
 @dataclass
 class TaskScore:
     task_id: str

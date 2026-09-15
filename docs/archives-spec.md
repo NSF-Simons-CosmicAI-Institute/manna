@@ -184,6 +184,17 @@ honor a mid-process re-selection. Consumers of the derived helpers:
    MANNA_ARCHIVES=                  # unset/empty => all discovered
    ```
 
+3. **Paused** — an archive file can set `paused="<dated reason>"` on its
+   `Archive`. It is still discovered and validated, but left out of the
+   default active set (the reason is logged at boot). Naming it in
+   `MANNA_ARCHIVES` activates it regardless: pausing is a default, not a
+   lock. Use it when a service asks for less traffic or is being rebuilt and
+   you want to keep its notes. `nrao` ships paused (2026-09).
+
+   ```
+   MANNA_ARCHIVES=                  # every discovered archive except paused ones
+   MANNA_ARCHIVES=datalab,alma,nrao # names win: nrao is active despite paused
+   ```
 
 Behavior on odd input (never crash the server): unknown name → logged warning,
 ignored; empty result → prominent warning, still boots; duplicate `short_name`
@@ -200,6 +211,8 @@ reachability:
 | `Schema` quirks in `describe_table`        | `describe_ivoa_service` live introspection |
 | Endpoint examples in TAP/SIA/SCS tool schemas  | passing the URL explicitly |
 | Cosmetic `archive` label on envelopes          | hostname-derived label (`_label_from_host`) |
+
+A paused archive is absent in exactly the same way as a deselected one, with one extra rule: `describe_table` also drops `cross_refs` that point at an inactive archive, so ALMA's obscore entry stops advertising NRAO's while nrao is paused.
 
 There is **no fetch/SSRF gating tied to archives.** The 0.4.0 stateless refactor
 removed `vo_sia_fetch`, so the old `host_substrings`-derived allow-list has no
@@ -221,6 +234,10 @@ tests/archives/
   (`test_archive_endpoints.py`, `test_archive_knowledge.py`).
 - `EXPECTED_ORDER` in `test_registry.py` pins the shipped membership + order, so
   adding/removing/re-prioritizing an archive forces a conscious test edit.
+- `DEFAULT_ACTIVE` alongside it pins the default active membership
+  (`EXPECTED_ORDER` minus paused archives). Tests that need a paused archive's
+  content through the tools take the `nrao_active` fixture from
+  `tests/conftest.py`.
 
 ## 7. Adding / evolving an archive
 
@@ -230,6 +247,12 @@ tests/archives/
 2. Add `tests/archives/test_<short_name>.py` importing `ARCHIVE` and pinning its
    content; add the name to `EXPECTED_ORDER`.
 3. `uv run pytest --record-mode=none -q && uv run ruff check .`
+4. To pause an archive, set `paused="Paused YYYY-MM-DD ...: <reason>; set MANNA_ARCHIVES to include '<name>' to re-enable."` and add its name to `PAUSED` in `test_registry.py`; tag any eval task that needs it with `requires_archive: <name>`.
+
+   To un-pause it: delete the `paused=` field, remove the name from `PAUSED` in
+   `test_registry.py`, and re-point or delete the steering contract test
+   (`tests/contracts/test_no_paused_archive_steering.py`); `requires_archive`
+   tags on its eval tasks become no-ops and may stay.
 
 Per-archive history is just the git log of its file
 (`git log --follow -p archives/nrao.py`), so an archive-knowledge change is a

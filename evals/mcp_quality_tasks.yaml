@@ -64,6 +64,7 @@
 
 - id: mq-workflow-nrao-count
   tier: 5
+  requires_archive: nrao
   prompt: >-
     How many observations does the NRAO archive have within 0.1 degrees of RA=200.0,
     Dec=+20.0?
@@ -111,6 +112,7 @@
 
 - id: mq-nrao-instruments
   tier: 5
+  requires_archive: nrao
   prompt: "What instrument_name values appear in NRAO's obscore table? List them."
   ground_truth: { type: contains, values: [EVLA, VLBA, GBT] }
 
@@ -188,6 +190,7 @@
 
 - id: mq-count-nrao-cena
   tier: 5
+  requires_archive: nrao
   prompt: >-
     How many observations does the NRAO archive have within 0.05 degrees of the radio
     galaxy Centaurus A (NGC 5128)?
@@ -207,7 +210,7 @@
   rubric: >-
     Passes if the assistant reports a PER-ARCHIVE availability summary near Centaurus A
     covering at least two distinct archives spanning at least two wavebands (e.g. an
-    optical catalog and a radio or millimeter archive), each with a count or a clear
+    optical catalog and a millimeter archive), each with a count or a clear
     has-data / no-data verdict.
 
 - id: mq-survey-wavebands-m83
@@ -219,7 +222,7 @@
   rubric: >-
     Passes if the assistant identifies at least two DISTINCT wavebands with data near
     M83 (~204.25 / -29.87) and names a corresponding archive for each (e.g. optical ->
-    Data Lab, millimeter -> ALMA, radio -> NRAO).
+    Data Lab, millimeter -> ALMA).
 
 - id: mq-survey-fornax
   tier: 5

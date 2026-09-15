@@ -138,7 +138,7 @@ All settings are optional — defaults work for local dev. Set via environment v
 | `MANNA_LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 | `MANNA_TAP_SYNC_TIMEOUT_SECONDS` | `20.0` | Timeout for sync TAP queries |
 | `MANNA_ALLOWED_HOSTS` | *(unset)* | Comma-separated hostnames the server may fetch (exact or subdomain match). Unset ⇒ any **public** host; private/loopback/link-local targets are refused regardless |
-| `MANNA_ARCHIVES` | *(unset)* | Comma-separated archive short_names to activate. Unset/empty ⇒ all archives physically present in `archives/` |
+| `MANNA_ARCHIVES` | *(unset)* | Comma-separated archive short_names to activate. Unset/empty ⇒ all archives physically present in `archives/` except paused ones (`nrao` ships paused; name it here to re-enable) |
 | `MANNA_INLINE_ROW_LIMIT` | `200` | Max rows in an inline result before it's routed to an async job (TAP) or truncated (cone/SIA) |
 | `MANNA_INLINE_BYTE_LIMIT` | `49152` | Max bytes in an inline result before the same promotion/truncation applies (48 KiB) |
 | `MANNA_REGISTRY_DESCRIBE_BYTE_LIMIT` | `49152` | Above this, `describe_ivoa_service` degrades from per-column detail to a table catalog (names + descriptions + column counts) |
@@ -158,6 +158,7 @@ This repo is the multi-archive base. Each archive is one self-contained file —
 
 - **Physical** — delete the unwanted `src/manna/archives/<short_name>.py` files. Discovery picks up whatever remains; no other file needs touching.
 - **Runtime** — set `MANNA_ARCHIVES=datalab,alma` (comma-separated short_names) to narrow a shared image without deleting files. Unset/empty ⇒ every archive active.
+- **Paused** — an archive can set `paused="<reason>"` to ship inactive by default without losing its notes. `nrao` is paused while NRAO rebuilds its TAP service; `MANNA_ARCHIVES=datalab,alma,nrao` re-enables it.
 
 A dropped or deselected archive loses only the server's *curated claims* about it — never its reachability. It's still reachable via `search_ivoa_registry`.
 

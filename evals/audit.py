@@ -30,7 +30,7 @@ must work if the service is up). If the control fails, the whole archive is UNRE
 its notes are not judged — so a network blip is never misreported as "the notes went stale".
 
     uv run python -m evals.audit                 # check every note
-    uv run python -m evals.audit --archive nrao  # just one archive's notes
+    MANNA_ARCHIVES=nrao uv run python -m evals.audit --archive nrao  # nrao ships paused
     uv run python -m evals.audit --list          # list notes, run nothing
     uv run python -m evals.audit --probeable     # skip MANUAL rows in the report
 """
@@ -279,7 +279,17 @@ def main() -> int:
     if args.archive:
         archives = tuple(a for a in archives if a.short_name == args.archive)
         if not archives:
-            print(f"no archive {args.archive!r} in the active set")
+            from manna.archives import discover_archives
+
+            paused = next(
+                (a for a in discover_archives() if a.short_name == args.archive and a.paused),
+                None,
+            )
+            if paused is not None:
+                print(f"archive {args.archive!r} is paused: {paused.paused}")
+                print(f"  run with MANNA_ARCHIVES={args.archive} to audit it anyway")
+            else:
+                print(f"no archive {args.archive!r} in the active set")
             return 2
 
     notes = collect_audits(archives)

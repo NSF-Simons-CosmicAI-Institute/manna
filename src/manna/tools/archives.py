@@ -34,12 +34,12 @@ def list_archives(
         Field(
             description=(
                 "Optional. Return only the archive with this short_name "
-                "(case-insensitive), e.g. 'nrao'. Use this when you already "
+                "(case-insensitive), e.g. 'alma'. Use this when you already "
                 "know which archive you want — it returns a single entry "
                 "instead of the full set, saving context. Unknown names "
                 "return an empty list (count: 0)."
             ),
-            examples=["nrao", "datalab", "alma"],
+            examples=["alma", "datalab", "gaia"],
         ),
     ] = None,
     waveband: Annotated[
@@ -50,7 +50,7 @@ def list_archives(
                 "(case-insensitive), e.g. 'radio', 'optical', 'millimeter'. "
                 "Combines with short_name (both must match)."
             ),
-            examples=["radio", "optical", "millimeter"],
+            examples=["millimeter", "optical", "radio"],
         ),
     ] = None,
 ) -> dict:
@@ -108,14 +108,16 @@ def list_archives(
         wb = waveband.strip().lower()
         selected = tuple(a for a in selected if (a.waveband or "").lower() == wb)
 
-    # `schemas` (surfaced by describe_table) and the internal ordering
-    # `priority` are not part of this tool's contract — drop them so the
-    # archive-list envelope stays the identity/usage_notes view it always was.
+    # `schemas` (surfaced by describe_table), the internal ordering `priority`,
+    # and the deployment-selection knob `paused` are not part of this tool's
+    # contract — drop them so the archive-list envelope stays the
+    # identity/usage_notes view it always was.
     archives = []
     for a in selected:
         d = dataclass_to_jsonable_dict(a)
         d.pop("schemas", None)
         d.pop("priority", None)
+        d.pop("paused", None)
         d["usage_notes"] = note_texts(a.usage_notes)
         archives.append(d)
     result: dict = {"archives": archives, "count": len(archives)}

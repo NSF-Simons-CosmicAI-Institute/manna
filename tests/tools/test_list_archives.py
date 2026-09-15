@@ -17,7 +17,7 @@ async def test_list_archives_returns_curated_set(mcp_server):
     assert "archives" in payload
     assert "count" in payload
     assert payload["count"] == len(payload["archives"])
-    assert payload["count"] >= 8  # we have 8 well-known archives today
+    assert payload["count"] >= 7  # 8 shipped archives, nrao paused by default
 
     # First entry should be DataLab (the canonical-example archive),
     # second should be ALMA (prioritized to the top of the well-known set).
@@ -26,7 +26,7 @@ async def test_list_archives_returns_curated_set(mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_list_archives_nrao_entry_carries_async_usage_note(mcp_server):
+async def test_list_archives_nrao_entry_carries_async_usage_note(nrao_active, mcp_server):
     """The most operationally important note: NRAO needs mode='async'
     for data queries. If this regresses, the LLM falls back to the
     trial-and-error loop we built this tool to avoid."""
@@ -63,21 +63,21 @@ async def test_list_archives_filter_by_short_name_returns_single_entry(mcp_serve
     """short_name filter narrows to one archive — the token-saving path
     once the agent knows which archive it wants."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("list_archives", {"short_name": "nrao"})
+        result = await client.call_tool("list_archives", {"short_name": "alma"})
         payload = result.structured_content
 
     assert payload["count"] == 1
-    assert payload["archives"][0]["short_name"] == "nrao"
+    assert payload["archives"][0]["short_name"] == "alma"
 
 
 @pytest.mark.asyncio
 async def test_list_archives_short_name_is_case_insensitive(mcp_server):
     async with Client(mcp_server) as client:
-        result = await client.call_tool("list_archives", {"short_name": "NRAO"})
+        result = await client.call_tool("list_archives", {"short_name": "ALMA"})
         payload = result.structured_content
 
     assert payload["count"] == 1
-    assert payload["archives"][0]["short_name"] == "nrao"
+    assert payload["archives"][0]["short_name"] == "alma"
 
 
 @pytest.mark.asyncio
@@ -93,14 +93,28 @@ async def test_list_archives_unknown_short_name_returns_empty(mcp_server):
 
 @pytest.mark.asyncio
 async def test_list_archives_filter_by_waveband(mcp_server):
-    """waveband filter returns only matching archives; 'radio' is NRAO-only."""
+    """waveband filter returns only matching archives; 'millimeter' is ALMA-only."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("list_archives", {"waveband": "radio"})
+        result = await client.call_tool("list_archives", {"waveband": "millimeter"})
         payload = result.structured_content
 
     short_names = {a["short_name"] for a in payload["archives"]}
-    assert short_names == {"nrao"}
+    assert short_names == {"alma"}
     assert payload["count"] == len(payload["archives"])
+
+
+@pytest.mark.asyncio
+async def test_list_archives_paused_archive_is_absent_by_default(mcp_server):
+    """nrao ships paused: no entry, count 0, and the recovery hint still names
+    the archives that ARE active."""
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("list_archives", {"short_name": "nrao"})
+        payload = result.structured_content
+
+    assert payload["count"] == 0
+    assert payload["archives"] == []
+    assert "nrao" not in payload["hint"]
+    assert "alma" in payload["hint"]
 
 
 @pytest.mark.asyncio
@@ -110,7 +124,7 @@ async def test_list_archives_no_args_still_returns_full_set(mcp_server):
         result = await client.call_tool("list_archives", {})
         payload = result.structured_content
 
-    assert payload["count"] >= 8
+    assert payload["count"] >= 7
 
 
 @pytest.mark.asyncio
@@ -152,3 +166,15 @@ async def test_list_archives_unknown_short_name_returns_recovery_hint(mcp_server
     assert payload["archives"] == []
     assert "hint" in payload
     assert "datalab" in payload["hint"]
+
+
+@pytest.mark.asyncio
+async def test_list_archives_never_echoes_the_paused_field(nrao_active, mcp_server):
+    """`paused` is a deployment-selection knob, not archive knowledge: an
+    activated archive must look like any other to the model."""
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("list_archives", {"short_name": "nrao"})
+        payload = result.structured_content
+
+    assert payload["count"] == 1
+    assert "paused" not in payload["archives"][0]

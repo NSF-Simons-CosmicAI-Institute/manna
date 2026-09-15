@@ -81,7 +81,7 @@ def test_exclude_tools_unset_keeps_everything(monkeypatch):
 # ---------- the tier-3 with-and-without comparison must strip BOTH channels ----------
 
 
-def test_ablated_context_strips_both_pitfall_channels():
+def test_ablated_context_strips_both_pitfall_channels(nrao_active):
     """Pitfalls are archive notes, so the tier-3 with-and-without comparison has to take
     them away too — otherwise the stripped condition silently keeps the server's
     advantage and the with/without delta understates the ROI.

@@ -138,25 +138,25 @@ async def test_ablation_through_real_tools() -> None:
     """Stripping the archive notes must actually change what the tools return."""
     mcp = build_mcp()
     async with Client(mcp) as client:
-        full_list = await client.call_tool("list_archives", {"short_name": "nrao"})
+        full_list = await client.call_tool("list_archives", {"short_name": "alma"})
         full_schema = await client.call_tool(
-            "describe_table", {"archive": "nrao", "table": "tap_schema.obscore"}
+            "describe_table", {"archive": "alma", "table": "ivoa.obscore"}
         )
-        nrao_full = full_list.structured_content["archives"][0]
-        assert len(nrao_full["usage_notes"]) > 0, "baseline NRAO should have usage_notes"
+        alma_full = full_list.structured_content["archives"][0]
+        assert len(alma_full["usage_notes"]) > 0, "baseline ALMA should have usage_notes"
         assert full_schema.structured_content["known"] is True, "baseline obscore known"
 
         with ablated_context():
-            ab_list = await client.call_tool("list_archives", {"short_name": "nrao"})
+            ab_list = await client.call_tool("list_archives", {"short_name": "alma"})
             ab_schema = await client.call_tool(
-                "describe_table", {"archive": "nrao", "table": "tap_schema.obscore"}
+                "describe_table", {"archive": "alma", "table": "ivoa.obscore"}
             )
-        nrao_ab = ab_list.structured_content["archives"][0]
-        assert nrao_ab["usage_notes"] == [], "ablated NRAO must lose usage_notes"
+        alma_ab = ab_list.structured_content["archives"][0]
+        assert alma_ab["usage_notes"] == [], "ablated ALMA must lose usage_notes"
         assert ab_schema.structured_content["known"] is False, "ablated obscore must miss"
 
         # Context restored after the block.
-        after = await client.call_tool("list_archives", {"short_name": "nrao"})
+        after = await client.call_tool("list_archives", {"short_name": "alma"})
         assert len(after.structured_content["archives"][0]["usage_notes"]) > 0, "must restore"
 
 

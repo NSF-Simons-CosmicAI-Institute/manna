@@ -41,6 +41,7 @@
 
 - id: t1-list-radio
   tier: 1
+  requires_archive: nrao  # radio-only archive; skipped while nrao is paused
   prompt: "Which astronomical archives do you have first-class knowledge of for radio data?"
   expect_tools: [list_archives]
   arg_checks:
@@ -49,6 +50,7 @@
 
 - id: t1-schema
   tier: 1
+  requires_archive: nrao
   prompt: "Before I query NRAO's obscore table, tell me any known quirks about it."
   expect_tools: [describe_table]
   arg_checks:
@@ -108,6 +110,7 @@
 
 - id: t2-list-then-query
   tier: 2
+  requires_archive: nrao
   prompt: >-
     I want to count VLASS observations in NRAO's archive near the Galactic center.
     First check the archive's documented quirks, then run the query.
@@ -124,6 +127,7 @@
 
 - id: t2-async-lifecycle
   tier: 2
+  requires_archive: nrao
   prompt: >-
     Query NRAO's obscore table for EVLA observations. This may be slow, so use the
     asynchronous path and poll until it finishes before showing me results.
@@ -159,6 +163,7 @@
 
 - id: t2-schema-bound-query
   tier: 2
+  requires_archive: nrao
   prompt: "Query NRAO's obscore table for GBT observations and tell me how many there are."
   expect_tools: [run_adql_query]
   arg_checks:
@@ -189,6 +194,7 @@
 
 - id: t3-nrao-async
   tier: 3
+  requires_archive: nrao
   probes_pitfall: "NRAO obscore data reads must not ride bare mode='sync'"
   prompt: "Get me 20 rows from NRAO's obscore table for VLA observations near RA=250, Dec=-30."
   expect_tools: [run_adql_query]
@@ -203,6 +209,7 @@
 
 - id: t3-obscore-location
   tier: 3
+  requires_archive: nrao
   probes_pitfall: "NRAO obscore is at tap_schema.obscore, not ivoa.obscore"
   prompt: "Query NRAO for the 5 most recent VLA observations. Return obs_id and t_min."
   expect_tools: [run_adql_query]
@@ -225,6 +232,7 @@
 
 - id: t3-nrao-lowerupper
   tier: 3
+  requires_archive: nrao
   probes_pitfall: "LOWER/UPPER string functions fail on NRAO TAP (PREVENTION)"
   prompt: >-
     Query NRAO obscore for observations whose target name matches 'm87'
@@ -244,6 +252,7 @@
 
 - id: t3-nrao-lowerupper-recovery
   tier: 3
+  requires_archive: nrao
   probes_pitfall: "recovers from the NRAO LOWER/UPPER rejection via the error hint"
   prompt: >-
     Query NRAO obscore for observations whose target name matches 'm87'
@@ -263,6 +272,7 @@
 
 - id: t3-nrao-spatial
   tier: 3
+  requires_archive: nrao
   probes_pitfall: "NRAO obscore reads need a selective filter; a cone is the fast path for positional asks"
   prompt: "Get 25 EVLA rows from NRAO obscore near the Crab Nebula."
   expect_tools: [run_adql_query]
@@ -309,6 +319,7 @@
 
 - id: t4-job-not-ready
   tier: 4
+  requires_archive: nrao
   prompt: >-
     Start an async NRAO obscore query for all VLBA observations, then immediately try to
     read the results. If it's not ready, wait properly and then return the results.
@@ -320,6 +331,7 @@
 
 - id: t4-no-leak
   tier: 4
+  requires_archive: nrao
   prompt: "Query NRAO obscore using the sync endpoint only (mode='sync'), returning 10 rows."
   expect_tools: [run_adql_query]
   arg_checks:

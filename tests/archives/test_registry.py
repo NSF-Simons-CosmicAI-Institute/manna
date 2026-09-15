@@ -25,6 +25,13 @@ EXPECTED_ORDER = [
     "sdss",
 ]
 
+# Archives shipped paused — see archives/nrao.py::paused — discovered but not
+# in the default active set.
+PAUSED = {"nrao"}
+
+# Archives in the DEFAULT active set (MANNA_ARCHIVES unset).
+DEFAULT_ACTIVE = [n for n in EXPECTED_ORDER if n not in PAUSED]
+
 
 @pytest.fixture
 def clear_archive_caches():
@@ -99,13 +106,14 @@ def test_every_cross_ref_resolves_within_the_full_set():
 # ---------- construction / validation catches developer errors ----------
 
 
-def _archive(short_name, *, schemas=(), priority=100):
+def _archive(short_name, *, schemas=(), priority=100, paused=None):
     return Archive(
         short_name=short_name,
         display_name=short_name,
         host_substrings=(),
         schemas=schemas,
         priority=priority,
+        paused=paused,
     )
 
 
@@ -134,6 +142,39 @@ def test_validate_rejects_duplicate_table_pairs():
         _select.validate_archives((dupe,))
 
 
+def test_archive_rejects_empty_paused_reason():
+    with pytest.raises(ValueError, match="paused"):
+        _archive("x", paused="")
+
+
+# ---------- paused archives (pure) ----------
+
+
+def test_select_none_drops_paused_archives_and_logs_why(caplog):
+    caplog.set_level("INFO", logger="manna.archives._select")
+    live = _archive("live")
+    halted = _archive("halted", paused="TAP rebuild in progress (2026-09)")
+    selected = _select.select_archives((live, halted), allow=None)
+    assert [a.short_name for a in selected] == ["live"]
+    assert "halted" in caplog.text
+    assert "TAP rebuild in progress" in caplog.text
+    assert "MANNA_ARCHIVES" in caplog.text
+
+
+def test_select_explicit_name_activates_a_paused_archive():
+    live = _archive("live")
+    halted = _archive("halted", paused="TAP rebuild in progress (2026-09)")
+    selected = _select.select_archives((live, halted), allow=frozenset({"halted"}))
+    assert [a.short_name for a in selected] == ["halted"]
+
+
+def test_select_explicit_list_keeps_paused_and_unpaused_together():
+    live = _archive("live", priority=1)
+    halted = _archive("halted", paused="reason", priority=2)
+    selected = _select.select_archives((live, halted), allow=frozenset({"live", "halted"}))
+    assert [a.short_name for a in selected] == ["live", "halted"]
+
+
 # ---------- parse_allow (pure) ----------
 
 
@@ -156,9 +197,10 @@ def test_parse_allow(raw, expected):
 # ---------- select_archives (pure) ----------
 
 
-def test_select_none_returns_all_sorted():
+def test_select_none_returns_every_unpaused_archive_sorted():
     archives = discover_archives()
-    assert _select.select_archives(archives, allow=None) == archives
+    expected = tuple(a for a in archives if a.paused is None)
+    assert _select.select_archives(archives, allow=None) == expected
 
 
 def test_select_narrows_to_allow_set():
@@ -203,6 +245,24 @@ def test_stable_archives_env_narrows_the_active_set(monkeypatch, clear_archive_c
     assert lookup_schema(archive="alma", table="ivoa.obscore") is not None
 
 
-def test_default_active_set_matches_discovery(clear_archive_caches):
+def test_default_active_set_is_discovery_minus_paused(clear_archive_caches):
     # clear_archive_caches already reset both caches; no env change here.
-    assert get_active_archives() == discover_archives()
+    assert [a.short_name for a in get_active_archives()] == DEFAULT_ACTIVE
+
+
+def test_nrao_ships_paused():
+    nrao = next(a for a in discover_archives() if a.short_name == "nrao")
+    assert nrao.paused is not None
+    assert "nrao" not in DEFAULT_ACTIVE
+    assert "nrao" in PAUSED
+
+
+def test_naming_a_paused_archive_in_env_activates_it(monkeypatch, clear_archive_caches):
+    from manna.archives._knowledge import lookup_schema
+
+    monkeypatch.setenv("MANNA_ARCHIVES", "datalab,nrao")
+    get_settings.cache_clear()
+    get_active_archives.cache_clear()
+
+    assert [a.short_name for a in get_active_archives()] == ["datalab", "nrao"]
+    assert lookup_schema(archive="nrao", table="tap_schema.obscore") is not None

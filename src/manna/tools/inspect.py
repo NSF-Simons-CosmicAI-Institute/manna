@@ -81,18 +81,15 @@ def preview_table(
     table: Annotated[
         str,
         Field(
-            description=(
-                "Fully qualified table name (e.g. 'nsc_dr2.object', "
-                "'tap_schema.obscore', 'ivoa.obscore')."
-            ),
-            examples=["nsc_dr2.object", "tap_schema.obscore"],
+            description=("Fully qualified table name (e.g. 'ivoa.obscore', 'nsc_dr2.object')."),
+            examples=["ivoa.obscore", "nsc_dr2.object"],
         ),
     ],
     archive: Annotated[
         str | None,
         Field(
             description="Archive short_name. If omitted, inferred from curated schema knowledge.",
-            examples=["datalab", "nrao"],
+            examples=["datalab", "alma"],
         ),
     ] = None,
     sample_rows: Annotated[

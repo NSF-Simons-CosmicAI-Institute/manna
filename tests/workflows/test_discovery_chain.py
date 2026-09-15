@@ -67,13 +67,13 @@ async def test_archive_list_surfaces_the_archives_we_promise(mcp_server):
         payload = result.structured_content
 
     short_names = {a["short_name"] for a in payload["archives"]}
-    must_include = {"datalab", "nrao", "alma", "cadc", "gaia"}
+    must_include = {"datalab", "alma", "cadc", "gaia"}  # nrao ships paused
     missing = must_include - short_names
     assert not missing, f"list_archives missing well-known archives: {missing}"
 
 
 @pytest.mark.asyncio
-async def test_archive_list_nrao_entry_carries_async_and_obscore_notes(mcp_server):
+async def test_archive_list_nrao_entry_carries_async_and_obscore_notes(nrao_active, mcp_server):
     """Pins the load-bearing usage_notes for the LLM:
     - mode='async' for data queries
     - tap_schema.obscore (non-standard) location
@@ -90,7 +90,7 @@ async def test_archive_list_nrao_entry_carries_async_and_obscore_notes(mcp_serve
 
 
 @pytest.mark.asyncio
-async def test_chain_pick_tap_url_from_list_and_query(mcp_server, fake_tap):
+async def test_chain_pick_tap_url_from_list_and_query(nrao_active, mcp_server, fake_tap):
     """Simulate the LLM action: get the list → pick NRAO's tap_url →
     submit a query against it. Verify the right URL flowed through."""
     async with Client(mcp_server) as client:

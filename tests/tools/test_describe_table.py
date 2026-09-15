@@ -35,7 +35,7 @@ def fake_columns(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_known_entry_returns_envelope_with_curated_fields(mcp_server):
+async def test_known_entry_returns_envelope_with_curated_fields(nrao_active, mcp_server):
     """Pins the structured fields for the NRAO obscore entry so a regression
     in the seed data fails loudly."""
     async with Client(mcp_server) as client:
@@ -62,7 +62,7 @@ async def test_known_entry_returns_envelope_with_curated_fields(mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_notes_are_plain_strings_with_no_audit_leak(mcp_server):
+async def test_notes_are_plain_strings_with_no_audit_leak(nrao_active, mcp_server):
     """§7 envelope invariant: `notes` is a list[str] — Audit metadata must
     never leak into the LLM-facing payload."""
     async with Client(mcp_server) as client:
@@ -83,7 +83,7 @@ async def test_notes_are_plain_strings_with_no_audit_leak(mcp_server):
 
 @pytest.mark.asyncio
 async def test_unknown_pair_returns_known_false_with_no_other_keys(mcp_server):
-    """On miss, only known/archive/table appear — no other Schema fields."""
+    """On miss, only known/archive/table/hint appear — no other Schema fields."""
     async with Client(mcp_server) as client:
         result = await client.call_tool(
             "describe_table",
@@ -95,6 +95,11 @@ async def test_unknown_pair_returns_known_false_with_no_other_keys(mcp_server):
         "known": False,
         "archive": "bogus",
         "table": "bogus.bogus",
+        "hint": (
+            "No active archive has short_name 'bogus'. Call list_archives "
+            "for the valid short_names; a paused or unlisted archive is still "
+            "reachable via search_ivoa_registry + describe_ivoa_service."
+        ),
     }
 
 
@@ -110,6 +115,18 @@ async def test_empty_archive_returns_validation_error(mcp_server):
 
     assert payload["error_class"] == "validation_error"
     assert payload["retry_strategy"] == "fix_and_retry"
+
+
+@pytest.mark.asyncio
+async def test_unknown_archive_returns_recovery_hint(mcp_server):
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "describe_table", {"archive": "nrao", "table": "tap_schema.obscore"}
+        )
+        payload = result.structured_content
+    assert payload["known"] is False
+    assert "list_archives" in payload["hint"]
+    assert "columns" not in payload
 
 
 # --------------------------------------------------------------------------- #
@@ -134,7 +151,7 @@ def test_hit_returns_real_columns(fake_columns):
     assert "column_list_recipe" not in result
 
 
-def test_datatype_passes_through_verbatim(fake_columns):
+def test_datatype_passes_through_verbatim(nrao_active, fake_columns):
     """The archives disagree — datalab 'adql:DOUBLE', alma 'int', nrao
     'votable:char' (different TAP_SCHEMA versions). An LLM reads all three, so
     normalizing would only add a way to be wrong about a type."""
@@ -185,11 +202,21 @@ def test_miss_on_known_archive_still_returns_columns(fake_columns):
 
 def test_unknown_archive_keeps_the_bare_miss_envelope(fake_columns):
     """No endpoint to ask, and a recipe naming an archive we can't identify is
-    noise. Pins the pre-existing contract: a miss carries no other keys."""
+    noise. Pins the pre-existing contract: a miss carries no other keys besides
+    the recovery hint."""
     fake = fake_columns(rows=[("ra", "adql:DOUBLE")])
     result = describe_table(archive="bogus", table="bogus.bogus")
 
-    assert result == {"known": False, "archive": "bogus", "table": "bogus.bogus"}
+    assert result == {
+        "known": False,
+        "archive": "bogus",
+        "table": "bogus.bogus",
+        "hint": (
+            "No active archive has short_name 'bogus'. Call list_archives "
+            "for the valid short_names; a paused or unlisted archive is still "
+            "reachable via search_ivoa_registry + describe_ivoa_service."
+        ),
+    }
     assert fake.calls == [], "must not query an archive we have no endpoint for"
 
 
