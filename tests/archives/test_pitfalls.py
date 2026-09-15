@@ -31,7 +31,7 @@ def clear_archive_caches():
 # ---------- up-front notes -> run_adql_query description ----------
 
 
-def test_cheatsheet_covers_the_tagged_silent_pitfalls(nrao_active):
+def test_cheatsheet_covers_the_tagged_upfront_notes(nrao_active):
     cs = upfront_note_cheatsheet()
     # ALMA granularity: the archetypal up-front note (COUNT(*) over-counts, no error).
     assert "COUNT(DISTINCT member_ous_uid)" in cs
