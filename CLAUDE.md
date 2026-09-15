@@ -38,7 +38,7 @@ uppercase an identifier. Exception: the PyPI distribution is `manna-mcp` (bare
 
 ```bash
 uv sync                                  # install deps + dev deps
-uv run pytest --record-mode=none         # 682 tests, offline replay (incl. tests/evals/)
+uv run pytest --record-mode=none         # 722 tests, offline replay (incl. tests/evals/)
 uv run pytest --record-mode=once -k <t>  # re-record one cassette (needs net)
 uv run ruff check .                      # lint
 uv run python -m manna                   # boot server on :8000 (MANNA_PORT to override)
