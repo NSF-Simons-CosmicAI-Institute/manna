@@ -67,7 +67,7 @@ MANNA's tool descriptions steer it toward:
 4. `run_adql_query` — the query; `mode="auto"` promotes an oversize result to
    an async job ({doc}`../guide/large-results`).
 
-The shortcut tools collapse common sequences into one call:
+The workflow tools collapse common sequences into one call:
 `find_observations_of_target`, `count_observations_near_target`,
 `survey_archives_for_target`, and `preview_table`.
 

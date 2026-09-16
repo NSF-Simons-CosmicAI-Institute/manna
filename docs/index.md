@@ -6,7 +6,7 @@ astronomical archives (NOIRLab Astro Data Lab, ALMA, CADC, ESO, Gaia, SDSS, …)
 to LLM clients such as Claude Code, Claude Desktop, and Jupyter AI.
 
 MANNA has four layers. **Connections** call the standard IVOA interfaces (TAP,
-SIA, SCS, RegTAP, Sesame). **Shortcut tools** bundle a multi-step task into one
+SIA, SCS, RegTAP, Sesame). **Workflow tools** bundle a multi-step task into one
 call. **Result handling** returns small results inline and a link plus a fetch
 recipe for large ones. **Archive notes** are one file per archive holding its
 addresses and notes about its quirks, each note with a check that re-verifies

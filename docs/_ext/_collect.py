@@ -8,7 +8,7 @@ in-memory ``Client``, and returns plain dataclasses describing each one. No
 renders these dataclasses as MyST lives in ``manna_tools.py``.
 
 The one editorial input is ``LAYERS``: which of the paper's four layers each
-tool belongs to (Connections / Shortcut tools / Result handling / Archive
+tool belongs to (Connections / Workflow tools / Result handling / Archive
 notes). ``tests/unit/test_docs_tool_reference.py`` asserts it names exactly
 the registered tools.
 """
@@ -38,10 +38,10 @@ LAYERS: dict[str, tuple[str, ...]] = {
     "describe_ivoa_service": ("Connections", "Result handling"),
     "search_catalog_by_position": ("Connections", "Result handling"),
     "search_images_by_position": ("Connections", "Result handling"),
-    "find_observations_of_target": ("Shortcut tools",),
-    "count_observations_near_target": ("Shortcut tools",),
-    "survey_archives_for_target": ("Shortcut tools",),
-    "preview_table": ("Shortcut tools", "Archive notes"),
+    "find_observations_of_target": ("Workflow tools",),
+    "count_observations_near_target": ("Workflow tools",),
+    "survey_archives_for_target": ("Workflow tools",),
+    "preview_table": ("Workflow tools", "Archive notes"),
 }
 
 

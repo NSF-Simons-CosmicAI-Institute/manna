@@ -19,7 +19,7 @@ Tools that call the standard IVOA interfaces directly:
 Connections are thin: each is a typed wrapper over pyvo or httpx in
 `manna.backends`. Tools never import pyvo themselves.
 
-## Shortcut tools
+## Workflow tools
 
 One call for a task that would otherwise take several:
 
@@ -29,7 +29,7 @@ One call for a task that would otherwise take several:
 - `survey_archives_for_target` — per-archive counts for one target.
 - `preview_table` — columns, curated notes, and a sample of rows for one table.
 
-Shortcut tools exist because small models get a multi-step chain wrong more
+Workflow tools exist because small models get a multi-step chain wrong more
 often than a single call. They compose the same connections and archive notes
 an LLM could call itself.
 
@@ -69,7 +69,7 @@ write one.
 | Paper term | In the code |
 |---|---|
 | Connections | `manna.backends` (`TapClient`, `SiaClient`, `ConeSearchClient`, `RegistryClient`, `ResolverClient`) |
-| Shortcut tools | `manna.tools.shortcuts`, plus `preview_table` in `manna.tools.inspect` |
+| Workflow tools | `manna.tools.workflows`, plus `preview_table` in `manna.tools.inspect` |
 | Result handling | `manna.results` (`shape_*`, "envelope", "promotion") |
 | Archive notes | `manna.archives.<name>`, `Note`, `Schema` |
 | Check | `Audit` |

@@ -38,7 +38,7 @@ override it for a specific failure — see "Overrides" below — so always read
 
 - `_url_guard.ensure_safe_url` raises `validation_error` with `retry_strategy="abandon"`, not `fix_and_retry`, for a host outside `MANNA_ALLOWED_HOSTS`, a host that cannot be resolved, or a host that resolves to a non-public address — none of those can be fixed by changing the call. Only a bad scheme or an empty host stay `fix_and_retry`.
 - `backends/registry.py` raises `archive_error` with `retry_strategy="abandon"` for an IVOID the registry has never heard of.
-- `tools/tap.py`'s `get_async_job_results` and `shortcuts/count.py`'s async count polling both raise `validation_error` with `retry_strategy="abandon"` when the job phase is `ABORTED` — there is nothing to retry, the job is dead.
+- `tools/tap.py`'s `get_async_job_results` and `workflows/count.py`'s async count polling both raise `validation_error` with `retry_strategy="abandon"` when the job phase is `ABORTED` — there is nothing to retry, the job is dead.
 
 ## Retry strategies
 

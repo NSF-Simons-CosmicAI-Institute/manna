@@ -1,7 +1,7 @@
 # Archives
 
 MANNA ships archive notes for these archives (`src/manna/archives/`), listed
-here in `priority` order (the order `list_archives` and the shortcut tools'
+here in `priority` order (the order `list_archives` and the workflow tools'
 archive selection use):
 
 | short_name | Archive | Waveband |
@@ -38,7 +38,7 @@ Which archives make curated claims is decided at startup:
 service is rebuilt. When active, its obscore data reads need
 `mode="auto"` or `mode="async"`; the archive notes say so.
 
-`priority` (ascending) orders archives in `list_archives` and in the shortcut
+`priority` (ascending) orders archives in `list_archives` and in the workflow
 tools' archive selection.
 
 ## Absence is not inaccessibility
