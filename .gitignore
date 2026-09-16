@@ -35,3 +35,8 @@ docs/superpowers/
 .superpowers/
 
 notebooks/
+
+# Jupyter (docs/tutorials/ notebooks are committed; their checkpoints are not)
+.ipynb_checkpoints/
+# Written by save_recipe when a tutorial notebook is re-recorded
+manna_cache/

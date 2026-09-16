@@ -85,6 +85,18 @@ docs = [
     # wcsaxes raises pytest Skipped (a BaseException) under it and the build dies.
     "sphinx-autodoc-typehints>=2.0,<3",
 ]
+# Tutorial notebooks (docs/tutorials/). Only needed to re-record them; the
+# docs build renders the committed outputs and never executes a notebook.
+#   uv sync --group tutorials
+#   uv run jupyter nbconvert --execute --inplace --ExecutePreprocessor.timeout=600 docs/tutorials/*.ipynb
+tutorials = [
+    "ipykernel>=6.29",
+    "nbconvert>=7.16",
+    "nbformat>=5.10",
+    "matplotlib>=3.9",
+    # save_recipe.code expects a pandas DataFrame named `df` (notebook 02).
+    "pandas>=2.0",
+]
 # Agentic evaluation harness (evals/). Not needed to run the server.
 #   uv sync --group eval
 eval = [
