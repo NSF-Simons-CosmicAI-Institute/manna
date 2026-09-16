@@ -17,13 +17,13 @@ One MANNA process on loopback serves every user's persona over HTTP at
 `fetch_recipe` becomes a cell that runs in the user's kernel
 ({doc}`../guide/large-results`). The persona's instructions add a client-side
 policy on top of MANNA's envelopes: check `~/manna_cache/catalog.csv` before
-re-running a matching query, and save every successful result there.
+re-running a matching query, and save every successful result to the same `manna_cache/` layout the save recipe writes.
 
 The deployment configuration, runbooks, persona instructions, and the
 astronomer-facing user guide and tutorials live in the deployment repository:
 
 - **User guide** — `docs/user-guide.md` in
-  [astro-datalab/manna-deployment](https://github.com/astro-datalab/manna-deployment)
+  [astro-datalab/manna-deployment](https://github.com/astro-datalab/manna-deployment) (private)
 - **Tutorials** — recorded `@datalab` sessions under `docs/tutorials/` in the
   same repository
 - **Operations** — `runbooks/gp12-runbook.md` (deploy, tunables, security
