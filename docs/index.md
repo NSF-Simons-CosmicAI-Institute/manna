@@ -83,14 +83,6 @@ reference/python-api
 ```
 
 ```{toctree}
-:maxdepth: 1
-:caption: Deployments
-:hidden:
-
-deployments/astro-data-lab
-```
-
-```{toctree}
 :maxdepth: 2
 :caption: Contributing
 :hidden:

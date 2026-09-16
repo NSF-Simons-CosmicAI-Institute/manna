@@ -304,7 +304,7 @@ def attach_cache_fields(
     Also appends an imperative save instruction to the envelope's
     top-level `next_steps` — nested fields like `save_recipe.instructions`
     get ignored by weak models (the PR-#64 lesson, observed live with
-    Nemotron 2026-08-10), so the save action must live where those
+    a small local model, 2026-08-10), so the save action must live where those
     models reliably read it.
     """
     envelope["query_fingerprint"] = fingerprint
