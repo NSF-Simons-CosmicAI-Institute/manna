@@ -89,9 +89,10 @@ search (smaller radius, a band filter, a lower `maxrec`).
 
 Every successful TAP, cone, or SIA envelope carries:
 
-- `query_fingerprint` — a stable 12-hex hash of the query identity (tool,
-  endpoint, query text or position, limits), the same across runs and
-  versions;
+- `query_fingerprint` — a stable 12-hex hash of tool, endpoint, and normalized
+  query identity. For TAP: the ADQL text. For cone: position and radius. For
+  SIA: position, size, band, and format. `maxrec` is not hashed; it is recorded
+  separately in the catalog row. Stable across sessions;
 - `save_recipe` — a client-side snippet that writes the result to
   `manna_cache/<fingerprint>.csv` and appends a row to `manna_cache/catalog.csv`
   (columns: `fingerprint, tool, endpoint, archive, query, target, n_rows, truncated, maxrec, csv_path, saved_at`).
