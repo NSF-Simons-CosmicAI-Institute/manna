@@ -55,7 +55,7 @@ jobs:
       - name: Sync docs deps
         run: uv sync --python 3.12 --group docs
       - name: Build site (warnings are errors)
-        run: uv run sphinx-build -W --keep-going -b html docs docs/_build/html
+        run: uv run sphinx-build -W --keep-going -j auto -b html docs docs/_build/html
 
   container:
     runs-on: ubuntu-latest

@@ -37,4 +37,4 @@ class MannaToolsDirective(Directive):
 
 def setup(app):
     app.add_directive("manna-tools", MannaToolsDirective)
-    return {"version": "1.0", "parallel_read_safe": False}
+    return {"version": "1.0", "parallel_read_safe": True, "parallel_write_safe": True}
