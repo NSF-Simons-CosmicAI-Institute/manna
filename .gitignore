@@ -23,6 +23,8 @@ htmlcov/
 # Build
 dist/
 build/
+docs/_build/
+docs/jupyter_execute/
 
 # OS
 .DS_Store

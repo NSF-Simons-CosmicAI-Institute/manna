@@ -6,6 +6,7 @@ executes them. Keeping `Audit` pure keeps the model layer dependency-free.
 
 `expect` reuses the caveat vocabulary the probe engine already understands:
   ok | error | empty | nonempty | count | manual
+
 `manual` marks a claim that a single ADQL probe can't check (download recipes,
 naming conventions, async-only behaviours) — it must carry a `reason`.
 """
