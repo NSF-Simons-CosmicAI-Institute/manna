@@ -100,11 +100,16 @@
   # A positional query may legitimately go through cone search OR a TAP spatial
   # cut — the server's own guidance even prefers TAP ("SCS is legacy"). So we
   # require the resolve step + any positional query tool, not cone specifically.
+  # The workflow tool find_observations_of_target bundles resolve + positional
+  # search into one call, so it counts on its own (capable models prefer it).
   prompt: "Find catalog sources within 3 arcminutes of the galaxy M87."
-  expect_tools: [resolve_target_name]
-  expect_any_of: [search_catalog_by_position, run_adql_query]
+  expect_any_of:
+    - [resolve_target_name, search_catalog_by_position]
+    - [resolve_target_name, run_adql_query]
+    - find_observations_of_target
   rubric: >-
-    Passes if the model resolved M87 to ~RA 187.706 / Dec +12.391 and then ran a
+    Passes if the model resolved M87 to ~RA 187.706 / Dec +12.391 (explicitly, or
+    via a workflow tool that reports the resolved position) and then ran a
     positional query (cone search or a TAP query with a spatial cut) centered there
     with a ~3 arcmin (0.05 deg) radius, returning a plausible set of catalog sources.
 
@@ -142,11 +147,16 @@
   prompt: >-
     I need stellar proper motions from Gaia DR3. Discover the right TAP service,
     inspect it, then run a small query returning source_id, pmra, pmdec.
-  expect_tools: [search_ivoa_registry, run_adql_query]
+  # Gaia has a curated archive note, so discovering it through list_archives is as
+  # legitimate as a registry search. Pure registry fallback is still exercised by
+  # t4-unknown-archive, whose target has no curated note.
+  expect_tools: [run_adql_query]
+  expect_any_of: [search_ivoa_registry, describe_ivoa_service, list_archives]
   rubric: >-
-    Passes if the model discovered a Gaia TAP endpoint via the registry (search and/or
-    describe), then issued a TAP query selecting proper-motion columns. Inspecting the
-    service with describe_ivoa_service before querying is expected but not required.
+    Passes if the model discovered a Gaia TAP endpoint (via the registry search and/or
+    describe, or via the curated archive list), then issued a TAP query selecting
+    proper-motion columns. Inspecting the service or table before querying is
+    expected but not required.
 
 - id: t2-sia-fetch
   tier: 2
@@ -287,7 +297,9 @@
   prompt: >-
     How many distinct ALMA observations are there of the galaxy NGC 253?
     Be careful about how ALMA counts rows.
-  expect_tools: [run_adql_query]
+  # count_observations_near_target applies the distinct-count itself, so a model
+  # that reaches for the workflow tool has handled the pitfall correctly.
+  expect_any_of: [run_adql_query, count_observations_near_target]
   rubric: >-
     Passes if the answer acknowledges ALMA rows are per spectral-window and either
     counts distinct member/observation IDs (e.g. COUNT(DISTINCT member_ous_uid) or

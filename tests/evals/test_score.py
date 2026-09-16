@@ -178,3 +178,28 @@ def test_score_programmatic_leak_fails_and_notes():
     assert s.checks["no_leak"] is False
     assert any("LEAK" in n for n in s.notes)
     assert not s.passed
+
+
+def test_score_programmatic_expect_any_of_accepts_grouped_alternatives():
+    """A nested list inside expect_any_of is an all-of group: the check passes when
+    any group (or bare tool name) is fully present in the trace. This is how a task
+    accepts either the primitive tool chain or a workflow tool that bundles it."""
+    task = {
+        "id": "t",
+        "tier": 2,
+        "expect_any_of": [
+            ["resolve_target_name", "search_catalog_by_position"],
+            ["resolve_target_name", "run_adql_query"],
+            "find_observations_of_target",
+        ],
+    }
+    primitive = _run(
+        trace=[("resolve_target_name", {}, {}, False), ("run_adql_query", {}, {}, False)]
+    )
+    assert score_programmatic(task, primitive).checks["expect_any_of"] is True
+
+    workflow = _run(trace=[("find_observations_of_target", {}, {}, False)])
+    assert score_programmatic(task, workflow).checks["expect_any_of"] is True
+
+    half_group = _run(trace=[("run_adql_query", {}, {}, False)])
+    assert score_programmatic(task, half_group).checks["expect_any_of"] is False
