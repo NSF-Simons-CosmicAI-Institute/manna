@@ -1,3 +1,2 @@
-# archives spec
-
-Stub — written in a later task.
+```{include} ../archives-spec.md
+```
