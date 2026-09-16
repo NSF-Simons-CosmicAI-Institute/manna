@@ -80,6 +80,7 @@ cp evals/.env.example evals/.env    # then edit evals/.env
 |-----|---------|
 | `EVAL_MODEL_NAME` / `_BASE_URL` / `_API_KEY` / `_CUSTOM_HEADERS` | the **model under test** (a local vLLM endpoint by default) |
 | `EVAL_MODEL_BACKEND` (+ `EVAL_JUDGE_BACKEND`) | wire shape: `anthropic` (default) or `openai` |
+| `EVAL_MODEL_THINKING` (+ `EVAL_JUDGE_THINKING`) | Messages API `thinking.type` to send (`adaptive`); unset omits the parameter. Sonnet 5 thinks by default, Opus 4.8 does not, Haiku 4.5 rejects `adaptive`, so set it per model |
 | `EVAL_JUDGE_NAME` / `_API_KEY` (+ `_BASE_URL` / `_CUSTOM_HEADERS`) | the rubric **judge** |
 | `EVAL_MAX_STEPS` / `EVAL_ASYNC_POLL_SLEEP` | optional run knobs |
 

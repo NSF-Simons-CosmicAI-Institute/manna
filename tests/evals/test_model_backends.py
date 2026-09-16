@@ -58,12 +58,89 @@ async def test_anthropic_backend_rejects_a_non_json_body():
             return "<!DOCTYPE html><html><head><title>Astro Data Lab</title></head></html>"
 
     cfg = SimpleNamespace(
-        api_key="k", base_url=None, extra_headers=None, label="fake", model="m", max_tokens=8
+        api_key="k",
+        base_url=None,
+        extra_headers=None,
+        label="fake",
+        model="m",
+        max_tokens=8,
+        thinking=None,
     )
     backend = AnthropicBackend(cfg)  # type: ignore[arg-type]
     backend._client = SimpleNamespace(messages=_Messages())  # type: ignore[assignment]
     with pytest.raises(ProxyResponseError, match="non-JSON body"):
         await backend.complete("system", [{"role": "user", "text": "hi"}], [])
+
+
+def _fake_message(*blocks):
+    """A Messages response whose content blocks serialise like the SDK's pydantic blocks."""
+    from types import SimpleNamespace
+
+    class _Block(SimpleNamespace):
+        def to_dict(self):
+            return dict(vars(self))
+
+    return SimpleNamespace(
+        content=[_Block(**b) for b in blocks],
+        usage=SimpleNamespace(input_tokens=3, output_tokens=5),
+    )
+
+
+@pytest.mark.asyncio
+async def test_anthropic_backend_thinking_switch_and_raw_content_replay():
+    """With cfg.thinking set the request carries `thinking={"type": ...}`; without it
+    the parameter is omitted entirely (Opus 4.8 runs thinking-off when omitted, Haiku
+    4.5 rejects the adaptive form, so the default must be *absent*, not "disabled").
+    The completion also keeps the raw content blocks so the harness can replay the
+    assistant turn verbatim — thinking blocks included — on the next request."""
+    from types import SimpleNamespace
+
+    seen: list[dict] = []
+
+    class _Messages:
+        async def create(self, **kw):
+            seen.append(kw)
+            return _fake_message(
+                {"type": "thinking", "thinking": "", "signature": "sig"},
+                {"type": "text", "text": "resolving"},
+                {"type": "tool_use", "id": "tu1", "name": "resolve_target_name", "input": {}},
+            )
+
+    def _backend(thinking):
+        cfg = SimpleNamespace(
+            api_key="k",
+            base_url=None,
+            extra_headers=None,
+            label="fake",
+            model="m",
+            max_tokens=8,
+            thinking=thinking,
+        )
+        b = AnthropicBackend(cfg)  # type: ignore[arg-type]
+        b._client = SimpleNamespace(messages=_Messages())  # type: ignore[assignment]
+        return b
+
+    comp = await _backend(None).complete("sys", [{"role": "user", "text": "hi"}], [])
+    assert "thinking" not in seen[-1]
+
+    comp = await _backend("adaptive").complete("sys", [{"role": "user", "text": "hi"}], [])
+    assert seen[-1]["thinking"] == {"type": "adaptive"}
+    assert comp.text == "resolving"
+    assert [tu["name"] for tu in comp.tool_uses] == ["resolve_target_name"]
+    assert [b["type"] for b in comp.raw_content] == ["thinking", "text", "tool_use"]
+
+    # A neutral assistant turn carrying raw_content is replayed as-is.
+    convo = [
+        {"role": "user", "text": "hi"},
+        {
+            "role": "assistant",
+            "text": comp.text,
+            "tool_uses": comp.tool_uses,
+            "raw_content": comp.raw_content,
+        },
+    ]
+    replayed = AnthropicBackend._messages(convo)[1]
+    assert replayed["content"] == comp.raw_content
 
 
 # --------------------------------------------------------------------------- #

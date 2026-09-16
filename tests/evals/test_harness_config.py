@@ -19,6 +19,7 @@ _MODEL_VARS = (
     "EVAL_MODEL_CUSTOM_HEADERS",
     "EVAL_MODEL_LABEL",
     "EVAL_MODEL_BACKEND",
+    "EVAL_MODEL_THINKING",
     "EVAL_JUDGE_NAME",
     "EVAL_JUDGE_BASE_URL",
     "EVAL_JUDGE_API_KEY",
@@ -34,6 +35,18 @@ _MODEL_VARS = (
 def _clear(monkeypatch):
     for v in _MODEL_VARS:
         monkeypatch.delenv(v, raising=False)
+
+
+def test_from_env_thinking_defaults_off_and_reads_switch(monkeypatch):
+    """`{PREFIX}_THINKING` opts a model into a `thinking` request parameter. Off by
+    default so existing runs (and models that reject the parameter) are unchanged."""
+    _clear(monkeypatch)
+    monkeypatch.setenv("EVAL_MODEL_NAME", "claude-opus-4-8")
+    assert ModelConfig.from_env().thinking is None
+    monkeypatch.setenv("EVAL_MODEL_THINKING", "adaptive")
+    assert ModelConfig.from_env().thinking == "adaptive"
+    # the judge reads its own switch only
+    assert ModelConfig.from_env("EVAL_JUDGE").thinking is None
 
 
 def test_parse_custom_headers():

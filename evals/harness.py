@@ -68,6 +68,11 @@ class ModelConfig:
     max_tokens: int = DEFAULT_MAX_TOKENS
     label: str = "model"
     backend: str = "anthropic"  # "anthropic" | "openai" (model-under-test API shape)
+    # Value of the Messages API `thinking.type` to send ("adaptive"); None omits the
+    # parameter. Omitting is not neutral across models: Sonnet 5 thinks adaptively by
+    # default, Opus 4.8 runs thinking-off, Haiku 4.5 rejects the adaptive form. Set
+    # EVAL_MODEL_THINKING=adaptive to put Opus 4.8 on the same footing as Sonnet 5.
+    thinking: str | None = None
 
     @classmethod
     def from_env(cls, prefix: str = "EVAL_MODEL") -> ModelConfig:
@@ -85,6 +90,7 @@ class ModelConfig:
           {PREFIX}_BASE_URL[/ ANTHROPIC_BASE_URL]        -> endpoint (omit for hosted)
           {PREFIX}_API_KEY[/ ANTHROPIC_API_KEY]          -> auth token
           {PREFIX}_CUSTOM_HEADERS[/ ANTHROPIC_CUSTOM_HEADERS] -> "Header: v; Header2: v2"
+          {PREFIX}_THINKING                              -> `thinking.type` ("adaptive"); unset omits it
         (the ANTHROPIC_* fallbacks in brackets apply to EVAL_MODEL only.)
         """
         inherit = prefix == "EVAL_MODEL"
@@ -106,6 +112,7 @@ class ModelConfig:
             extra_headers=_parse_custom_headers(raw_headers),
             label=os.getenv(f"{prefix}_LABEL", name),
             backend=os.getenv(f"{prefix}_BACKEND", "anthropic"),
+            thinking=os.getenv(f"{prefix}_THINKING") or None,
         )
 
 
@@ -367,7 +374,13 @@ async def run_task(
                     run.input_tokens += comp.input_tokens
                     run.output_tokens += comp.output_tokens
                     convo.append(
-                        {"role": "assistant", "text": comp.text, "tool_uses": comp.tool_uses}
+                        {
+                            "role": "assistant",
+                            "text": comp.text,
+                            "tool_uses": comp.tool_uses,
+                            # Verbatim blocks (thinking included) for backends that replay them.
+                            "raw_content": comp.raw_content,
+                        }
                     )
                     if not comp.tool_uses:
                         run.final_answer = comp.text
