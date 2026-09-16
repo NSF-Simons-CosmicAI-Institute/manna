@@ -50,8 +50,3 @@ persona is expected to write it into a notebook cell and run it, which loads
 the data as `table` in your kernel ({doc}`../guide/large-results`). A persona
 with no notebook-editing tools can still use the discovery tools but can only
 hand you the recipe to run yourself.
-
-## A full deployment
-
-The Astro Data Lab deployment runs exactly this stack for many users, with a
-Claude Code persona presented as `@datalab`. See {doc}`../deployments/astro-data-lab`.

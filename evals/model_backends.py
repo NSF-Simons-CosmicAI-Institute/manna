@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 class ProxyResponseError(RuntimeError):
     """The model endpoint answered with something that is not a Messages response.
 
-    Seen 2026-09-15: the NOIRLab nginx in front of dlai01's vLLM intermittently
+    Seen 2026-09-15: a reverse proxy in front of a self-hosted vLLM endpoint intermittently
     served a Next.js HTML page with HTTP 200 for ~45 minutes, so the SDK handed
     back a `str` instead of a Message and every run died on `.content`. This is
     an endpoint blip, not a model or tool failure, so the harness retries it

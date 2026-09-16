@@ -1,7 +1,7 @@
 # Security
 
-MANNA is designed to be one shared server process serving many LLM sessions
-(the Astro Data Lab deployment runs it that way). The guarantees below are what
+MANNA is designed to be one shared server process serving many LLM sessions.
+The guarantees below are what
 make that safe enough; the last section says what is still open.
 
 ## Nothing is kept between requests
@@ -53,9 +53,8 @@ query.
 `/mcp/` accepts any caller that can reach it. That is the root of the findings
 still open from the 2026-07 review: a caller who can guess another user's
 `job_url` can read or abort that job at the archive, because the archive's
-UWS endpoint is anonymous too. Deployments mitigate by binding to loopback
-and letting only trusted local clients reach the port; the Astro Data Lab
-deployment does exactly that. Per-caller state keyed on a verified identity
+UWS endpoint is anonymous too. A deployment mitigates by binding to loopback and letting only trusted
+local clients reach the port. Per-caller state keyed on a verified identity
 is the proper fix and is not implemented.
 
 ## Read-only by declaration
