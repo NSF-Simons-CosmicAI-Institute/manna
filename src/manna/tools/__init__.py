@@ -9,11 +9,11 @@ One tool per IVOA standard, split by protocol:
 * Per-table archive notes: tools.schema (describe_table)
 * Target resolver: tools.resolver (resolve_target_name)
 
-Shortcut tools (bundle a multi-step task into one call):
-* tools.shortcuts.count (count_observations_near_target)
-* tools.shortcuts.survey (survey_archives_for_target)
+Workflow tools (bundle a multi-step task into one call):
+* tools.workflows.count (count_observations_near_target)
+* tools.workflows.survey (survey_archives_for_target)
 * tools.inspect (preview_table)
-* tools.shortcuts.find_observations (find_observations_of_target)
+* tools.workflows.find_observations (find_observations_of_target)
 """
 
 # Re-exports so `from manna.tools import run_adql_query` still works.
@@ -23,9 +23,6 @@ from manna.tools.inspect import preview_table
 from manna.tools.registry import describe_ivoa_service, search_ivoa_registry
 from manna.tools.resolver import resolve_target_name
 from manna.tools.schema import describe_table
-from manna.tools.shortcuts.count import count_observations_near_target
-from manna.tools.shortcuts.find_observations import find_observations_of_target
-from manna.tools.shortcuts.survey import survey_archives_for_target
 from manna.tools.sia import search_images_by_position
 from manna.tools.tap import (
     abort_async_job,
@@ -33,6 +30,9 @@ from manna.tools.tap import (
     get_async_job_status,
     run_adql_query,
 )
+from manna.tools.workflows.count import count_observations_near_target
+from manna.tools.workflows.find_observations import find_observations_of_target
+from manna.tools.workflows.survey import survey_archives_for_target
 
 __all__ = [
     "list_archives",

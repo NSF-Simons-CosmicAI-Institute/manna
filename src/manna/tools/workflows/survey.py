@@ -1,4 +1,4 @@
-"""Multi-archive availability shortcut tool: survey_archives_for_target.
+"""Multi-archive availability workflow tool: survey_archives_for_target.
 
 "What data exists for this target, everywhere?" — resolves the target once,
 then fans the curated per-archive count out over every countable archive and
@@ -13,8 +13,8 @@ from pydantic import Field
 from manna.archives._count import build_count_adql
 from manna.errors import ToolExecutionError, ValidationError, wrap_tool_errors
 from manna.tools._constants import _ERROR_DOCSTRING
-from manna.tools.shortcuts import _select
-from manna.tools.shortcuts.count import _run_count
+from manna.tools.workflows import _select
+from manna.tools.workflows.count import _run_count
 
 
 @wrap_tool_errors

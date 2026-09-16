@@ -15,7 +15,7 @@ NRAO/ALMA, CADC, ESO, Gaia, …) to LLM clients.
 ## Tools
 
 MANNA has four layers. **Connections** call the standard IVOA interfaces
-(TAP, SIA, SCS, RegTAP, Sesame). **Shortcut tools** bundle a multi-step task into
+(TAP, SIA, SCS, RegTAP, Sesame). **Workflow tools** bundle a multi-step task into
 one call. **Result handling** returns small results inline and a link plus a
 fetch recipe for large ones. **Archive notes** are one file per archive holding
 its addresses and notes about its quirks, each note with a check that
@@ -34,10 +34,10 @@ re-verifies it. Every tool below is tagged with the layer it belongs to.
 | `describe_ivoa_service` | RegTAP | Connections · Result handling | Describe a specific registry resource (columns, capabilities) |
 | `search_catalog_by_position` | SCS | Connections · Result handling | Simple Cone Search for legacy SCS-only archives |
 | `search_images_by_position` | SIA 2.0 | Connections · Result handling | Search for images by position and waveband (returns access URLs to fetch client-side) |
-| `find_observations_of_target` | SIA 2.0 / SCS | Shortcut tools | One-call shortcut tool: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `resolve_target_name` + `list_archives` + `search_images_by_position`/`search_catalog_by_position` so the model doesn't have to |
-| `count_observations_near_target` | TAP | Shortcut tools | Count observations/sources near a target in one call (resolve → select archive → `COUNT`) |
-| `survey_archives_for_target` | TAP | Shortcut tools | Survey which archives hold data for a target, with per-archive counts |
-| `preview_table` | TAP | Shortcut tools · Archive notes | Columns + curated enums/notes + a sample of rows for one table, in one call |
+| `find_observations_of_target` | SIA 2.0 / SCS | Workflow tools | One-call workflow tool: resolves a target name or coordinates, auto-selects an archive by service/waveband, then runs the SIA (image) or SCS (catalog) search — chains `resolve_target_name` + `list_archives` + `search_images_by_position`/`search_catalog_by_position` so the model doesn't have to |
+| `count_observations_near_target` | TAP | Workflow tools | Count observations/sources near a target in one call (resolve → select archive → `COUNT`) |
+| `survey_archives_for_target` | TAP | Workflow tools | Survey which archives hold data for a target, with per-archive counts |
+| `preview_table` | TAP | Workflow tools · Archive notes | Columns + curated enums/notes + a sample of rows for one table, in one call |
 
 **Renamed in 0.9.0.** Tool names dropped the `vo_` prefix for verb-first,
 descriptive names; clients pinned to the old names must update.
