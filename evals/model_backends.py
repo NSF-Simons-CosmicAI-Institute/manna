@@ -7,8 +7,14 @@ models, and the many open-weights served on an OpenAI-compatible endpoint (vLLM,
 
 Neutral conversation (a list the harness owns and appends to):
   {"role": "user", "text": str}
-  {"role": "assistant", "text": str, "tool_uses": [{"id","name","input"}]}
+  {"role": "assistant", "text": str, "tool_uses": [{"id","name","input"}],
+   "raw_content": [<wire content block>, ...] | None}
   {"role": "tool", "results": [{"tool_use_id","content","is_error"}]}
+
+`raw_content` is the assistant turn exactly as the backend received it. The
+Anthropic backend replays it verbatim so thinking blocks (which carry a signature
+and must be echoed unchanged on the same model) survive the round trip; the OpenAI
+backend ignores it and rebuilds the turn from text + tool_uses as before.
 
 Neutral tools are the Anthropic-shaped {"name","description","input_schema"} dicts the
 providers already emit; each backend converts to its own wire format.
@@ -41,6 +47,7 @@ class Completion:
     tool_uses: list[dict[str, Any]] = field(default_factory=list)  # {id,name,input}
     input_tokens: int = 0
     output_tokens: int = 0
+    raw_content: list[dict[str, Any]] | None = None  # wire blocks, for verbatim replay
 
 
 class ModelBackend:
@@ -92,6 +99,9 @@ class AnthropicBackend(ModelBackend):
             if m["role"] == "user":
                 out.append({"role": "user", "content": m["text"]})
             elif m["role"] == "assistant":
+                if m.get("raw_content"):
+                    out.append({"role": "assistant", "content": m["raw_content"]})
+                    continue
                 content: list[dict[str, Any]] = []
                 if m.get("text"):
                     content.append({"type": "text", "text": m["text"]})
@@ -124,12 +134,16 @@ class AnthropicBackend(ModelBackend):
 
     async def complete(self, system, conversation, tools) -> Completion:
         assert self._client is not None
+        kwargs: dict[str, Any] = {}
+        if self._cfg.thinking:
+            kwargs["thinking"] = {"type": self._cfg.thinking}
         resp = await self._client.messages.create(
             model=self.model,
             max_tokens=self._cfg.max_tokens,
             system=system,
             messages=self._messages(conversation),
             tools=tools,  # already {name, description, input_schema}
+            **kwargs,
         )
         if not hasattr(resp, "content"):
             head = str(resp)[:80].replace("\n", " ")
@@ -144,7 +158,13 @@ class AnthropicBackend(ModelBackend):
             if b.type == "tool_use"
         ]
         u = resp.usage
-        return Completion(text, tool_uses, u.input_tokens if u else 0, u.output_tokens if u else 0)
+        return Completion(
+            text,
+            tool_uses,
+            u.input_tokens if u else 0,
+            u.output_tokens if u else 0,
+            raw_content=[b.to_dict() for b in resp.content],
+        )
 
 
 class OpenAIBackend(ModelBackend):
