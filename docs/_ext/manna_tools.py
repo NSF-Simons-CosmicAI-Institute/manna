@@ -9,6 +9,11 @@ The one editorial input is ``LAYERS``: which of the paper's four layers each
 tool belongs to (Connections / Shortcut tools / Result handling / Archive
 notes). ``tests/unit/test_docs_tool_reference.py`` asserts it names exactly
 the registered tools.
+
+``docutils`` (part of the ``docs`` dependency group, not ``dev``) is only
+needed by the actual Sphinx directive below, so its import is guarded — the
+test module imports the pure dataclasses/functions above it and must not
+require ``uv sync --group docs`` to run in the base ``test`` CI job.
 """
 
 from __future__ import annotations
@@ -18,13 +23,19 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from docutils import nodes
-from docutils.parsers.rst import Directive
-from docutils.statemachine import StringList
 from fastmcp import Client
 
 from manna.app import build_mcp
 from manna.tools._constants import _ERROR_DOCSTRING
+
+try:
+    from docutils import nodes
+    from docutils.parsers.rst import Directive
+    from docutils.statemachine import StringList
+except ImportError:  # pragma: no cover - exercised only without `--group docs`
+    nodes = None  # type: ignore[assignment]
+    StringList = None  # type: ignore[assignment]
+    Directive = object  # type: ignore[assignment]
 
 LAYERS: dict[str, tuple[str, ...]] = {
     "list_archives": ("Archive notes",),
