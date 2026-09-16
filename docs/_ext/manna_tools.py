@@ -141,9 +141,10 @@ def _render_tool(doc: ToolDoc) -> list[str]:
             if p.examples:
                 ex = ", ".join(f"`{e}`" for e in p.examples)
                 desc = f"{desc} Examples: {ex}."
-            default = f"`{p.default}`" if p.default is not None else "—"
+            ptype = p.type.replace("|", "\\|")
+            default = f"`{p.default.replace('|', '\\|')}`" if p.default is not None else "—"
             lines.append(
-                f"| `{p.name}` | `{p.type}` | {'yes' if p.required else 'no'} | {default} | {desc} |"
+                f"| `{p.name}` | `{ptype}` | {'yes' if p.required else 'no'} | {default} | {desc} |"
             )
         lines.append("")
     else:
