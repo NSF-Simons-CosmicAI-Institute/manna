@@ -32,13 +32,16 @@ npx -y @modelcontextprotocol/inspector --cli http://localhost:8000/mcp \
 {"resolved": true, "name": "M87", "ra": 187.7059, "dec": 12.3911, ...}
 ```
 
-Now a query. ALMA's obscore table supports standard ADQL geometry:
+Now a query. ALMA's obscore table supports standard ADQL geometry, and
+ALMA's own archive note recommends matching the observed field footprint
+(`s_region`) with `INTERSECTS`, rather than `CONTAINS` against the pointing
+centre (`s_ra`/`s_dec`), which misses mosaics:
 
 ```bash
 npx -y @modelcontextprotocol/inspector --cli http://localhost:8000/mcp \
   --method tools/call --tool-name run_adql_query \
-  --tool-arg endpoint=https://almascience.eso.org/tap \
-  --tool-arg "adql=SELECT TOP 5 obs_id, s_ra, s_dec, band_list FROM ivoa.obscore WHERE CONTAINS(POINT('ICRS', s_ra, s_dec), CIRCLE('ICRS', 187.7059, 12.3911, 0.1)) = 1"
+  --tool-arg endpoint=https://almascience.nrao.edu/tap \
+  --tool-arg "adql=SELECT TOP 5 obs_id, s_ra, s_dec, band_list FROM ivoa.obscore WHERE INTERSECTS(CIRCLE('ICRS', 187.7059, 12.3911, 0.1), s_region) = 1"
 ```
 
 The result is an inline envelope:
@@ -46,7 +49,8 @@ The result is an inline envelope:
 | Key | Meaning |
 |---|---|
 | `row_count`, `columns`, `rows` | the data |
-| `truncated` | always present, always a boolean; `true` means the archive capped the result at `maxrec` |
+| `truncated` | always present, always a boolean; `true` means MANNA clipped the rows to fit an inline cap |
+| `truncation_reason` | why, when `truncated` is `true`: `maxrec_exceeded` or `inline_cap_exceeded` ({doc}`../guide/large-results`) |
 | `archive` | short name of the archive the endpoint belongs to, when MANNA has notes for it |
 | `query_fingerprint`, `save_recipe`, `load_recipe` | a stable hash of the query and client-side snippets that save the result to `manna_cache/` |
 | `next_steps`, `hints` | instructions and tips written for the LLM |
@@ -95,6 +99,7 @@ unfamiliar archive; it is cheaper than a round trip.
 A query an archive understands and rejects for a reason the failure itself
 implies — a disallowed ADQL string function, say — gets a real *error hint*
 back: an archive note delivered only when a failed query matches its pattern,
-riding the payload's `hint` field. Either way, `error_class` and
-`retry_strategy` tell the model whether to fix the query, wait, poll, or give
-up ({doc}`../reference/errors`).
+riding the payload's `hint` field. In the default archive set no error hint
+fires today; the one archive that carries them, NRAO, is paused. Either way,
+`error_class` and `retry_strategy` tell the model whether to fix the query,
+wait, poll, or give up ({doc}`../reference/errors`).

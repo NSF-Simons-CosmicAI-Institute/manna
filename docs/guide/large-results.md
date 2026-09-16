@@ -17,8 +17,11 @@ The defaults suit a small-context local model. For Claude, raise them
 (`MANNA_INLINE_ROW_LIMIT=2000`, `MANNA_INLINE_BYTE_LIMIT=262144`).
 
 An inline envelope always carries a top-level `truncated` boolean. It is never
-silently true: if the archive capped the result at `maxrec`, `truncated` is
-`true` and `truncation_reason` says so.
+silently true: MANNA itself clips the rows to fit the inline caps, and when it
+does, `truncated` is `true` and `truncation_reason` says which cap was
+binding — `maxrec_exceeded` if the query's own `maxrec` was the smaller limit,
+or `inline_cap_exceeded` if the row/byte inline cap clipped it first (the
+common case for cone and SIA searches).
 
 ## TAP: promotion to an async job
 
@@ -44,7 +47,7 @@ A promotion envelope:
     "When COMPLETED, call get_async_job_results(job_url) to get the result_url and a fetch_recipe.",
     "Then execute the fetch_recipe code with your code-execution tool to load the data — do not abandon the job or re-submit the query."
   ],
-  "fetch_recipe": {"module": "pyvo", "code": "import pyvo\njob = pyvo.dal.AsyncTAPJob('https://.../async/1234')\ntable = job.fetch_result().to_table()"}
+  "fetch_recipe": {"module": "pyvo", "code": "import pyvo\njob = pyvo.dal.AsyncTAPJob('https://almascience.eso.org/tap/async/1234')\njob.raise_if_error()\ntable = job.fetch_result().to_table()"}
 }
 ```
 
@@ -68,11 +71,25 @@ a **fetch recipe**, not the rows:
   "next_steps": [
     "The query already ran and its full result is ready — do NOT re-run it. Execute the Python in fetch_recipe.code with your code-execution tool (e.g. run it in a notebook cell); it loads the result as an astropy Table named `table`.",
     "If `import pyvo` fails, execute fetch_recipe.alternative instead — it needs only astropy.",
-    "Only if you cannot execute code at all: re-run run_adql_query with a narrower query (SELECT TOP N, tighter WHERE, or aggregates like COUNT/GROUP BY) so the result fits inline."
+    "Only if you cannot execute code at all: re-run run_adql_query with a narrower query (SELECT TOP N, tighter WHERE, or aggregates like COUNT/GROUP BY) so the result fits inline.",
+    "Save this result now: put it in a pandas DataFrame named df (inline results: df = pd.DataFrame(rows, columns=[c['name'] for c in columns]); async results: run fetch_recipe first, then df = table.to_pandas()), then execute save_recipe.code with your code-execution tool. It writes manna_cache/<fingerprint>.csv and a catalog row so this query is never re-run. Do NOT re-run the query to save it."
   ],
-  "fetch_recipe": {"module": "pyvo", "code": "import pyvo\n..."}
+  "fetch_recipe": {"module": "pyvo", "code": "import pyvo\njob = pyvo.dal.AsyncTAPJob('https://almascience.eso.org/tap/async/1234')\njob.raise_if_error()\ntable = job.fetch_result().to_table()", "alternative": "..."},
+  "query_fingerprint": "a1b2c3d4e5f6",
+  "save_recipe": {"path": "manna_cache/a1b2c3d4e5f6.csv", "instructions": "...", "code": "..."},
+  "hints": [
+    {"kind": "tip", "text": "result_url is valid until the archive expires the async job.", "source": null},
+    {"kind": "tip", "text": "Anonymous archives only — authenticated archives are not yet supported for client-side fetch.", "source": null}
+  ]
 }
 ```
+
+This is `get_async_job_results` wrapping `shape_result_url` in
+`attach_cache_fields`: the first three `next_steps` entries, `fetch_recipe`,
+and `hints` come from `shape_result_url`; the fourth `next_steps` entry,
+`query_fingerprint`, and `save_recipe` are what `attach_cache_fields` adds
+(no `load_recipe` here — that field is only added on the inline sync TAP
+path, since `fetch_recipe` already covers loading an async result).
 
 The client runs the recipe in its own Python environment. In a notebook that
 is a cell; in Claude Code it is a `python` invocation. The data lands in the
@@ -83,11 +100,12 @@ only: the recipe carries no credentials.
 
 There is no async job to promote a cone or SIA search to, so an oversize result
 is truncated inline with `truncated: true`, and the LLM is told to narrow the
-search (smaller radius, a band filter, a lower `maxrec`).
+search region or lower `maxrec` to see every row inline.
 
 ## Query fingerprint and save recipe
 
-Every successful TAP, cone, or SIA envelope carries:
+Every envelope that carries rows or a result URL — inline TAP, cone, and SIA
+results, plus `get_async_job_results` — carries:
 
 - `query_fingerprint` — a stable 12-hex hash of tool, endpoint, and normalized
   query identity. For TAP: the ADQL text. For cone: position and radius. For

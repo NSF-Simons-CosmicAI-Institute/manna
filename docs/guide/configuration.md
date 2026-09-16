@@ -21,12 +21,12 @@ of truth is `src/manna/config.py`.
 
 ## Presets by model backend
 
-The inline caps default to sizes that fit a 64K-token local model. Raise them
-for a frontier model:
+The inline caps default to sizes that suit a small-context local model,
+roughly 64K to 128K tokens. Raise them for a frontier model:
 
 | Backend | `MANNA_INLINE_ROW_LIMIT` | `MANNA_INLINE_BYTE_LIMIT` |
 |---|---|---|
-| ~128K-token local model (e.g. gpt-oss-120b on vLLM) | `200` | `49152` |
+| Small local model (e.g. gpt-oss-120b on vLLM) | `200` | `49152` |
 | Claude (200K+) | `2000` | `262144` |
 
 ## Transport

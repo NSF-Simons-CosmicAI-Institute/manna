@@ -55,6 +55,10 @@ every archive call goes through `manna.backends`.
 .. autofunction:: manna.config.get_settings
 ```
 
+The underscore-prefixed modules below (`manna.archives._model`,
+`manna.archives._audit`) are internal but stable enough to read; they are not
+a supported import surface.
+
 ## Archive notes model (`manna.archives`)
 
 ```{eval-rst}

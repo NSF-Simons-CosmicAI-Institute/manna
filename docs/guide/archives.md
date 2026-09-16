@@ -1,17 +1,19 @@
 # Archives
 
-MANNA ships archive notes for these archives (`src/manna/archives/`):
+MANNA ships archive notes for these archives (`src/manna/archives/`), listed
+here in `priority` order (the order `list_archives` and the shortcut tools'
+archive selection use):
 
 | short_name | Archive | Waveband |
 |---|---|---|
 | `datalab` | NOIRLab Astro Data Lab | optical |
 | `alma` | ALMA Science Archive | millimeter |
-| `cadc` | Canadian Astronomy Data Centre | multi |
+| `nrao` | NRAO Science Data Archive — **paused** | radio |
 | `eso` | ESO Science Archive | optical |
+| `cadc` | Canadian Astronomy Data Centre | multi |
 | `gaia` | ESA Gaia Archive | optical |
 | `gaia_ari` | Gaia ARI Heidelberg | optical |
 | `sdss` | Sloan Digital Sky Survey | optical |
-| `nrao` | NRAO Science Data Archive — **paused** | radio |
 
 `list_archives` returns the active ones with their endpoints, usage notes, and
 notable tables; `describe_table` returns per-table facts. Each archive is one
@@ -34,7 +36,7 @@ Which archives make curated claims is decided at startup:
 
 `nrao` has been paused since 2026-09-11 at NRAO's request while its TAP
 service is rebuilt. When active, its obscore data reads need
-`mode="async"`; the archive notes say so.
+`mode="auto"` or `mode="async"`; the archive notes say so.
 
 `priority` (ascending) orders archives in `list_archives` and in the shortcut
 tools' archive selection.

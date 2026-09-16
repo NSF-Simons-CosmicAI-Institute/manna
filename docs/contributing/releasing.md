@@ -12,8 +12,12 @@ In one PR to `dev`:
 - `server.json` — both `version` fields
 - `README.md` — if the release renames or adds tools, update the tool table
 
-The release workflow refuses a tag that does not match `pyproject.toml`, and
-the registry job refuses one that does not match `server.json`.
+The `release-pypi` job refuses a tag that does not match `pyproject.toml`, and
+`release-registry` refuses one that does not match `server.json`.
+**`release-docker` has no such guard** — it retags whatever `<sha7>` image
+`package` built as `vX.Y.Z` and `latest` regardless of what the tag says, so a
+mismatched tag still ships a mislabeled image even though the other two jobs
+would refuse it.
 
 ## 2. Promote `dev` to `main`
 
@@ -27,7 +31,8 @@ it with the MCP Inspector, and pushes `ghcr.io/nsf-simons-cosmicai-institute/man
 ## 3. Cut the GitHub Release
 
 Create a release with tag `vX.Y.Z` on `main`. The `release` workflow runs
-three independent jobs:
+three jobs: `release-docker` and `release-pypi` run independently, and
+`release-registry` waits on `release-pypi`.
 
 | Job | What it does |
 |---|---|
@@ -59,3 +64,8 @@ docker pull ghcr.io/nsf-simons-cosmicai-institute/manna:vX.Y.Z
   `manna` for that reason; any rename of the distribution must keep one.
 - **Read the Docs** builds `latest` from `main` on every push; no action
   needed, but a release that adds pages should be checked on the site.
+- **`release-docker` does not check the tag.** Only `release-pypi` (against
+  `pyproject.toml`) and `release-registry` (against `server.json`) refuse a
+  mismatched tag. Double-check the tag by hand before cutting the release —
+  `release-docker` will happily push a `vX.Y.Z` and `latest` image whose
+  contents don't match the version number on the tag.

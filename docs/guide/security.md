@@ -19,9 +19,9 @@ as a `result_url` plus a pyvo recipe the client runs itself.
 ## Every user-supplied URL is checked before it is fetched
 
 Tool arguments that name a URL — `endpoint` on the TAP, cone, and SIA tools,
-`ivoid_or_url` on the registry tools when it is not an `ivo://` identifier,
-and `job_url` on the async tools — pass through one guard before any request
-is made. The guard:
+`ivoid_or_url` on `describe_ivoa_service` when it is not an `ivo://`
+identifier, and `job_url` on the async tools — pass through one guard before
+any request is made. The guard:
 
 1. requires an `http` or `https` scheme (no `file:`, `ftp:`, `data:`);
 2. requires a host;

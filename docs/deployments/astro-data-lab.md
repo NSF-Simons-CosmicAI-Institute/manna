@@ -16,8 +16,10 @@ One MANNA process on loopback serves every user's persona over HTTP at
 `/mcp/`. The persona also has a notebook-control MCP server, which is how a
 `fetch_recipe` becomes a cell that runs in the user's kernel
 ({doc}`../guide/large-results`). The persona's instructions add a client-side
-policy on top of MANNA's envelopes: check `~/manna_cache/catalog.csv` before
-re-running a matching query, and save every successful result to the same `manna_cache/` layout the save recipe writes.
+policy on top of MANNA's envelopes. It checks `~/manna_cache/catalog.csv`
+before re-running a matching query. It saves every successful result there
+too, using the save recipe's `manna_cache/` layout with the user's home as
+the working directory.
 
 The deployment configuration, runbooks, persona instructions, and the
 astronomer-facing user guide and tutorials live in the deployment repository:

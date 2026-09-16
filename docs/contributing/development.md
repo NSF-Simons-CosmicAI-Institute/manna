@@ -71,5 +71,7 @@ The site is MyST markdown under `docs/`, built with Sphinx and published on
 Read the Docs. `uv sync --group docs` installs what the build needs. The tool
 reference is generated at build time from the running server
 (`docs/_ext/manna_tools.py`), so editing a tool's docstring or parameter
-description updates the site. Tutorial notebooks under `docs/tutorials/` are
-committed with their outputs and are not executed by the build.
+description updates the site. Tutorial notebooks under `docs/tutorials/` will
+be committed with their outputs and are not executed by the build; the
+directory currently holds only an index page while the notebooks themselves
+are written.
