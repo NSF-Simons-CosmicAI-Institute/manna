@@ -1,8 +1,10 @@
 """Score a TaskRun against its tasks.yaml spec.
 
 Two kinds of checks:
-  * programmatic — expect/forbid tools, call order, arg constraints, ground-truth
-    on the final answer, and a safety scan (no tokens/tracebacks/paths leaked).
+  * programmatic — expect/forbid tools (`expect_any_of` entries may be all-of
+    groups, so a task can accept a workflow tool in place of the primitive chain),
+    call order, arg constraints, ground-truth on the final answer, and a safety
+    scan (no tokens/tracebacks/paths leaked).
   * LLM-judge — for open-ended `rubric` tasks, graded by a *separate* judge model
     (hosted Claude), never the model under test grading itself.
 
@@ -187,6 +189,21 @@ def _check_calls(calls: list[dict[str, Any]], check: dict[str, Any]) -> bool:
 # --------------------------------------------------------------------------- #
 # programmatic scoring
 # --------------------------------------------------------------------------- #
+def _any_alternative_present(trace_tools: list[str], alternatives: list[Any]) -> bool:
+    """`expect_any_of` check. Each alternative is a tool name or a list of tool names
+    (an all-of group); the check passes when any alternative is fully present.
+
+    The grouped form lets a task accept both the primitive chain and the workflow
+    tool that bundles it, e.g. `[[resolve_target_name, search_catalog_by_position],
+    find_observations_of_target]`.
+    """
+    for alt in alternatives:
+        group = alt if isinstance(alt, list) else [alt]
+        if all(t in trace_tools for t in group):
+            return True
+    return False
+
+
 def _tools_in_order(trace_tools: list[str], expected: list[str]) -> bool:
     """Do `expected` appear as a subsequence of the actual tool-call order?"""
     it = iter(trace_tools)
@@ -235,7 +252,7 @@ def score_programmatic(task: dict[str, Any], run: TaskRun) -> TaskScore:
     if "expect_tools" in task:
         score.checks["expect_tools"] = all(t in trace_tools for t in task["expect_tools"])
     if "expect_any_of" in task:
-        score.checks["expect_any_of"] = any(t in trace_tools for t in task["expect_any_of"])
+        score.checks["expect_any_of"] = _any_alternative_present(trace_tools, task["expect_any_of"])
     if "forbid_tools" in task:
         score.checks["forbid_tools"] = not any(t in trace_tools for t in task["forbid_tools"])
     if task.get("sequence"):
