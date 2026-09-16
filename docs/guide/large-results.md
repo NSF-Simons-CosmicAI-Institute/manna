@@ -120,6 +120,5 @@ query with pyvo *and* saves it, so a client that runs one cell gets both the
 data and the cache row.
 
 The server computes the fingerprint and forgets it. Whether a client reuses a
-cached result is that client's policy; the Astro Data Lab deployment's persona,
-for example, checks `catalog.csv` before re-running a matching query
-({doc}`../deployments/astro-data-lab`).
+cached result is that client's policy; a notebook assistant, for example, can
+check `catalog.csv` before re-running a matching query.
