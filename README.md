@@ -1,7 +1,7 @@
 # MANNA
 
 <!-- mcp-name: io.github.NSF-Simons-CosmicAI-Institute/manna -->
-[![Documentation](https://readthedocs.org/projects/manna-mcp/badge/?version=latest)](https://manna-mcp.readthedocs.io/en/latest/)
+[![Documentation](https://readthedocs.org/projects/manna/badge/?version=latest)](https://manna.readthedocs.io/en/latest/)
 
 **MANNA** — *MCP Architecture for NOIRLab, NRAO, and Additional Archives.*
 
@@ -177,7 +177,7 @@ Inspect the cassette diff before committing — large changes in the VOTable nam
 
 ## Docs
 
-Full documentation: <https://manna-mcp.readthedocs.io> — installation, client
+Full documentation: <https://manna.readthedocs.io> — installation, client
 setup (Claude Code, Claude Desktop, Jupyter AI), a guide to how results and
 archive notes work, the generated tool reference, and tutorials.
 
