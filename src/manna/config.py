@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # is routed to an async job whose result the client fetches itself (the
     # server never holds the bytes); discovery tools (cone / SIA search)
     # truncate inline instead. Defaults are sized for small-context backends
-    # (e.g. a 64K-token local vLLM), where a single fat inline result can
+    # (e.g. a 131072-token local vLLM), where a single fat inline result can
     # overflow the model window. Raise them for frontier models with large
     # context windows.
     inline_row_limit: int = 200

@@ -12,9 +12,28 @@ from manna.app import build_mcp
 client = Client(build_mcp())
 async with client:
     result = await client.call_tool("list_archives", {})
-    print(result.data["count"])
+    print(result.structured_content["count"])
 ```
 
-The notebooks are being added; this index will list them. Until then,
-{doc}`../getting-started/first-query` walks the same ground with the MCP
-Inspector.
+1. {doc}`01-first-query` — connect, list archives, resolve a name, describe a
+   table, run a small query, read the inline envelope.
+2. {doc}`02-large-results` — an oversize query promoted to an async job;
+   poll, fetch the result with pyvo, save it with the recipe.
+3. {doc}`03-images-and-catalogs` — the workflow tools: find and display an
+   image, cone search, count, survey.
+4. {doc}`04-archive-notes-and-errors` — preview a table, a classic Data Lab
+   mistake, the error envelope, the up-front note, `truncated=true`.
+
+Recorded against MANNA 0.9.0 on 2026-09-16. The outputs are committed; the
+site never re-runs them. To re-record, see
+{doc}`../contributing/development`.
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+
+01-first-query
+02-large-results
+03-images-and-catalogs
+04-archive-notes-and-errors
+```
