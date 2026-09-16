@@ -1,4 +1,4 @@
-"""Table-inspection shortcut tool: preview_table.
+"""Table-inspection workflow tool: preview_table.
 
 "What's actually in table T?" in one call — the real column list + curated
 value-enums/notes + a best-effort sample of rows. Columns and curated facts

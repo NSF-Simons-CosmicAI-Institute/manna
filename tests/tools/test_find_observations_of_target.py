@@ -1,7 +1,7 @@
-"""Tests for find_observations_of_target — the purpose-driven orchestration shortcut tool.
+"""Tests for find_observations_of_target — the purpose-driven orchestration workflow tool.
 
 This tool absorbs the resolve -> select-archive -> search chain into one call.
-It is a thin shortcut tool over the SAME backends the atomic tools use; the atomic
+It is a thin workflow tool over the SAME backends the atomic tools use; the atomic
 tools (resolve_target_name / list_archives / search_images_by_position / search_catalog_by_position)
 stay the precision escape hatch.
 """
@@ -10,8 +10,8 @@ import pytest
 from astropy.table import Table
 from fastmcp import Client
 
-import manna.tools.shortcuts._select as sel
-import manna.tools.shortcuts.find_observations as find_mod
+import manna.tools.workflows._select as sel
+import manna.tools.workflows.find_observations as find_mod
 from manna.archives._audit import Audit
 from manna.archives._model import Archive, Note
 

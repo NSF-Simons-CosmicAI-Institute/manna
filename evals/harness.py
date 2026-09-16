@@ -204,7 +204,7 @@ _DISCOVERY_TOOLS = {"list_archives", "describe_table"}
 
 # Env-driven tool-withholding seam: EVAL_EXCLUDE_TOOLS is a comma-separated list of
 # tool names withheld from the agent's tool surface for a with/without value-add
-# A/B (e.g. the purpose-built shortcut tools count_observations_near_target,survey_archives_for_target,
+# A/B (e.g. the purpose-built workflow tools count_observations_near_target,survey_archives_for_target,
 # preview_table). Read per call so a single process picks up the current env;
 # unset/empty => nothing excluded (default = the full shipped tool set).
 _EXCLUDE_TOOLS_ENV = "EVAL_EXCLUDE_TOOLS"

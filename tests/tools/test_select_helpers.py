@@ -1,4 +1,4 @@
-import manna.tools.shortcuts._select as sel
+import manna.tools.workflows._select as sel
 from manna.archives._model import Archive
 
 
