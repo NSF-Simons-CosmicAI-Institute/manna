@@ -215,7 +215,7 @@ reachability:
 A paused archive is absent in exactly the same way as a deselected one, with one extra rule: `describe_table` also drops `cross_refs` that point at an inactive archive, so ALMA's obscore entry stops advertising NRAO's while nrao is paused.
 
 There is **no fetch/SSRF gating tied to archives.** The 0.4.0 stateless refactor
-removed the legacy `sia_fetch` tool, so the old `host_substrings`-derived
+removed the legacy `vo_sia_fetch` tool, so the old `host_substrings`-derived
 allow-list has no consumer; the vestigial `_archive_label.is_known_archive_url()`
 helper was dropped once its last caller was gone.
 
