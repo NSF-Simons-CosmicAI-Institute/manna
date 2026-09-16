@@ -35,10 +35,10 @@ source_suffix = {
     ".ipynb": "myst-nb",
     ".rst": "restructuredtext",
 }
-# "archives-spec.md" is the pre-existing top-level doc that a later task
-# {include}s into contributing/archives-spec.md; excluding it here (an
-# `{include}` reads the file directly, independent of this list) avoids a
-# "not in any toctree" warning until that task wires it in.
+# "archives-spec.md" is the pre-existing top-level doc, included in place by
+# contributing/archives-spec.md (a `{include}` reads the file directly,
+# independent of this list). It is excluded here so Sphinx doesn't also warn
+# that the top-level copy sits in no toctree of its own.
 exclude_patterns = ["_build", "jupyter_execute", "Thumbs.db", ".DS_Store", "archives-spec.md"]
 
 # MyST

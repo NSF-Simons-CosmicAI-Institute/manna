@@ -81,6 +81,8 @@ docs = [
     "furo>=2024.8",
     "sphinx-copybutton>=0.5",
     "sphinx-design>=0.6",
+    # <3: 3.x eagerly imports every intersphinx-referenced module; astropy's
+    # wcsaxes raises pytest Skipped (a BaseException) under it and the build dies.
     "sphinx-autodoc-typehints>=2.0,<3",
 ]
 # Agentic evaluation harness (evals/). Not needed to run the server.
