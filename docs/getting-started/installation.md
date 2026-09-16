@@ -39,9 +39,10 @@ manna                        # HTTP server on http://localhost:8000
 program. `uvx` needs a command named after the package, which is why the
 `manna-mcp` alias exists.
 
-Tool names changed in 0.9.0 (they lost the `vo_` prefix). These pages describe
-0.9.0 or later; check what you have with `pip show manna-mcp` or the
-`/health` endpoint, which reports the version.
+Tool names changed in 0.9.0 (they lost their old two-letter prefix — see the
+README's "Renamed in 0.9.0" section). These pages describe 0.9.0 or later;
+check what you have with `pip show manna-mcp` or the `/health` endpoint,
+which reports the version.
 
 ## From GitHub
 

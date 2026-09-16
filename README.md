@@ -1,6 +1,7 @@
 # MANNA
 
 <!-- mcp-name: io.github.NSF-Simons-CosmicAI-Institute/manna -->
+[![Documentation](https://readthedocs.org/projects/manna-mcp/badge/?version=latest)](https://manna-mcp.readthedocs.io/en/latest/)
 
 **MANNA** — *MCP Architecture for NOIRLab, NRAO, and Additional Archives.*
 
@@ -99,7 +100,7 @@ startup timeout is short.
 
 ```bash
 uv sync
-uv run pytest --record-mode=none        # 722 tests, offline replay
+uv run pytest --record-mode=none        # 732 tests, offline replay
 uv run python -m manna                  # server on http://localhost:8000
 ```
 
@@ -175,6 +176,10 @@ uv run pytest tests/<area>/<test_module>.py::<test_name> --record-mode=once
 Inspect the cassette diff before committing — large changes in the VOTable namespace URI or response headers may indicate an upstream breaking change.
 
 ## Docs
+
+Full documentation: <https://manna-mcp.readthedocs.io> — installation, client
+setup (Claude Code, Claude Desktop, Jupyter AI), a guide to how results and
+archive notes work, the generated tool reference, and tutorials.
 
 - [`docs/archives-spec.md`](docs/archives-spec.md) — how archive notes (per-archive modules) work, and how to author one
 
