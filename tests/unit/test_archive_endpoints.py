@@ -56,9 +56,10 @@ def test_by_short_name_unknown_returns_none():
     assert by_short_name("not-an-archive") is None
 
 
-def test_each_primary_archive_has_at_least_one_usage_note():
+def test_each_primary_archive_has_at_least_one_usage_note(nrao_active):
     """Primary collaborator and well-known archives should have at least
-    one usage_note. Empty notes = a knowledge gap waiting to bite us."""
+    one usage_note. Empty notes = a knowledge gap waiting to bite us.
+    nrao ships paused, so the full set is activated for this check."""
     must_have_notes = {"datalab", "nrao", "alma", "cadc", "gaia"}
     for name in must_have_notes:
         a = by_short_name(name)
@@ -68,8 +69,9 @@ def test_each_primary_archive_has_at_least_one_usage_note():
 
 def test_nrao_label_resolves_to_nrao_not_alma_for_data_nrao_host():
     """almascience.nrao.edu must stay labeled 'alma'; data.nrao.edu and
-    data-query.nrao.edu must label as 'nrao'. The substring map must not
-    confuse the two."""
+    data-query.nrao.edu must label as 'nrao'. With nrao paused its host
+    substrings leave the static map and the hostname fallback
+    (`_label_from_host`) must still land on 'nrao'."""
     from manna._archive_label import archive_label
 
     assert archive_label("https://data.nrao.edu/foo") == "nrao"
@@ -80,11 +82,11 @@ def test_nrao_label_resolves_to_nrao_not_alma_for_data_nrao_host():
 
 def test_view_order_reflects_card_priority():
     """The view is ordered by archive priority: NOIRLab leads, then ALMA, then
-    NRAO. The first TAP-having archives surface as the endpoint examples
+    ESO. The first TAP-having archives surface as the endpoint examples
     shown to the LLM."""
     order = [a.short_name for a in active_archives()]
     assert order.index("datalab") < order.index("alma")
-    assert order.index("alma") < order.index("nrao")
+    assert order.index("alma") < order.index("eso")
 
 
 def test_tap_endpoint_urls_has_alma_and_datalab():
@@ -107,18 +109,18 @@ def test_scs_endpoint_urls_has_gaia_ari():
 def test_tap_description_mentions_two_archives_by_name():
     desc = tap_endpoint_description()
     assert "NOIRLab" in desc or "ALMA" in desc
-    assert "vo_registry_search" in desc  # discovery hint preserved
+    assert "search_ivoa_registry" in desc  # discovery hint preserved
 
 
 def test_sia_description_mentions_sia2_and_discovery():
     desc = sia_endpoint_description()
     assert "SIA 2.0" in desc
-    assert "vo_registry_search" in desc
+    assert "search_ivoa_registry" in desc
 
 
 def test_scs_description_mentions_tap_preference():
     desc = scs_endpoint_description()
-    assert "vo_tap_query" in desc
+    assert "run_adql_query" in desc
 
 
 def test_archive_dataclass_shape_supports_the_contract():

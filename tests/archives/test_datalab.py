@@ -19,7 +19,7 @@ def test_usage_notes_cover_known_adql_quirks():
     # ADQL geometric-function gap: the verified-live remedy is Q3C.
     assert "bounding-box" in notes or "bounding box" in notes
     assert "q3c_radial_query" in notes
-    # Image access is SIAv1 — vo_sia_search (SIA2) reaches it via fallback.
+    # Image access is SIAv1 — search_images_by_position (SIA2) reaches it via fallback.
     assert "siav1" in notes or "sia1" in notes or "sia2" in notes
     # NSC blend flags on bright sources.
     assert "blend" in notes or "flags" in notes

@@ -3,8 +3,8 @@
 Exercises the parts that don't need the LLM:
   * score.py programmatic checks (arg-check ops, match any/all, ground truth,
     sequence, leak detection)
-  * context.py ablation, verified through the REAL in-memory tool path
-    (vo_archive_list / vo_schema_describe read local KBs, so no network)
+  * context.py with-and-without stripping, verified through the REAL in-memory tool path
+    (list_archives / describe_table read local archive notes, so no network)
 
 Run:  uv run python -m evals.selftest
 """
@@ -32,9 +32,9 @@ def test_arg_checks_and_tools() -> None:
     task = {
         "id": "x",
         "tier": 3,
-        "expect_tools": ["vo_tap_query"],
+        "expect_tools": ["run_adql_query"],
         "arg_checks": {
-            "vo_tap_query": [
+            "run_adql_query": [
                 {"arg": "mode", "op": "iequals", "value": "async", "match": "all"},
                 {"arg": "adql", "op": "not_contains", "value": "CONTAINS(", "match": "all"},
             ]
@@ -45,16 +45,16 @@ def test_arg_checks_and_tools() -> None:
         3,
         [
             ToolCall(
-                "vo_tap_query", {"mode": "async", "adql": "SELECT 1"}, {"row_count": 1}, False
+                "run_adql_query", {"mode": "async", "adql": "SELECT 1"}, {"row_count": 1}, False
             ),
             ToolCall(
-                "vo_tap_query", {"mode": "ASYNC", "adql": "SELECT 2"}, {"row_count": 1}, False
+                "run_adql_query", {"mode": "ASYNC", "adql": "SELECT 2"}, {"row_count": 1}, False
             ),
         ],
     )
     s = score_programmatic(task, good)
     assert s.checks["expect_tools"] is True
-    assert s.checks["args:vo_tap_query"] is True
+    assert s.checks["args:run_adql_query"] is True
     assert s.passed is True
 
     # One sync call -> match:all should fail.
@@ -62,12 +62,12 @@ def test_arg_checks_and_tools() -> None:
         "x",
         3,
         [
-            ToolCall("vo_tap_query", {"mode": "async", "adql": "SELECT 1"}, {}, False),
-            ToolCall("vo_tap_query", {"mode": "sync", "adql": "CONTAINS(x)"}, {}, False),
+            ToolCall("run_adql_query", {"mode": "async", "adql": "SELECT 1"}, {}, False),
+            ToolCall("run_adql_query", {"mode": "sync", "adql": "CONTAINS(x)"}, {}, False),
         ],
     )
     s = score_programmatic(task, bad)
-    assert s.checks["args:vo_tap_query"] is False
+    assert s.checks["args:run_adql_query"] is False
     assert s.passed is False
 
 
@@ -75,13 +75,18 @@ def test_ground_truth_and_sequence() -> None:
     task = {
         "id": "c",
         "tier": 2,
-        "expect_tools": ["vo_target_resolve", "vo_cone_search"],
+        "expect_tools": ["resolve_target_name", "search_catalog_by_position"],
         "sequence": True,
         "ground_truth": {"type": "coords", "ra": 187.706, "dec": 12.391, "tol_deg": 0.01},
     }
     trace = [
-        ToolCall("vo_target_resolve", {"name": "M87"}, {"ra": 187.70593, "dec": 12.39112}, False),
-        ToolCall("vo_cone_search", {"ra": 187.706, "dec": 12.391, "radius_deg": 0.05}, {}, False),
+        ToolCall("resolve_target_name", {"name": "M87"}, {"ra": 187.70593, "dec": 12.39112}, False),
+        ToolCall(
+            "search_catalog_by_position",
+            {"ra": 187.706, "dec": 12.391, "radius_deg": 0.05},
+            {},
+            False,
+        ),
     ]
     good = _run("c", 2, trace, answer="M87 is at RA 187.7059, Dec +12.3911 degrees.")
     s = score_programmatic(task, good)
@@ -99,13 +104,13 @@ def test_ground_truth_and_sequence() -> None:
 
 
 def test_leak_detection() -> None:
-    task = {"id": "leak", "tier": 4, "expect_tools": ["vo_tap_query"]}
+    task = {"id": "leak", "tier": 4, "expect_tools": ["run_adql_query"]}
     leaky = _run(
         "leak",
         4,
         [
             ToolCall(
-                "vo_tap_query",
+                "run_adql_query",
                 {"mode": "sync"},
                 {"message": "Traceback (most recent call last): boom"},
                 True,
@@ -119,7 +124,7 @@ def test_leak_detection() -> None:
         4,
         [
             ToolCall(
-                "vo_tap_query",
+                "run_adql_query",
                 {"mode": "sync"},
                 {"error_class": "archive_error", "message": "sync endpoint returned 500"},
                 True,
@@ -130,28 +135,28 @@ def test_leak_detection() -> None:
 
 
 async def test_ablation_through_real_tools() -> None:
-    """The ablation must actually change what the tools return."""
+    """Stripping the archive notes must actually change what the tools return."""
     mcp = build_mcp()
     async with Client(mcp) as client:
-        full_list = await client.call_tool("vo_archive_list", {"short_name": "nrao"})
+        full_list = await client.call_tool("list_archives", {"short_name": "alma"})
         full_schema = await client.call_tool(
-            "vo_schema_describe", {"archive": "nrao", "table": "tap_schema.obscore"}
+            "describe_table", {"archive": "alma", "table": "ivoa.obscore"}
         )
-        nrao_full = full_list.structured_content["archives"][0]
-        assert len(nrao_full["usage_notes"]) > 0, "baseline NRAO should have usage_notes"
+        alma_full = full_list.structured_content["archives"][0]
+        assert len(alma_full["usage_notes"]) > 0, "baseline ALMA should have usage_notes"
         assert full_schema.structured_content["known"] is True, "baseline obscore known"
 
         with ablated_context():
-            ab_list = await client.call_tool("vo_archive_list", {"short_name": "nrao"})
+            ab_list = await client.call_tool("list_archives", {"short_name": "alma"})
             ab_schema = await client.call_tool(
-                "vo_schema_describe", {"archive": "nrao", "table": "tap_schema.obscore"}
+                "describe_table", {"archive": "alma", "table": "ivoa.obscore"}
             )
-        nrao_ab = ab_list.structured_content["archives"][0]
-        assert nrao_ab["usage_notes"] == [], "ablated NRAO must lose usage_notes"
+        alma_ab = ab_list.structured_content["archives"][0]
+        assert alma_ab["usage_notes"] == [], "ablated ALMA must lose usage_notes"
         assert ab_schema.structured_content["known"] is False, "ablated obscore must miss"
 
         # Context restored after the block.
-        after = await client.call_tool("vo_archive_list", {"short_name": "nrao"})
+        after = await client.call_tool("list_archives", {"short_name": "alma"})
         assert len(after.structured_content["archives"][0]["usage_notes"]) > 0, "must restore"
 
 

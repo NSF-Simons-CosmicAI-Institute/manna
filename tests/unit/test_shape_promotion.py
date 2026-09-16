@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from manna.shaper import shape_promotion
+from manna.results import shape_promotion
 
 _JOB_URL = "https://datalab.noirlab.edu/tap/async/42"
 
@@ -46,8 +46,8 @@ def test_shape_promotion_next_steps_reference_lifecycle_and_fetch():
         submitted_at=datetime.now(UTC),
     )
     joined = " ".join(env["next_steps"])
-    assert "vo_tap_status" in joined
-    assert "vo_tap_results" in joined or "fetch_recipe" in joined
+    assert "get_async_job_status" in joined
+    assert "get_async_job_results" in joined or "fetch_recipe" in joined
     # The lifecycle tools take a job_url now; the prose must say so.
     assert "job_url" in joined
     assert "job_id" not in joined

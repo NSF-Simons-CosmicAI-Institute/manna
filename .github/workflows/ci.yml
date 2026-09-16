@@ -42,6 +42,21 @@ jobs:
           path: coverage.xml
           if-no-files-found: warn
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.4.30"
+          enable-cache: true
+      - name: Install Python 3.12
+        run: uv python install 3.12
+      - name: Sync docs deps
+        run: uv sync --python 3.12 --group docs
+      - name: Build site (warnings are errors)
+        run: uv run sphinx-build -W --keep-going -j auto -b html docs docs/_build/html
+
   container:
     runs-on: ubuntu-latest
     needs: test
@@ -62,7 +77,7 @@ jobs:
           npx -y @modelcontextprotocol/inspector \
             --cli http://localhost:8000/mcp --method tools/list \
             | tee inspector.json
-          grep -q '"name": "vo_tap_query"' inspector.json
+          grep -q '"name": "run_adql_query"' inspector.json
       - name: Stop container
         if: always()
         run: docker stop manna-ci || true

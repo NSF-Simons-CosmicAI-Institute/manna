@@ -1,10 +1,10 @@
-# Modular archives — per-archive knowledge
+# Modular archives — archive notes, one file per archive
 
-Status: **implemented** · Version: 0.5.0 · Author: dpg
+Status: **implemented** · Version: 0.5.0 (naming updated 0.8.0) · Author: dpg
 
 ## 1. Problem
 
-The server's curated knowledge about each archive used to be spread across two
+The server's archive notes (its curated knowledge about each archive) used to be spread across two
 monolithic modules:
 
 - `known_archives.py` — one giant `KNOWN_ARCHIVES` tuple of archive identity
@@ -31,8 +31,8 @@ can be added or removed like a plugin, per deployment.
   (`MANNA_ARCHIVES` allowlist from a shared image).
 - **Absence ≠ inaccessible.** Dropping an archive removes the server's *claims*
   about it (usage_notes, schema quirks, endpoint examples, cosmetic label),
-  never its reachability — it's still reachable via `vo_registry_search` →
-  `vo_registry_describe` → `vo_tap_query`.
+  never its reachability — it's still reachable via `search_ivoa_registry` →
+  `describe_ivoa_service` → `run_adql_query`.
 - Preserve the existing tool contracts and public symbols (`KNOWN_ARCHIVES`,
   `SCHEMA_KB`, `Archive`, `Schema`, the helpers). This is an internal
   reorganization, not an API change.
@@ -41,7 +41,7 @@ can be added or removed like a plugin, per deployment.
 
 - No move to external data files (YAML/TOML). Archives are Python modules
   (§3.1). The `Archive` dataclass is the seam if that ever changes.
-- No RAG / dynamic KB. Still static, in-process, zero-I/O.
+- No RAG / dynamic notes store. Still static, in-process, zero-I/O.
 
 ## 3. Architecture
 
@@ -97,7 +97,7 @@ class Archive:
 ```
 
 `Schema.archive` is redundant with the owning `Archive.short_name`, but kept: it
-is part of the `vo_schema_describe` response contract and lets `cross_refs` name
+is part of the `describe_table` response contract and lets `cross_refs` name
 tables as `(archive, table)`. `Archive.__post_init__` enforces the match at
 construction, so a hand-built archive can't drift.
 
@@ -117,7 +117,9 @@ src/manna/
 │   ├── datalab.py      # ARCHIVE = Archive(...)
 │   ├── alma.py … sdss.py
 │   ├── _endpoints.py    # endpoint lists + Field descriptions over the active set
-│   ├── _knowledge.py    # per-table schema lookups (lookup_schema, active_schema_kb)
+│   ├── _knowledge.py    # per-table schema lookups (lookup_schema, active_schemas)
+│   ├── _audit.py        # Audit (paper: check): declarative live-probe spec
+│   ├── _pitfalls.py     # Pitfall delivery: up-front-note cheatsheet + error hints
 ```
 
 `Archive`/`Schema` live in `archives/_model.py`; the derived helpers in
@@ -159,16 +161,16 @@ re-exported over the active archive set) so existing consumers kept working
 unchanged. Once no consumer imported those symbols, the views were folded into
 `archives/_endpoints.py` (endpoint lists + `Field(examples=…)` descriptions, the
 `_archive_label` map) and `archives/_knowledge.py` (`lookup_schema` /
-`active_schema_kb` / `schema_to_dict`) in 0.5.x, and the two modules were
+`active_schemas` / `schema_to_dict`) in 0.5.x, and the two modules were
 deleted. Both helpers resolve from the active archive set at call time, so they
 honor a mid-process re-selection. Consumers of the derived helpers:
 
 - `_archive_label._STATIC_MAP` — from `host_substring_to_short_name()`.
-- `tools/archives.py::vo_archive_list` — iterates `active_archives()`; drops the
+- `tools/archives.py::list_archives` — iterates `active_archives()`; drops the
   internal `schemas` / `priority` from its envelope (served by
-  `vo_schema_describe` / used only for ordering).
+  `describe_table` / used only for ordering).
 - `tools/{tap,sia,cone}.py` — `*_endpoint_description()` / `*_endpoint_urls()`.
-- `tools/schema.py::vo_schema_describe` — `lookup_schema()`.
+- `tools/schema.py::describe_table` — `lookup_schema()`.
 
 ## 4. Deployment selection
 
@@ -182,6 +184,17 @@ honor a mid-process re-selection. Consumers of the derived helpers:
    MANNA_ARCHIVES=                  # unset/empty => all discovered
    ```
 
+3. **Paused** — an archive file can set `paused="<dated reason>"` on its
+   `Archive`. It is still discovered and validated, but left out of the
+   default active set (the reason is logged at boot). Naming it in
+   `MANNA_ARCHIVES` activates it regardless: pausing is a default, not a
+   lock. Use it when a service asks for less traffic or is being rebuilt and
+   you want to keep its notes. `nrao` ships paused (2026-09).
+
+   ```
+   MANNA_ARCHIVES=                  # every discovered archive except paused ones
+   MANNA_ARCHIVES=datalab,alma,nrao # names win: nrao is active despite paused
+   ```
 
 Behavior on odd input (never crash the server): unknown name → logged warning,
 ignored; empty result → prominent warning, still boots; duplicate `short_name`
@@ -194,15 +207,17 @@ reachability:
 
 | Removed with the archive                       | Still works without it |
 |------------------------------------------------|------------------------|
-| `usage_notes` in `vo_archive_list`             | `vo_tap_query` to any URL |
-| `Schema` quirks in `vo_schema_describe`        | `vo_registry_describe` live introspection |
+| `usage_notes` in `list_archives`             | `run_adql_query` to any URL |
+| `Schema` quirks in `describe_table`        | `describe_ivoa_service` live introspection |
 | Endpoint examples in TAP/SIA/SCS tool schemas  | passing the URL explicitly |
 | Cosmetic `archive` label on envelopes          | hostname-derived label (`_label_from_host`) |
 
+A paused archive is absent in exactly the same way as a deselected one, with one extra rule: `describe_table` also drops `cross_refs` that point at an inactive archive, so ALMA's obscore entry stops advertising NRAO's while nrao is paused.
+
 There is **no fetch/SSRF gating tied to archives.** The 0.4.0 stateless refactor
-removed `vo_sia_fetch`, so the old `host_substrings`-derived allow-list has no
-consumer; the vestigial `_archive_label.is_known_archive_url()` helper was
-dropped once its last caller was gone.
+removed the legacy `vo_sia_fetch` tool, so the old `host_substrings`-derived
+allow-list has no consumer; the vestigial `_archive_label.is_known_archive_url()`
+helper was dropped once its last caller was gone.
 
 ## 6. Testing
 
@@ -219,6 +234,10 @@ tests/archives/
   (`test_archive_endpoints.py`, `test_archive_knowledge.py`).
 - `EXPECTED_ORDER` in `test_registry.py` pins the shipped membership + order, so
   adding/removing/re-prioritizing an archive forces a conscious test edit.
+- `DEFAULT_ACTIVE` alongside it pins the default active membership
+  (`EXPECTED_ORDER` minus paused archives). Tests that need a paused archive's
+  content through the tools take the `nrao_active` fixture from
+  `tests/conftest.py`.
 
 ## 7. Adding / evolving an archive
 
@@ -228,6 +247,12 @@ tests/archives/
 2. Add `tests/archives/test_<short_name>.py` importing `ARCHIVE` and pinning its
    content; add the name to `EXPECTED_ORDER`.
 3. `uv run pytest --record-mode=none -q && uv run ruff check .`
+4. To pause an archive, set `paused="Paused YYYY-MM-DD ...: <reason>; set MANNA_ARCHIVES to include '<name>' to re-enable."` and add its name to `PAUSED` in `test_registry.py`; tag any eval task that needs it with `requires_archive: <name>`.
+
+   To un-pause it: delete the `paused=` field, remove the name from `PAUSED` in
+   `test_registry.py`, and re-point or delete the steering contract test
+   (`tests/contracts/test_no_paused_archive_steering.py`); `requires_archive`
+   tags on its eval tasks become no-ops and may stay.
 
 Per-archive history is just the git log of its file
 (`git log --follow -p archives/nrao.py`), so an archive-knowledge change is a
@@ -245,21 +270,23 @@ diff to a single file.
   `Note` can't be built without an `Audit`, so every claim is accounted for.
   See `Note`/`Audit` in `archives/_model.py` and `archives/_audit.py`, and the
   offline gate in `tests/archives/test_audits.py`.
-- **Implemented.** A `Note` may also carry a `Trap`, which says how the claim is
+- **Implemented.** A `Note` may also carry a `Pitfall`, which says how the claim is
   *delivered* — because the eval showed reachable knowledge isn't used knowledge
   (issue #57: the NRAO LOWER/UPPER note was true, probed and served by
-  `vo_archive_list`, and the model wrote `LOWER()` anyway). A `Trap` without
-  `triggers` is *silent*: the model gets no usable correction signal (no error
-  at all, or one too cryptic to act on), so the `guidance` is pushed up-front — `archives/_traps.py`
+  `list_archives`, and the model wrote `LOWER()` anyway). A `Pitfall` without
+  `triggers` is an *up-front note* (`channel == "upfront"`; called *silent* in
+  older code): the model gets no
+  usable correction signal (no error at all, or one too cryptic to act on), so the
+  `guidance` is pushed up-front — `archives/_pitfalls.py`
   derives a cheatsheet from the ACTIVE set and `build_mcp()` appends it to
-  `vo_tap_query`'s description. That channel is re-sent every turn, so it is
-  capped at `CHEATSHEET_TOKEN_BUDGET` (200): if a new trap doesn't fit, write
-  terser `guidance` rather than raise the ceiling, and remember `vo_archive_list`
-  is still the place for everything that isn't a trap. A `Trap` with `triggers`
-  is *loud*: the query throws and the triggers spot the cause in the submitted
-  ADQL, so the `guidance` rides the error payload's `hint` and costs nothing
-  until it fires. Gated by `tests/archives/test_traps.py` +
-  `tests/contracts/test_trap_delivery.py`.
+  `run_adql_query`'s description. That channel is re-sent every turn, so it is
+  capped at `CHEATSHEET_TOKEN_BUDGET` (200): if a new pitfall doesn't fit, write
+  terser `guidance` rather than raise the ceiling, and remember `list_archives`
+  is still the place for everything that isn't a pitfall. A `Pitfall` with `triggers`
+  is an *error hint* (`channel == "error_hint"`; called *loud* in older code): the query throws and the
+  triggers spot the cause in the submitted ADQL, so the `guidance` rides the error
+  payload's `hint` and costs nothing until it fires. Gated by `tests/archives/test_pitfalls.py` +
+  `tests/contracts/test_pitfall_delivery.py`.
 - Structured `Schema` fields (`missing_standard_columns`, `value_enums`) are not
   yet under the audit gate — a documented follow-up. If a structured fact needs
   drift protection, give it a prose `Note` (which then carries an audit).
@@ -277,3 +304,9 @@ diff to a single file.
 | Ordering field | `priority` (ascending) | explicit replacement for load-bearing order |
 | Runtime knob | `MANNA_ARCHIVES` | matches the `MANNA_*` Settings convention |
 | Active-set API | `get_active_archives()` | mirrors `get_settings()` (cached, cache_clear-able) |
+| One curated claim | `Note` | atomic, addressable (`archives/<archive>.py :: <note_id>`); carries its own `Audit` |
+| A note's re-check | `Audit` (paper: *check*) | declarative probe spec, read by `evals/audit.py` |
+| A known way queries go wrong | `Pitfall` (`Note.pitfall`) | paper term (renamed in 0.8.0) |
+| Which channel a pitfall rides | `Pitfall.channel` → `"upfront"` / `"error_hint"` | the only reader of "`triggers` empty" |
+| Pitfall delivery module | `archives/_pitfalls.py` | `upfront_note_cheatsheet()` + `error_hint_for()` |
+| Per-table facts, flattened | `active_schemas()` | was `active_schema_kb()` before 0.8.0 |

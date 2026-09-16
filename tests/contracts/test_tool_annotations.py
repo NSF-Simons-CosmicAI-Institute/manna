@@ -4,10 +4,10 @@ from fastmcp import Client
 
 from manna.app import build_mcp
 
-# Tools that only read the in-process KB (closed world); everything else
-# hits live archive services (open world). vo_schema_describe left this set
+# Tools that only read the in-process archive notes (closed world); everything else
+# hits live archive services (open world). describe_table left this set
 # when it started fetching real column lists from tap_schema.columns.
-_LOCAL_TOOLS = {"vo_archive_list"}
+_LOCAL_TOOLS = {"list_archives"}
 
 
 async def test_all_tools_are_annotated_read_only():
@@ -17,7 +17,7 @@ async def test_all_tools_are_annotated_read_only():
         for t in tools:
             ann = t.annotations
             assert ann is not None, f"{t.name} missing annotations"
-            if t.name == "vo_tap_abort":
+            if t.name == "abort_async_job":
                 assert ann.readOnlyHint is False and ann.idempotentHint is True
                 continue
             assert ann.readOnlyHint is True, f"{t.name} must be readOnlyHint"

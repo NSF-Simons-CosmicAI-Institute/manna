@@ -91,7 +91,10 @@ def test_env_knobs(monkeypatch):
 
 def test_taskrun_num_tool_calls_and_to_dict():
     r = TaskRun("mq-x", 2, "full", "model-a", arm="mcp")
-    r.trace = [ToolCall("vo_a", {"k": 1}, {"ok": True}, False), ToolCall("vo_b", {}, None, True)]
+    r.trace = [
+        ToolCall("tool_a", {"k": 1}, {"ok": True}, False),
+        ToolCall("tool_b", {}, None, True),
+    ]
     r.final_answer = "done"
     r.input_tokens, r.output_tokens = 10, 3
     assert r.num_tool_calls == 2

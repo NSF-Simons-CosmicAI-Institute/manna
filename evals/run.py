@@ -7,14 +7,14 @@ Examples:
     # run tiers 1-2 against the configured model (reads ANTHROPIC_* / EVAL_MODEL_* env)
     uv run python -m evals.run --tier 1 --tier 2
 
-    # run the tier-3 ablation (each trap task runs with AND without curated context)
+    # run the tier-3 with-and-without comparison (each pitfall task runs with AND without archive notes)
     uv run python -m evals.run --tier 3
 
     # full suite, with hosted Claude as the rubric judge
     EVAL_JUDGE_NAME=claude-opus-4-8 uv run python -m evals.run
 
 Tier-3 tasks (and anything under --condition both) run twice — full vs. ablated
-context — and the report prints the trap-avoidance delta, the server's headline ROI.
+context — and the report prints the pitfall-avoidance delta, the server's headline ROI.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def _summarize(scores: list[TaskScore]) -> dict[str, Any]:
         "by_tier": {f"tier{t}": rate(v) for t, v in by_tier.items()},
     }
 
-    # Tier-3 headline: trap-avoidance full vs. ablated + per-trap breakdown.
+    # Tier-3 headline: pitfall-avoidance full vs. ablated + per-pitfall breakdown.
     tier3 = [s for s in scores if s.tier == 3]
     if tier3:
         full = [s for s in tier3 if s.condition == "full"]
@@ -79,7 +79,7 @@ def _summarize(scores: list[TaskScore]) -> dict[str, Any]:
         summary["tier3_ablation"] = {
             "avoidance_with_context": rate(full),
             "avoidance_without_context": rate(ablated),
-            "per_trap": by_task,
+            "per_pitfall": by_task,
         }
     return summary
 
@@ -93,11 +93,11 @@ def _print_report(summary: dict[str, Any], runs: list[TaskRun]) -> None:
         print(f"  {tier} pass rate  : {r}")
     if "tier3_ablation" in summary:
         ab = summary["tier3_ablation"]
-        print("\nTier-3 trap avoidance (the server's ROI):")
+        print("\nTier-3 pitfall avoidance (the server's ROI):")
         print(f"  WITH curated context    : {ab['avoidance_with_context']}")
         print(f"  WITHOUT curated context : {ab['avoidance_without_context']}")
-        print("  per trap (full / ablated):")
-        for tid, conds in ab["per_trap"].items():
+        print("  per pitfall (full / ablated):")
+        for tid, conds in ab["per_pitfall"].items():
             f = "PASS" if conds.get("full") else "FAIL"
             a = "PASS" if conds.get("ablated") else "FAIL"
             print(f"    {tid:24s} {f:4s} / {a}")
@@ -128,8 +128,17 @@ async def _main_async(args: argparse.Namespace) -> int:
     if args.task:
         wanted = set(args.task)
         tasks = [t for t in tasks if t["id"] in wanted]
+
+    from evals.score import partition_by_archive, print_skipped
+
+    tasks, skipped = partition_by_archive(tasks)
+    if skipped:
+        print_skipped(skipped)
     if not tasks:
-        print("No tasks matched the filters.")
+        if skipped:
+            print("All matched tasks were skipped (see [SKIP] lines above).")
+        else:
+            print("No tasks matched the filters.")
         return 1
 
     if args.dry_run:
@@ -162,9 +171,11 @@ async def _main_async(args: argparse.Namespace) -> int:
     print(f"Running {len(tasks)} task(s), concurrency={args.concurrency}\n")
 
     if args.no_inject_notes:
-        print("Ablation: silent-trap cheatsheet STRIPPED from the vo_tap_query description")
+        print(
+            "With-and-without: up-front-note cheatsheet STRIPPED from the run_adql_query description"
+        )
     if args.no_discovery:
-        print("No-discovery: vo_archive_list + vo_schema_describe withheld from the model")
+        print("No-discovery: list_archives + describe_table withheld from the model")
     sem = asyncio.Semaphore(args.concurrency)
     coros = [
         _run_one(
@@ -192,6 +203,7 @@ async def _main_async(args: argparse.Namespace) -> int:
             "summary": summary,
             "scores": [s.to_dict() for s in scores],
             "runs": [r.to_dict() for r in runs],
+            "skipped": [t["id"] for t, _ in skipped],
         },
         prefix="run",
     )
@@ -200,9 +212,13 @@ async def _main_async(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    from evals._env import load_env
+    from evals._env import load_env, refresh_active_set
 
     load_env()
+    # The active set is cached at import (tools/tap.py builds its endpoint
+    # examples at import time), before .env is loaded. Re-read it so a
+    # MANNA_ARCHIVES line in evals/.env can re-enable a paused archive.
+    refresh_active_set()
     p = argparse.ArgumentParser(description="Run the MANNA agentic eval.")
     p.add_argument(
         "--tier",
@@ -233,7 +249,7 @@ def main() -> int:
         "--no-inject-notes",
         action="store_true",
         help=(
-            "ablation: STRIP the silent-trap cheatsheet from the vo_tap_query description. "
+            "with-and-without comparison: STRIP the up-front-note cheatsheet from the run_adql_query description. "
             "Injection is default-on server-side since #57, so isolating its value means "
             "removing it, not adding it."
         ),
@@ -241,7 +257,7 @@ def main() -> int:
     p.add_argument(
         "--no-discovery",
         action="store_true",
-        help="withhold vo_archive_list + vo_schema_describe (isolate description-injection).",
+        help="withhold list_archives + describe_table (isolate description-injection).",
     )
     args = p.parse_args()
     return asyncio.run(_main_async(args))

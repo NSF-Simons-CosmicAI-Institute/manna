@@ -9,7 +9,7 @@ a per-`(model × harness)` scorecard on two axes:
 Each dimension is normalized to 0–1 (higher is better); the composite is a transparent,
 tunable weighted mean. Accuracy is read from the file's stored (judge/ground-truth) score;
 everything else is recomputed from the runs (no model calls), so the scorecard is cheap and
-you can compare arms/personas/models side by side:
+you can compare approaches/personas/models side by side:
 
     uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/persona-*.json
 """
@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from evals._common import is_manna_tool
 from evals._common import mean as _mean
 
 # Dimension weights (tunable). Composite = WORKFLOW_W*workflow + COMPAT_W*compatibility.
@@ -29,9 +30,7 @@ WORKFLOW_W, COMPAT_W = 0.5, 0.5
 
 def _dimensions(runs: list[dict[str, Any]], accuracy: float | None) -> dict[str, float]:
     n = len(runs) or 1
-    tool_use = (
-        sum(any(str(c["tool"]).startswith("vo_") for c in r.get("trace", [])) for r in runs) / n
-    )
+    tool_use = sum(any(is_manna_tool(c["tool"]) for c in r.get("trace", [])) for r in runs) / n
     completion = (
         sum(bool((r.get("final_answer") or "").strip()) and not r.get("error") for r in runs) / n
     )
@@ -58,7 +57,7 @@ def _dimensions(runs: list[dict[str, Any]], accuracy: float | None) -> dict[str,
 def _entries(data: dict[str, Any]) -> list[tuple[str, float | None, list[dict[str, Any]]]]:
     """(label, stored-accuracy, runs) per (model x harness) cell in a results file."""
     runs = data.get("runs", [])
-    if "per_arm" in data:  # mcp_quality: one entry per arm (custom loop, tool-provider axis)
+    if "per_arm" in data:  # mcp_quality: one entry per approach (custom loop, tool-provider axis)
         model = data.get("model", "?")
         out = []
         for arm, m in data["per_arm"].items():

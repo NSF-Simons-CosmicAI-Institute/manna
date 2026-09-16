@@ -67,7 +67,7 @@ def tap_endpoint_description() -> str:
     primary = [a for a in active_archives() if a.tap_url][:2]
     return (
         f"Full TAP service URL. Example: {_format_examples(primary, 'tap')}. "
-        "Discover other services via vo_registry_search."
+        "Discover other services via search_ivoa_registry."
     )
 
 
@@ -75,9 +75,9 @@ def sia_endpoint_description() -> str:
     primary = [a for a in active_archives() if a.sia_url][:2]
     return (
         f"SIA endpoint URL — SIA 2.0 or 1.0. Example: {_format_examples(primary, 'sia')}. "
-        "vo_sia_search auto-detects the version (SIA2, falling back to SIA1 "
+        "search_images_by_position auto-detects the version (SIA2, falling back to SIA1 "
         "as used by NOIRLab Data Lab); pass the version argument to force one. "
-        "Discover endpoints with vo_registry_search(servicetype='sia')."
+        "Discover endpoints with search_ivoa_registry(servicetype='sia')."
     )
 
 
@@ -85,6 +85,6 @@ def scs_endpoint_description() -> str:
     primary = [a for a in active_archives() if a.scs_url][:2]
     return (
         f"Simple Cone Search endpoint URL. Example: {_format_examples(primary, 'scs')}. "
-        "Prefer vo_tap_query for archives that expose a TAP endpoint — "
-        "vo_cone_search is here for SCS-only legacy services."
+        "Prefer run_adql_query for archives that expose a TAP endpoint — "
+        "search_catalog_by_position is here for SCS-only legacy services."
     )

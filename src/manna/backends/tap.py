@@ -20,6 +20,28 @@ log = logging.getLogger(__name__)
 _JOB_GONE_STATUSES = frozenset({404, 410})
 
 
+def job_error_message(job: AsyncTAPJob) -> str | None:
+    """The upstream UWS errorSummary message for a job, or None if there is none.
+
+    pyvo's AsyncTAPJob has no public accessor for this: the parsed UWS tree hangs
+    off `job._job`, and the text sits at `errorsummary.message.content`. This is
+    the exact traversal pyvo's own `raise_if_error()` performs; it lives here so
+    the tools (which never import pyvo) get the message through one seam instead
+    of guessing at attribute names — the previous `getattr(job, "error_summary")`
+    read an attribute that never existed and silently discarded every archive's
+    diagnostic for months.
+    """
+    tree = getattr(job, "_job", None)
+    summary = getattr(tree, "errorsummary", None)
+    if summary is None:
+        return None
+    message = getattr(summary, "message", None)
+    text = getattr(message, "content", None)
+    if not text or not str(text).strip():
+        return None
+    return str(text).strip()
+
+
 def _http_status(e: Exception) -> int | None:
     """HTTP status carried by a pyvo exception, if any.
 
@@ -159,7 +181,7 @@ class TapClient:
                     message=(
                         "The archive no longer has this job — it was deleted or "
                         "aged out of its job store. Re-submit the query with "
-                        "vo_tap_query if you still need the result."
+                        "run_adql_query if you still need the result."
                     )
                 ) from e
             raise ArchiveError(message=str(e)) from e

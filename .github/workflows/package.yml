@@ -51,7 +51,7 @@ jobs:
         run: |
           npx -y @modelcontextprotocol/inspector \
             --cli http://localhost:8000/mcp --method tools/list | tee inspector.json
-          grep -q '"name": "vo_tap_query"' inspector.json
+          grep -q '"name": "run_adql_query"' inspector.json
 
       - name: Container logs (always)
         if: always()

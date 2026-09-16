@@ -4,8 +4,8 @@
 # why it exists). Bare `manna` is admin-prohibited on PyPI (name-retention
 # blocklist); a release request is on file with pypi/support.
 name = "manna-mcp"
-version = "0.7.2"
-description = "MANNA — MCP Architecture for NOIRLab and NRAO Archives"
+version = "0.9.0"
+description = "MANNA — MCP Architecture for NOIRLab, NRAO, and Additional Archives"
 requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "MIT" }
@@ -71,6 +71,19 @@ dev = [
     # (tests/unit/test_save_recipe.py). Docker runtime uses --no-dev, so
     # the image is unaffected.
     "pandas>=2.0",
+]
+# Documentation site (docs/). Not needed to run the server.
+#   uv sync --group docs
+#   uv run sphinx-build -W --keep-going -b html docs docs/_build/html
+docs = [
+    "sphinx>=8.0",
+    "myst-nb>=1.2",
+    "furo>=2024.8",
+    "sphinx-copybutton>=0.5",
+    "sphinx-design>=0.6",
+    # <3: 3.x eagerly imports every intersphinx-referenced module; astropy's
+    # wcsaxes raises pytest Skipped (a BaseException) under it and the build dies.
+    "sphinx-autodoc-typehints>=2.0,<3",
 ]
 # Agentic evaluation harness (evals/). Not needed to run the server.
 #   uv sync --group eval

@@ -19,10 +19,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from evals.context import ablated_context, full_context
-from manna.archives._traps import CHEATSHEET_HEADER
+from manna.archives._pitfalls import CHEATSHEET_HEADER
 
 # Rounds of (assistant -> tool calls -> results) before we give up on a task.
-# Async TAP lifecycles poll vo_tap_status repeatedly, so this must be generous.
+# Async TAP lifecycles poll get_async_job_status repeatedly, so this must be generous.
 # Defaults; the live values are read from env at run_task() call time (via _max_steps /
 # _poll_sleep) so evals/.env — loaded after import — can still override them.
 MAX_STEPS = 20
@@ -44,7 +44,7 @@ def _poll_sleep() -> float:
 
 
 # Cap the size of a single tool result fed back to the model. A large
-# vo_registry_describe / preview payload can otherwise blow the model's context
+# describe_ivoa_service / preview payload can otherwise blow the model's context
 # window in one shot. The FULL result is still recorded in the trace for scoring;
 # only what the model sees is trimmed (a real client would manage context too).
 MAX_TOOL_RESULT_CHARS = 24000
@@ -137,7 +137,7 @@ class TaskRun:
     tier: int
     condition: str  # "full" | "ablated"
     model: str
-    arm: str = "mcp"  # "mcp" | "raw_tap" | "raw_web" (MCP-quality comparison arm)
+    arm: str = "mcp"  # "mcp" | "raw_tap" | "raw_web" (MCP-quality comparison approach)
     trace: list[ToolCall] = field(default_factory=list)
     final_answer: str = ""
     steps: int = 0
@@ -177,18 +177,18 @@ class TaskRun:
         }
 
 
-# The hand-written _SILENT_TRAP_CHEATSHEET that used to live here is gone: its own
+# The hand-written cheatsheet constant that used to live here is gone: its own
 # comment said "a real server-side version would derive this from tagged notes on the
 # active archives", and issue #57 did exactly that. The server now ships the blob on
-# vo_tap_query's description by default (archives/_traps.py), so the harness no longer
-# ADDS anything — the ablation arm SUBTRACTS it instead. Keeping a second copy here
+# run_adql_query's description by default (archives/_pitfalls.py), so the harness no longer
+# ADDS anything — the with-and-without comparison SUBTRACTS it instead. Keeping a second copy here
 # would silently drift from what the server actually serves.
 
 
 def strip_cheatsheet(description: str) -> str:
-    """`description` with the server-injected trap cheatsheet removed.
+    """`description` with the server-injected pitfall cheatsheet removed.
 
-    The subtraction lives here, not in the server package: only the ablation arm
+    The subtraction lives here, not in the server package: only the stripped condition
     ever wants the blob back OUT of an otherwise identical tool surface.
     `CHEATSHEET_HEADER` is the seam the server exposes for exactly this cut.
     No-op if the blob isn't there.
@@ -200,12 +200,12 @@ def strip_cheatsheet(description: str) -> str:
 # Tools that surface the server's CURATED archive knowledge. Withholding them
 # (no_discovery) forces the quirks to reach the model only via injected tool
 # descriptions or the model's own priors — the clean test for experiment (a).
-_DISCOVERY_TOOLS = {"vo_archive_list", "vo_schema_describe"}
+_DISCOVERY_TOOLS = {"list_archives", "describe_table"}
 
-# Env-driven tool-ablation seam: EVAL_EXCLUDE_TOOLS is a comma-separated list of
+# Env-driven tool-withholding seam: EVAL_EXCLUDE_TOOLS is a comma-separated list of
 # tool names withheld from the agent's tool surface for a with/without value-add
-# A/B (e.g. the purpose-built facades vo_count_observations,vo_survey_target,
-# vo_inspect_table). Read per call so a single process picks up the current env;
+# A/B (e.g. the purpose-built workflow tools count_observations_near_target,survey_archives_for_target,
+# preview_table). Read per call so a single process picks up the current env;
 # unset/empty => nothing excluded (default = the full shipped tool set).
 _EXCLUDE_TOOLS_ENV = "EVAL_EXCLUDE_TOOLS"
 
@@ -219,7 +219,7 @@ def _excluded_tools() -> set[str]:
 # — distinct from a real model/tool error. Matched on the exception's class name +
 # message so we don't depend on a specific SDK's exception classes. A run that hits
 # one of these is retried rather than scored as a task failure, which otherwise
-# silently biases an ablation arm that happens to run during a flaky window.
+# silently biases whichever with-and-without condition runs during a flaky window.
 _TRANSIENT_MARKERS = (
     "APIConnectionError",
     "APITimeoutError",
@@ -227,6 +227,7 @@ _TRANSIENT_MARKERS = (
     "timed out",
     "Timeout",
     "Overloaded",
+    "ProxyResponseError",  # proxy served an HTML page instead of JSON (model_backends)
 )
 
 
@@ -257,11 +258,11 @@ def _anthropic_tools(
 ) -> list[dict[str, Any]]:
     """Convert FastMCP tool descriptors to Anthropic tool-use format.
 
-    - ``inject_notes``: keep the server's silent-trap cheatsheet on vo_tap_query's
+    - ``inject_notes``: keep the server's cheatsheet of up-front notes on run_adql_query's
       description. Defaults True because that is now production behaviour; passing
       False STRIPS it, which is how experiment (a) isolates the injection's value.
-    - ``no_discovery``: withhold the curated-knowledge tools (vo_archive_list,
-      vo_schema_describe) so the model can't consult them.
+    - ``no_discovery``: withhold the curated-knowledge tools (list_archives,
+      describe_table) so the model can't consult them.
     - ``EVAL_EXCLUDE_TOOLS`` (env): additionally withhold any named tools — the
       seam for the purpose-built-tools value-add A/B (with vs without).
     """
@@ -273,7 +274,7 @@ def _anthropic_tools(
         if t.name in excluded:
             continue
         desc = t.description or ""
-        if not inject_notes and t.name == "vo_tap_query":
+        if not inject_notes and t.name == "run_adql_query":
             desc = strip_cheatsheet(desc)
         out.append(
             {
@@ -318,7 +319,7 @@ def _tool_result_content(payload: Any) -> str:
 
 def _is_nonterminal_poll(tool: str, payload: Any) -> bool:
     return (
-        tool == "vo_tap_status"
+        tool == "get_async_job_status"
         and isinstance(payload, dict)
         and str(payload.get("phase", "")).upper() in _NONTERMINAL_PHASES
     )
@@ -332,12 +333,12 @@ async def run_task(
     no_discovery: bool = False,
     arm: str = "mcp",
 ) -> TaskRun:
-    """Run one task end-to-end under the given context condition and tool arm.
+    """Run one task end-to-end under the given context condition and tool approach.
 
-    `arm` selects the tool provider: 'mcp' (full server), 'raw_tap', or 'raw_web'
+    `arm` selects the approach, i.e. the tool provider: 'mcp' (full server), 'raw_tap', or 'raw_web'
     (the MCP-quality no-curation baselines). inject_notes/no_discovery apply to 'mcp'.
     inject_notes defaults True to mirror production; False strips the server's
-    silent-trap cheatsheet back off.
+    cheatsheet of up-front notes back off.
     """
     from evals.model_backends import make_backend
     from evals.providers import make_provider
@@ -349,7 +350,7 @@ async def run_task(
         model=cfg.label,
         arm=arm,
     )
-    # Ablation only affects the curated KB, i.e. the 'mcp' arm; no-op for raw arms.
+    # Stripping only affects the archive notes, i.e. the 'mcp' approach; no-op for the raw ones.
     ctx = ablated_context if condition == "ablated" else full_context
     started = time.monotonic()
     max_steps, poll_sleep = _max_steps(), _poll_sleep()

@@ -1,8 +1,8 @@
 """Tool for resolving astronomical object names to sky coordinates.
 
-``vo_target_resolve(name)`` queries CDS Sesame (SIMBAD → NED → VizieR) and
+``resolve_target_name(name)`` queries CDS Sesame (SIMBAD → NED → VizieR) and
 returns RA/Dec in ICRS decimal degrees, ready for ADQL CIRCLE predicates or
-``vo_cone_search``. Soft-fails with ``resolved: false`` when the name is
+``search_catalog_by_position``. Soft-fails with ``resolved: false`` when the name is
 unknown so the LLM can try an alternate designation.
 """
 
@@ -26,7 +26,7 @@ def _get_resolver() -> ResolverClient:
 
 
 @wrap_tool_errors
-def vo_target_resolve(
+def resolve_target_name(
     name: Annotated[
         str,
         Field(
@@ -45,10 +45,10 @@ def vo_target_resolve(
 
     Returns ``ra`` and ``dec`` suitable for ``CONTAINS(POINT('ICRS',ra,dec),
     CIRCLE('ICRS',<ra>,<dec>,<radius>))=1`` ADQL predicates or as the
-    positional input to ``vo_cone_search``.
+    positional input to ``search_catalog_by_position``.
 
     On miss returns ``{"resolved": false, ...}`` — try an alternate
-    designation or use ``vo_registry_search`` to locate a catalog by keyword.
+    designation or use ``search_ivoa_registry`` to locate a catalog by keyword.
     """
     name_clean = name.strip()
     if not name_clean:
@@ -78,4 +78,4 @@ def vo_target_resolve(
     }
 
 
-vo_target_resolve.__doc__ = (vo_target_resolve.__doc__ or "") + _ERROR_DOCSTRING
+resolve_target_name.__doc__ = (resolve_target_name.__doc__ or "") + _ERROR_DOCSTRING

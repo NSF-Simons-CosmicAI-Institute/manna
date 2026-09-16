@@ -2,7 +2,7 @@
 
 from manna.archives._audit import Audit
 from manna.archives._count import CountTarget, IntersectsRegion
-from manna.archives._model import Archive, Note, Schema, Trap
+from manna.archives._model import Archive, Note, Pitfall, Schema
 
 ARCHIVE = Archive(
     short_name="alma",
@@ -73,10 +73,10 @@ ARCHIVE = Archive(
                 "multiple executions with different t_min."
             ),
             audit=Audit.count(table="ivoa.obscore", columns=("member_ous_uid",)),
-            # The archetypal silent trap (no triggers): COUNT(*) returns a
+            # The archetypal up-front note (no triggers): COUNT(*) returns a
             # plausible number and no error at all, so nothing downstream can
             # flag the over-count.
-            trap=Trap(
+            pitfall=Pitfall(
                 guidance=(
                     "rows are per spectral-window, so COUNT(*) over-counts observations — "
                     "count with COUNT(DISTINCT member_ous_uid)."
@@ -148,12 +148,12 @@ ARCHIVE = Archive(
                 "(https://almascience.nrao.edu/sia2) for positional image "
                 "discovery. It returns the same extended-ObsCore columns as the "
                 "TAP view, so the obscore filtering knowledge applies. Use "
-                "vo_sia_search for 'what ALMA images cover this position' without "
+                "search_images_by_position for 'what ALMA images cover this position' without "
                 "writing ADQL."
             ),
             audit=Audit.manual(
                 "Service-capability description — verify by exercising "
-                "vo_sia_search, not a TAP probe."
+                "search_images_by_position, not a TAP probe."
             ),
         ),
         Note(

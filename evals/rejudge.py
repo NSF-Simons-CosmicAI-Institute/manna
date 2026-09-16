@@ -48,7 +48,8 @@ async def _main(path: Path, tasks_path: Path | None = None) -> int:
         task = tasks.get(run["task_id"])
         if not task or not task.get("rubric"):
             continue
-        group = run.get("arm") or run.get("condition", "full")  # arms (mcp_quality) or full/ablated
+        # approaches (mcp_quality) or full/ablated
+        group = run.get("arm") or run.get("condition", "full")
         tr = _reconstruct(run)
         passed, quality, reason = await score_rubric(task, tr, judge)
         verdicts.append((group, run["task_id"], passed))

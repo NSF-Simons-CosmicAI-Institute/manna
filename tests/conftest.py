@@ -16,6 +16,8 @@ import pytest
 from vcr.stubs import VCRHTTPResponse
 
 from manna.app import build_mcp
+from manna.archives import discover_archives, get_active_archives
+from manna.config import get_settings
 from manna.tools import schema as _schema_tool
 
 
@@ -25,14 +27,33 @@ def mcp_server():
     return build_mcp()
 
 
+@pytest.fixture
+def nrao_active(monkeypatch):
+    """Activate every shipped archive, including the paused `nrao`.
+
+    NRAO ships paused (see archives/nrao.py::paused), so by default no tool
+    surfaces its notes. A test that checks NRAO content flowing through the
+    tools opts in with this fixture. List it BEFORE `mcp_server` in the test's
+    parameters: build_mcp() bakes the up-front-note cheatsheet into the
+    run_adql_query description at build time, so the active set must already
+    be widened when the server is built.
+    """
+    monkeypatch.setenv("MANNA_ARCHIVES", ",".join(a.short_name for a in discover_archives()))
+    get_settings.cache_clear()
+    get_active_archives.cache_clear()
+    yield
+    get_settings.cache_clear()
+    get_active_archives.cache_clear()
+
+
 @pytest.fixture(autouse=True)
 def _offline_column_fetch(monkeypatch):
-    """Keep `vo_schema_describe`'s live column fetch off the network by default.
+    """Keep `describe_table`'s live column fetch off the network by default.
 
     The tool queries the archive's `tap_schema.columns` to return real column
-    names. Most tests care about the curated-KB half and would otherwise make a
+    names. Most tests care about the archive-notes half and would otherwise make a
     real call to NOIRLab/NRAO just by describing a table — slow, flaky, and
-    outside the vcrpy cassette path (these are KB tests, not backend tests).
+    outside the vcrpy cassette path (these are archive-notes tests, not backend tests).
 
     Stubbing the fetch to fail exercises the degrade-to-recipe path, which is the
     honest default for an offline run. A test that wants columns opts in by

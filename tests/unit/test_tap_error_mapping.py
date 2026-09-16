@@ -3,7 +3,7 @@
 pyvo wraps a *read* timeout that happens while fetching/parsing the
 response body in `DALFormatError` (its `.cause` carries the original
 `requests` exception). That escaped the boundary as a redacted
-internal_error, so `vo_tap_query` mode='auto' only auto-promoted on
+internal_error, so `run_adql_query` mode='auto' only auto-promoted on
 connect timeouts. These tests pin the mapping:
 
   DALFormatError(cause=Timeout)  -> TimeoutArchiveError (query, the

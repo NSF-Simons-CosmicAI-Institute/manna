@@ -19,7 +19,7 @@ _TASK = {"id": "mq-coords-m87", "tier": 1}
 
 
 def test_tool_name_strips_mcp_prefix_only():
-    assert _tool_name("mcp__manna__vo_target_resolve") == "vo_target_resolve"
+    assert _tool_name("mcp__manna__resolve_target_name") == "resolve_target_name"
     assert _tool_name("Bash") == "Bash"  # harness built-ins pass through
     assert _tool_name("ToolSearch") == "ToolSearch"
 
@@ -37,7 +37,7 @@ def test_parse_stream_json_full_transcript():
                     {
                         "type": "tool_use",
                         "id": "a",
-                        "name": "mcp__manna__vo_target_resolve",
+                        "name": "mcp__manna__resolve_target_name",
                         "input": {"name": "M87"},
                     }
                 ]
@@ -68,7 +68,7 @@ def test_parse_stream_json_full_transcript():
     assert run.arm == "claude-code"
     assert len(run.trace) == 1
     call = run.trace[0]
-    assert call.tool == "vo_target_resolve"  # normalized
+    assert call.tool == "resolve_target_name"  # normalized
     assert call.args == {"name": "M87"}
     assert call.is_error is False
     assert run.final_answer == "M87 is at RA 187.7"

@@ -1,7 +1,7 @@
 """_result_payload must flag the server's error-as-payload contract.
 
 MCP tools return errors as normal results discriminated by `error_class`
-(never MCP isError) — the harness has to detect that, or the mcp arm
+(never MCP isError) — the harness has to detect that, or the mcp approach
 reports 0 tool errors by construction.
 """
 

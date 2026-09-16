@@ -1,6 +1,6 @@
 """Archive model — the dataclasses one archive's knowledge is built from.
 
-An **archive** is the portable, plugin-style unit of curated knowledge: its
+An **archive** is the portable, plugin-style unit of archive notes: its
 identity + endpoints + usage_notes, together with the per-table `Schema`
 entries for that same archive. One archive = one file under `archives/`.
 
@@ -13,33 +13,36 @@ form accepted.
 """
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from manna.archives._audit import Audit
 from manna.archives._count import CountTarget
 
 
 @dataclass(frozen=True)
-class Trap:
-    """How a note's claim gets DELIVERED to the model, and when.
+class Pitfall:
+    """A pitfall: how a note's claim gets DELIVERED to the model, and when.
 
-    A note in `vo_archive_list` is knowledge the model *can* reach. A trap is
+    A note in `list_archives` is knowledge the model *can* reach. A pitfall is
     knowledge we push at it, because the eval showed reachable isn't enough
     (issue #57: the NRAO LOWER/UPPER note was true, probed, and served — and
     the model still wrote LOWER()). Like `Audit`, this is declarative: it
-    carries no delivery code. `archives/_traps.py` reads these.
+    carries no delivery code. `archives/_pitfalls.py` reads these.
 
     Two kinds, split by whether the model can self-correct from the failure,
     and told apart entirely by ``triggers``:
 
-    - **silent** (no ``triggers``) — the model gets NO usable correction
+    - **up-front note** (no ``triggers``; called *silent* in the code) — the
+      model gets NO usable correction
       signal, so the claim must arrive BEFORE the query. Either the query
       silently returns a wrong answer (ALMA: COUNT(*) over-counts, no error)
       or it errors so cryptically that the message doesn't imply the fix
       (Data Lab: ADQL geometry surfaces as `function point(...) does not
-      exist`, which never suggests q3c). These go in the `vo_tap_query`
+      exist`, which never suggests q3c). These go in the `run_adql_query`
       description — the expensive channel, re-sent every turn, so the bar is
       high and `guidance` must be terse.
-    - **loud** (``triggers`` set) — the query throws, and the triggers
+    - **error hint** (``triggers`` set; called *loud* in the code) — the query
+      throws, and the triggers
       recognise the cause in the submitted ADQL. `guidance` rides the error
       payload's `hint` instead, so it costs nothing until it fires.
 
@@ -47,20 +50,23 @@ class Trap:
     """
 
     guidance: str
-    # Case-insensitive substrings of the submitted ADQL that fire a loud trap.
-    # Empty ⇒ silent (preventive, always shown); non-empty ⇒ loud (reactive).
+    # Case-insensitive substrings of the submitted ADQL that fire an error hint.
+    # Empty ⇒ up-front note (preventive, always shown); non-empty ⇒ error hint
+    # (reactive). `channel` is the only reader of this distinction.
     triggers: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.guidance:
-            raise ValueError("Trap.guidance must be non-empty")
+            raise ValueError("Pitfall.guidance must be non-empty")
 
     @property
-    def is_loud(self) -> bool:
-        return bool(self.triggers)
+    def channel(self) -> Literal["upfront", "error_hint"]:
+        """Up-front notes have no triggers and ride the tool description;
+        error hints have triggers and ride the failure payload's `hint`."""
+        return "error_hint" if self.triggers else "upfront"
 
     def fires_on(self, adql: str) -> bool:
-        """Whether `adql` trips this trap. Silent traps never fire (no triggers)."""
+        """Whether `adql` hits this pitfall. Up-front notes never fire (no triggers)."""
         low = adql.lower()
         return any(t.lower() in low for t in self.triggers)
 
@@ -71,15 +77,15 @@ class Note:
 
     `id` is a stable slug, unique within its owning archive — the address a
     stale audit prints so you can jump straight to the note to fix. `text` is
-    the single-claim, LLM-facing prose surfaced by vo_archive_list /
-    vo_schema_describe. `audit` (mandatory) is how the live runner re-checks it.
-    `trap` (optional) opts the claim into a push channel — see `Trap`.
+    the single-claim, LLM-facing prose surfaced by list_archives /
+    describe_table. `audit` (mandatory) is how the live runner re-checks it.
+    `pitfall` (optional) opts the claim into a push channel — see `Pitfall`.
     """
 
     id: str
     text: str
     audit: Audit
-    trap: Trap | None = None
+    pitfall: Pitfall | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -88,8 +94,8 @@ class Note:
             raise ValueError("Note.text must be non-empty")
         if not isinstance(self.audit, Audit):
             raise TypeError(f"Note.audit must be an Audit, got {type(self.audit).__name__}")
-        if self.trap is not None and not isinstance(self.trap, Trap):
-            raise TypeError(f"Note.trap must be a Trap, got {type(self.trap).__name__}")
+        if self.pitfall is not None and not isinstance(self.pitfall, Pitfall):
+            raise TypeError(f"Note.pitfall must be a Pitfall, got {type(self.pitfall).__name__}")
 
 
 def note_texts(notes: tuple[Note, ...]) -> list[str]:
@@ -107,11 +113,11 @@ def _normalize_notes(notes) -> tuple[Note, ...]:
 
 @dataclass(frozen=True)
 class Schema:
-    """Curated knowledge about ONE table at one archive.
+    """Archive notes about ONE table at one archive.
 
     `archive` is the owning archive's short_name. It is redundant with the
     owning `Archive.short_name` (validated in `Archive.__post_init__`) but kept
-    because it is part of the `vo_schema_describe` response contract and lets
+    because it is part of the `describe_table` response contract and lets
     `cross_refs` name tables as `(archive, table)` pairs.
     """
 
@@ -137,17 +143,23 @@ class Archive:
 
     - `usage_notes` — short agent-facing strings capturing archive-specific
       gotchas (non-standard table locations, sync-vs-async routing, ADQL
-      quirks, target-name conventions). Surfaced via `vo_archive_list`.
+      quirks, target-name conventions). Surfaced via `list_archives`.
     - `schemas` — curated per-table `Schema` facts for this archive. Surfaced
-      via `vo_schema_describe`; not echoed by `vo_archive_list`.
+      via `describe_table`; not echoed by `list_archives`.
     - `count_target` — optional CountTarget: how to build a positional COUNT
-      for this archive's primary table (used by vo_count_observations /
-      vo_survey_target). None ⇒ not directly countable (still reachable via
+      for this archive's primary table (used by count_observations_near_target /
+      survey_archives_for_target). None ⇒ not directly countable (still reachable via
       the atomic tools).
     - `priority` — ascending sort key (ties broken by short_name). The explicit
       replacement for the old "declaration order is load-bearing" convention:
       the first TAP-having archives become the endpoint examples shown to the
       LLM, so lower numbers are the archives we steer toward.
+    - `paused` — None (default) or a dated, one-sentence reason. Non-None means
+      the archive ships and is discoverable but is left OUT of the default
+      active set; the reason is logged at boot. Naming the archive in
+      `MANNA_ARCHIVES` activates it regardless — pausing is a default, not a
+      lock. Use it when an archive's service is being rebuilt or asks for
+      less traffic, and you want to keep its notes for when it returns.
 
     An archive is discovered by the registry (see `archives/__init__.py`) as
     the module-level `ARCHIVE` in an `archives/<short_name>.py` file. Dropping
@@ -169,9 +181,14 @@ class Archive:
     schemas: tuple[Schema, ...] = field(default_factory=tuple)
     count_target: CountTarget | None = None
     priority: int = 100
+    paused: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "usage_notes", _normalize_notes(self.usage_notes))
+        if self.paused is not None and not self.paused.strip():
+            raise ValueError(
+                f"Archive {self.short_name!r}: paused must be None or a non-empty reason"
+            )
         # Every schema must belong to this archive. Enforced at construction so
         # a hand-built archive — in a test or any non-discovery caller — can't
         # drift either.

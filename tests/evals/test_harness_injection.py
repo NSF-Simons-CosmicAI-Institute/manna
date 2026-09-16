@@ -1,7 +1,7 @@
 """The harness's inject_notes axis after issue #57.
 
 Injection is now a shipped server default, so the harness no longer ADDS a
-cheatsheet — the ablation arm SUBTRACTS the server's. If stripping ever silently
+cheatsheet — the with-and-without comparison SUBTRACTS the server's. If stripping ever silently
 no-ops, experiment (a)'s C cell stops being a control and the C->D delta
 collapses to noise, so pin it.
 """
@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from evals.context import ablated_context
 from evals.harness import _anthropic_tools
-from manna.archives._traps import loud_trap_guidance, silent_trap_cheatsheet
+from manna.archives._pitfalls import error_hint_for, upfront_note_cheatsheet
 
 
 @dataclass
@@ -25,11 +25,11 @@ class _FakeTool:
 def _tools():
     return [
         _FakeTool(
-            "vo_tap_query",
-            f"Run an ADQL query.\n\n{silent_trap_cheatsheet()}",
+            "run_adql_query",
+            f"Run an ADQL query.\n\n{upfront_note_cheatsheet()}",
             {"type": "object"},
         ),
-        _FakeTool("vo_archive_list", "List archives.", {"type": "object"}),
+        _FakeTool("list_archives", "List archives.", {"type": "object"}),
     ]
 
 
@@ -40,12 +40,12 @@ def _desc(out, name):
 def test_default_keeps_the_server_injected_cheatsheet():
     """Default must mirror production — the harness measures what we ship."""
     out = _anthropic_tools(_tools())
-    assert "q3c_radial_query" in _desc(out, "vo_tap_query")
+    assert "q3c_radial_query" in _desc(out, "run_adql_query")
 
 
 def test_ablation_strips_the_cheatsheet_but_keeps_the_tool_guidance():
     out = _anthropic_tools(_tools(), inject_notes=False)
-    desc = _desc(out, "vo_tap_query")
+    desc = _desc(out, "run_adql_query")
     assert "q3c_radial_query" not in desc
     assert "COUNT(DISTINCT member_ous_uid)" not in desc
     # Only the blob goes — the tool's own description must survive.
@@ -54,50 +54,50 @@ def test_ablation_strips_the_cheatsheet_but_keeps_the_tool_guidance():
 
 def test_stripping_leaves_other_tools_untouched():
     out = _anthropic_tools(_tools(), inject_notes=False)
-    assert _desc(out, "vo_archive_list") == "List archives."
+    assert _desc(out, "list_archives") == "List archives."
 
 
 def test_no_discovery_withholds_the_curated_tools():
     names = {t["name"] for t in _anthropic_tools(_tools(), no_discovery=True)}
-    assert "vo_archive_list" not in names
-    assert "vo_tap_query" in names
+    assert "list_archives" not in names
+    assert "run_adql_query" in names
 
 
 def test_exclude_tools_env_withholds_named_tools(monkeypatch):
     """EVAL_EXCLUDE_TOOLS is the with/without value-add A/B seam: named tools
     are withheld from the agent's surface; everything else survives."""
-    monkeypatch.setenv("EVAL_EXCLUDE_TOOLS", "vo_archive_list, vo_missing_tool")
+    monkeypatch.setenv("EVAL_EXCLUDE_TOOLS", "list_archives, missing_tool")
     names = {t["name"] for t in _anthropic_tools(_tools())}
-    assert "vo_archive_list" not in names  # excluded
-    assert "vo_tap_query" in names  # untouched
+    assert "list_archives" not in names  # excluded
+    assert "run_adql_query" in names  # untouched
 
 
 def test_exclude_tools_unset_keeps_everything(monkeypatch):
     monkeypatch.delenv("EVAL_EXCLUDE_TOOLS", raising=False)
     names = {t["name"] for t in _anthropic_tools(_tools())}
-    assert names == {"vo_tap_query", "vo_archive_list"}
+    assert names == {"run_adql_query", "list_archives"}
 
 
-# ---------- tier-3 ablation must strip BOTH channels ----------
+# ---------- the tier-3 with-and-without comparison must strip BOTH channels ----------
 
 
-def test_ablated_context_strips_both_trap_channels():
-    """Traps are curated knowledge, so the tier-3 ablation has to take them away
-    too — otherwise the 'without curated context' arm silently keeps the server's
+def test_ablated_context_strips_both_pitfall_channels(nrao_active):
+    """Pitfalls are archive notes, so the tier-3 with-and-without comparison has to take
+    them away too — otherwise the stripped condition silently keeps the server's
     advantage and the with/without delta understates the ROI.
 
     This works because ablated_context() blanks usage_notes on the active set and
-    _traps.py resolves through that same patched global. It is load-bearing and
-    easy to break (e.g. by snapshotting traps at import), so pin it.
+    _pitfalls.py resolves through that same patched global. It is load-bearing and
+    easy to break (e.g. by snapshotting pitfalls at import), so pin it.
     """
     lower = "SELECT * FROM tap_schema.obscore WHERE LOWER(target_name) = 'm87'"
-    assert silent_trap_cheatsheet() != ""
-    assert loud_trap_guidance("nrao", lower) is not None
+    assert upfront_note_cheatsheet() != ""
+    assert error_hint_for("nrao", lower) is not None
 
     with ablated_context():
-        assert silent_trap_cheatsheet() == ""
-        assert loud_trap_guidance("nrao", lower) is None
+        assert upfront_note_cheatsheet() == ""
+        assert error_hint_for("nrao", lower) is None
 
     # ...and restored on exit.
-    assert silent_trap_cheatsheet() != ""
-    assert loud_trap_guidance("nrao", lower) is not None
+    assert upfront_note_cheatsheet() != ""
+    assert error_hint_for("nrao", lower) is not None

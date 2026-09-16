@@ -1,12 +1,12 @@
-"""End-to-end workflow: vo_archive_list → pick archive → vo_tap_query.
+"""End-to-end workflow: list_archives → pick archive → run_adql_query.
 
-The point of `vo_archive_list` is that the LLM calls it FIRST when
+The point of `list_archives` is that the LLM calls it FIRST when
 unfamiliar with an archive, then uses what it learned to compose the
 right query. This file pins that intent:
 
 - The list contains the archives we promise.
 - For each TAP-having entry, the LLM can take the `tap_url` straight
-  to `vo_tap_query` without further introspection.
+  to `run_adql_query` without further introspection.
 - The NRAO usage_notes — the ones we hammered out in PRs #17 and #19 —
   surface verbatim, so the LLM sees the mode='async' guidance, the
   obscore-location warning, etc.
@@ -43,7 +43,7 @@ class _FakeTapClient:
             phase = "EXECUTING"
             starttime = None
             endtime = None
-            error_summary = None
+            _job = None
 
         return _J()
 
@@ -60,26 +60,26 @@ def fake_tap(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_archive_list_surfaces_the_archives_we_promise(mcp_server):
-    """An LLM calling vo_archive_list before composing a query should
+    """An LLM calling list_archives before composing a query should
     see at least the well-known archives by short_name."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {})
+        result = await client.call_tool("list_archives", {})
         payload = result.structured_content
 
     short_names = {a["short_name"] for a in payload["archives"]}
-    must_include = {"datalab", "nrao", "alma", "cadc", "gaia"}
+    must_include = {"datalab", "alma", "cadc", "gaia"}  # nrao ships paused
     missing = must_include - short_names
-    assert not missing, f"vo_archive_list missing well-known archives: {missing}"
+    assert not missing, f"list_archives missing well-known archives: {missing}"
 
 
 @pytest.mark.asyncio
-async def test_archive_list_nrao_entry_carries_async_and_obscore_notes(mcp_server):
+async def test_archive_list_nrao_entry_carries_async_and_obscore_notes(nrao_active, mcp_server):
     """Pins the load-bearing usage_notes for the LLM:
     - mode='async' for data queries
     - tap_schema.obscore (non-standard) location
     - 3C218 (target naming)"""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {})
+        result = await client.call_tool("list_archives", {})
         payload = result.structured_content
 
     nrao = next(a for a in payload["archives"] if a["short_name"] == "nrao")
@@ -90,11 +90,11 @@ async def test_archive_list_nrao_entry_carries_async_and_obscore_notes(mcp_serve
 
 
 @pytest.mark.asyncio
-async def test_chain_pick_tap_url_from_list_and_query(mcp_server, fake_tap):
+async def test_chain_pick_tap_url_from_list_and_query(nrao_active, mcp_server, fake_tap):
     """Simulate the LLM action: get the list → pick NRAO's tap_url →
     submit a query against it. Verify the right URL flowed through."""
     async with Client(mcp_server) as client:
-        listing = await client.call_tool("vo_archive_list", {})
+        listing = await client.call_tool("list_archives", {})
         archives = listing.structured_content["archives"]
         nrao = next(a for a in archives if a["short_name"] == "nrao")
         nrao_url = nrao["tap_url"]
@@ -102,7 +102,7 @@ async def test_chain_pick_tap_url_from_list_and_query(mcp_server, fake_tap):
 
         # LLM heeds the usage_note and uses mode='async'
         promotion = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {
                 "endpoint": nrao_url,
                 "adql": "SELECT TOP 1 * FROM tap_schema.obscore",
@@ -122,7 +122,7 @@ async def test_archive_list_datalink_recipe_present_for_cadc(mcp_server):
     """CADC's datalink follow-through recipe (C-01) must reach the LLM
     via usage_notes."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {})
+        result = await client.call_tool("list_archives", {})
         archives = result.structured_content["archives"]
 
     cadc = next(a for a in archives if a["short_name"] == "cadc")
@@ -138,7 +138,7 @@ async def test_archive_list_datalab_adql_geometry_warning_present(mcp_server):
     """DataLab's gotcha — ADQL geometric functions don't translate —
     must reach the LLM as a usage_note."""
     async with Client(mcp_server) as client:
-        result = await client.call_tool("vo_archive_list", {})
+        result = await client.call_tool("list_archives", {})
         archives = result.structured_content["archives"]
 
     dl = next(a for a in archives if a["short_name"] == "datalab")

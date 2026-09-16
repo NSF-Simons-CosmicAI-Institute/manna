@@ -7,7 +7,7 @@ from pydantic import Field
 from manna._url_guard import ensure_safe_url
 from manna.backends.registry import RegistryClient
 from manna.errors import wrap_tool_errors
-from manna.shaper import (
+from manna.results import (
     shape_registry_describe_result,
     shape_registry_search_result,
 )
@@ -25,7 +25,7 @@ def _get_registry() -> RegistryClient:
 
 
 @wrap_tool_errors
-def vo_registry_search(
+def search_ivoa_registry(
     keywords: Annotated[
         list[str] | None,
         Field(
@@ -65,8 +65,8 @@ def vo_registry_search(
     waveband, and one URL per capability (tap_url, sia_url, scs_url,
     ssa_url; null when the service doesn't expose that capability).
 
-    Use for discovery before calling vo_tap_query / vo_sia_search /
-    vo_cone_search on a specific endpoint. Smaller default maxrec (50)
+    Use for discovery before calling run_adql_query / search_images_by_position /
+    search_catalog_by_position on a specific endpoint. Smaller default maxrec (50)
     than catalog tools — discovery is about choice, not bulk data.
     """
     services = _get_registry().search(
@@ -76,7 +76,7 @@ def vo_registry_search(
 
 
 @wrap_tool_errors
-def vo_registry_describe(
+def describe_ivoa_service(
     ivoid_or_url: Annotated[
         str,
         Field(
@@ -106,8 +106,8 @@ def vo_registry_describe(
 
     Returns {ivoid, title, description, capabilities, tables, truncated,
     total_tables} (plus matched_tables when table_filter is used). Use after
-    vo_registry_search to learn what's queryable on a specific service before
-    composing ADQL via vo_tap_query.
+    search_ivoa_registry to learn what's queryable on a specific service before
+    composing ADQL via run_adql_query.
 
     Each table normally carries its full column list. For a very large service
     the response degrades to a table *catalog* (name + description +
@@ -115,7 +115,7 @@ def vo_registry_describe(
     When that happens, either pass table_filter='<keyword>' to narrow to the
     tables you want (a narrow match returns their columns inline), or get one
     table's columns by querying tap_schema.columns WHERE table_name = '<table>'
-    via vo_tap_query (or vo_schema_describe for curated tables). See the
+    via run_adql_query (or describe_table for curated tables). See the
     returned hints.
     """
     # An `ivo://` IVOID is a registry identifier, not a fetch target — it is
@@ -127,5 +127,5 @@ def vo_registry_describe(
     return shape_registry_describe_result(described, table_filter=table_filter)
 
 
-vo_registry_search.__doc__ = (vo_registry_search.__doc__ or "") + _ERROR_DOCSTRING
-vo_registry_describe.__doc__ = (vo_registry_describe.__doc__ or "") + _ERROR_DOCSTRING
+search_ivoa_registry.__doc__ = (search_ivoa_registry.__doc__ or "") + _ERROR_DOCSTRING
+describe_ivoa_service.__doc__ = (describe_ivoa_service.__doc__ or "") + _ERROR_DOCSTRING

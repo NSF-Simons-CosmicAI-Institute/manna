@@ -16,7 +16,7 @@ _CONVO = [
     {
         "role": "assistant",
         "text": "resolving",
-        "tool_uses": [{"id": "tu1", "name": "vo_target_resolve", "input": {"name": "M87"}}],
+        "tool_uses": [{"id": "tu1", "name": "resolve_target_name", "input": {"name": "M87"}}],
     },
     {
         "role": "tool",
@@ -36,12 +36,34 @@ def test_anthropic_messages_shape():
     assert asst["role"] == "assistant"
     kinds = [b["type"] for b in asst["content"]]
     assert kinds == ["text", "tool_use"]
-    assert asst["content"][1]["name"] == "vo_target_resolve"
+    assert asst["content"][1]["name"] == "resolve_target_name"
     # tool results come back as a *user* turn with tool_result blocks
     tool_turn = msgs[2]
     assert tool_turn["role"] == "user"
     assert tool_turn["content"][0]["type"] == "tool_result"
     assert tool_turn["content"][0]["tool_use_id"] == "tu1"
+
+
+@pytest.mark.asyncio
+async def test_anthropic_backend_rejects_a_non_json_body():
+    """A proxy that answers with an HTML page (HTTP 200) makes the SDK return a
+    plain `str`; the backend must raise the retryable ProxyResponseError rather
+    than die on `.content` (observed 2026-09-15 on the NOIRLab nginx)."""
+    from types import SimpleNamespace
+
+    from evals.model_backends import ProxyResponseError
+
+    class _Messages:
+        async def create(self, **_kw):
+            return "<!DOCTYPE html><html><head><title>Astro Data Lab</title></head></html>"
+
+    cfg = SimpleNamespace(
+        api_key="k", base_url=None, extra_headers=None, label="fake", model="m", max_tokens=8
+    )
+    backend = AnthropicBackend(cfg)  # type: ignore[arg-type]
+    backend._client = SimpleNamespace(messages=_Messages())  # type: ignore[assignment]
+    with pytest.raises(ProxyResponseError, match="non-JSON body"):
+        await backend.complete("system", [{"role": "user", "text": "hi"}], [])
 
 
 # --------------------------------------------------------------------------- #
@@ -55,7 +77,7 @@ def test_openai_messages_prepends_system_and_maps_tool_calls():
     assert asst["role"] == "assistant"
     tc = asst["tool_calls"][0]
     assert tc["type"] == "function"
-    assert tc["function"]["name"] == "vo_target_resolve"
+    assert tc["function"]["name"] == "resolve_target_name"
     assert '"M87"' in tc["function"]["arguments"]  # input JSON-encoded
     # tool result → a `tool` role message keyed by tool_call_id
     tool_msg = msgs[3]
@@ -64,10 +86,10 @@ def test_openai_messages_prepends_system_and_maps_tool_calls():
 
 
 def test_openai_tools_shape():
-    neutral = [{"name": "vo_x", "description": "d", "input_schema": {"type": "object"}}]
+    neutral = [{"name": "tool_x", "description": "d", "input_schema": {"type": "object"}}]
     out = OpenAIBackend._tools(neutral)
     assert out[0]["type"] == "function"
-    assert out[0]["function"]["name"] == "vo_x"
+    assert out[0]["function"]["name"] == "tool_x"
     assert out[0]["function"]["parameters"] == {"type": "object"}
 
 

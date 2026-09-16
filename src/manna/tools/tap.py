@@ -14,8 +14,8 @@ from manna.archives._endpoints import (
     tap_endpoint_description,
     tap_endpoint_urls,
 )
-from manna.archives._traps import loud_trap_guidance
-from manna.backends.tap import TapClient
+from manna.archives._pitfalls import error_hint_for
+from manna.backends.tap import TapClient, job_error_message
 from manna.config import get_settings
 from manna.errors import (
     ArchiveError,
@@ -25,7 +25,7 @@ from manna.errors import (
     ValidationError,
     wrap_tool_errors,
 )
-from manna.shaper import (
+from manna.results import (
     attach_cache_fields,
     build_load_recipe,
     is_oversize,
@@ -49,13 +49,13 @@ def _get_tap() -> TapClient:
 
 
 @contextmanager
-def _trap_hint(*, endpoint: str, adql: str) -> Iterator[None]:
-    """Attach curated loud-trap guidance to a rejected query's `hint`.
+def _pitfall_hint(*, endpoint: str, adql: str) -> Iterator[None]:
+    """Attach a curated error hint to a rejected query's `hint`.
 
     The error payload is the one channel the model reliably reads at failure
     time — issue #57 measured it writing LOWER() against NRAO even with the
-    note served by vo_archive_list. So when the archive rejects an ADQL that
-    trips a curated loud trap, the fix rides back with the rejection.
+    note served by list_archives. So when the archive rejects an ADQL that
+    hits a pitfall that carries an error hint, the fix rides back with the rejection.
 
     Only DalQueryError: that means the archive UNDERSTOOD the query and refused
     it, which is when curated guidance is trustworthy. A timeout or 5xx says
@@ -65,7 +65,7 @@ def _trap_hint(*, endpoint: str, adql: str) -> Iterator[None]:
         yield
     except DalQueryError as err:
         if err.hint is None:
-            err.hint = loud_trap_guidance(archive_label(endpoint), adql)
+            err.hint = error_hint_for(archive_label(endpoint), adql)
         raise
 
 
@@ -102,7 +102,7 @@ def _auto_promote(*, endpoint: str, adql: str, maxrec: int) -> dict:
 
 
 @wrap_tool_errors
-def vo_tap_query(
+def run_adql_query(
     endpoint: Annotated[
         str,
         Field(
@@ -115,12 +115,12 @@ def vo_tap_query(
         Field(
             description=(
                 "ADQL query. Geometry support is archive-specific: standard "
-                "CIRCLE/POINT/CONTAINS work on obscore services (ALMA, NRAO) but "
+                "CIRCLE/POINT/CONTAINS work on obscore services (ALMA, ESO) but "
                 "NOT on Astro Data Lab, which passes them to PostgreSQL and needs "
-                "q3c_radial_query(...) = 't' instead — call vo_archive_list for the "
+                "q3c_radial_query(...) = 't' instead — call list_archives for the "
                 "archive's quirks before composing. Use SELECT TOP N to cap row "
                 "counts, project an explicit column list rather than SELECT * "
-                "(vo_schema_describe returns the table's real columns), and ORDER BY "
+                "(describe_table returns the table's real columns), and ORDER BY "
                 "for deterministic results."
             ),
             examples=[
@@ -159,14 +159,14 @@ def vo_tap_query(
     """Run an ADQL query against any IVOA-compliant TAP service.
 
     BEFORE composing a query against an archive you don't already know
-    cold, call `vo_archive_list` first. It returns curated usage notes
+    cold, call `list_archives` first. It returns curated usage notes
     for the well-known archives — non-standard table locations, required
     mode='async' routing, ADQL quirks, target-name conventions — that
     will save you trial-and-error here.
 
     The server never holds result bytes. Small results come back inline;
     anything larger than the inline cap is routed to an async job whose
-    result the client fetches itself (see vo_tap_results / fetch_recipe).
+    result the client fetches itself (see get_async_job_results / fetch_recipe).
 
     Returns one of two envelope shapes depending on what happened:
 
@@ -183,8 +183,8 @@ def vo_tap_query(
     mode='sync' with an oversize result does NOT auto-promote — it raises
     validation_error telling you to re-run with mode='async'.
 
-    For async results, poll vo_tap_status(job_url) until phase is
-    COMPLETED, then call vo_tap_results(job_url) — or fetch client-side
+    For async results, poll get_async_job_status(job_url) until phase is
+    COMPLETED, then call get_async_job_results(job_url) — or fetch client-side
     with the pyvo fetch_recipe carried on the promotion envelope. Pass the
     job_url back verbatim; it is the job's only handle.
 
@@ -194,9 +194,9 @@ def vo_tap_query(
     query need not be re-run later.
     """
     ensure_safe_url(endpoint, param="endpoint")
-    # Every path that can surface a DalQueryError runs inside _trap_hint, so a
+    # Every path that can surface a DalQueryError runs inside _pitfall_hint, so a
     # rejected query carries its curated fix regardless of which mode found it.
-    with _trap_hint(endpoint=endpoint, adql=adql):
+    with _pitfall_hint(endpoint=endpoint, adql=adql):
         if mode == "async":
             return _promote_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
 
@@ -206,7 +206,7 @@ def vo_tap_query(
                 raise ValidationError(
                     message=(
                         f"Result ({len(table)} rows) exceeds the inline cap. "
-                        "Re-run vo_tap_query with mode='async' to get a job_url + "
+                        "Re-run run_adql_query with mode='async' to get a job_url + "
                         "fetch_recipe for client-side loading."
                     ),
                     retry_strategy="fix_and_retry",
@@ -245,12 +245,12 @@ def vo_tap_query(
         )
 
 
-vo_tap_query.__doc__ = (vo_tap_query.__doc__ or "") + _ERROR_DOCSTRING
+run_adql_query.__doc__ = (run_adql_query.__doc__ or "") + _ERROR_DOCSTRING
 
 
 _JOB_URL_FIELD = Field(
     description=(
-        "The upstream job_url returned by vo_tap_query when it went async "
+        "The upstream job_url returned by run_adql_query when it went async "
         "(mode='async' or auto-promote). Pass it back verbatim — it is the "
         "job's only handle."
     ),
@@ -262,7 +262,7 @@ def _endpoint_from_job_url(job_url: str) -> str:
     """Recover the TAP base endpoint from a UWS job URL.
 
     Standard UWS layout is <endpoint>/async/<id>; splitting keeps the
-    vo_tap_results fingerprint identical to the one vo_tap_query computed
+    get_async_job_results fingerprint identical to the one run_adql_query computed
     at submission, so a promoted query dedupes against its inline twin.
     Non-standard URLs fall back to the job_url itself — still stable.
     """
@@ -271,11 +271,7 @@ def _endpoint_from_job_url(job_url: str) -> str:
 
 def _status_payload(*, job, job_url: str) -> dict:
     """Build the status response from a live AsyncTAPJob."""
-    error_message = None
-    if job.phase == "ERROR":
-        es = getattr(job, "error_summary", None)
-        if es is not None:
-            error_message = getattr(es, "message", None) or str(es)
+    error_message = job_error_message(job) if job.phase == "ERROR" else None
 
     started = getattr(job, "starttime", None)
     ended = getattr(job, "endtime", None)
@@ -290,7 +286,7 @@ def _status_payload(*, job, job_url: str) -> dict:
 
 
 @wrap_tool_errors
-def vo_tap_status(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
+def get_async_job_status(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     """Fetch the live UWS phase for an async TAP job.
 
     Returns {job_url, phase, started_at, ended_at, error_message, archive}.
@@ -308,11 +304,11 @@ def vo_tap_status(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     return _status_payload(job=job, job_url=job_url)
 
 
-vo_tap_status.__doc__ = (vo_tap_status.__doc__ or "") + _ERROR_DOCSTRING
+get_async_job_status.__doc__ = (get_async_job_status.__doc__ or "") + _ERROR_DOCSTRING
 
 
 @wrap_tool_errors
-def vo_tap_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
+def get_async_job_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     """Return access info for a COMPLETED async TAP job.
 
     The server does NOT fetch the result bytes. It returns the upstream
@@ -334,9 +330,10 @@ def vo_tap_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     phase = job.phase
 
     if phase == "ERROR":
-        es = getattr(job, "error_summary", None)
-        msg = getattr(es, "message", None) if es is not None else None
-        raise DalQueryError(message=msg or "Async TAP job ended in ERROR.")
+        msg = job_error_message(job)
+        raise DalQueryError(
+            message=msg or "Async TAP job ended in ERROR (the archive gave no diagnostic)."
+        )
     if phase == "ABORTED":
         raise ValidationError(
             message="This job was aborted; re-submit if you still want results.",
@@ -345,7 +342,7 @@ def vo_tap_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     if phase != "COMPLETED":
         raise JobNotReadyError(
             message=f"Job is still {phase}.",
-            hint="Call vo_tap_status until phase is COMPLETED, then retry.",
+            hint="Call get_async_job_status until phase is COMPLETED, then retry.",
         )
 
     # Read the direct result URL from the loaded job. It may be absent on
@@ -379,11 +376,11 @@ def vo_tap_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     )
 
 
-vo_tap_results.__doc__ = (vo_tap_results.__doc__ or "") + _ERROR_DOCSTRING
+get_async_job_results.__doc__ = (get_async_job_results.__doc__ or "") + _ERROR_DOCSTRING
 
 
 @wrap_tool_errors
-def vo_tap_abort(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
+def abort_async_job(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     """Cancel a running async TAP job.
 
     Sends UWS DELETE upstream. Idempotent: aborting an already-deleted or
@@ -399,4 +396,4 @@ def vo_tap_abort(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     }
 
 
-vo_tap_abort.__doc__ = (vo_tap_abort.__doc__ or "") + _ERROR_DOCSTRING
+abort_async_job.__doc__ = (abort_async_job.__doc__ or "") + _ERROR_DOCSTRING

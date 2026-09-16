@@ -1,22 +1,22 @@
-"""Ablation: run the server with its curated context stripped out.
+"""With-and-without comparison: run the server with its archive notes stripped out.
 
 The whole point of MANNA (vs. handing a model raw pyvo) is the
-curated knowledge: each archive's ``usage_notes`` and its per-table
+archive notes: each archive's ``usage_notes`` and its per-table
 ``Schema`` entries. Tier 3 of
-the eval quantifies that value by running the same trap tasks twice — once with
-the context and once without — and comparing trap-avoidance rates.
+the eval quantifies that value by running the same pitfall tasks twice — once with
+the context and once without — and comparing pitfall-avoidance rates.
 
 We strip context *harness-side* rather than adding a flag to production
-``build_mcp`` (see plan §10): the tools resolve their KB references from module
+``build_mcp`` (see plan §10): the tools resolve their archive-note references from module
 globals at call time, so swapping those globals inside a context manager gives a
-clean, fully-reversible ablation with zero production-code risk. The patch point
+clean, fully-reversible stripping with zero production-code risk. The patch point
 is ``archives._endpoints.get_active_archives`` — the module global that
-``active_archives()`` (and hence ``vo_archive_list``) resolves at call time.
+``active_archives()`` (and hence ``list_archives``) resolves at call time.
 
 Stripped:
-  * ``vo_archive_list`` -> every archive keeps its endpoints/tables but loses
+  * ``list_archives`` -> every archive keeps its endpoints/tables but loses
     ``usage_notes`` (the async routing, obscore-location, geometry warnings, ...).
-  * ``vo_schema_describe`` -> always reports ``known: false`` (as if the table
+  * ``describe_table`` -> always reports ``known: false`` (as if the table
     had no curated entry), forcing the model to fall back to live introspection.
 """
 
@@ -31,9 +31,9 @@ from manna.tools import schema as _schema_tool
 
 @contextmanager
 def ablated_context():
-    """Temporarily blind the server to its curated usage_notes + schema KB.
+    """Temporarily blind the server to its archive notes (usage_notes + per-table schemas).
 
-    `vo_archive_list` resolves archives via `archives._endpoints.active_archives()`,
+    `list_archives` resolves archives via `archives._endpoints.active_archives()`,
     which reads `get_active_archives` from the endpoints module globals at
     call time — so swapping that global swaps what the tool sees. The schema
     tool is blinded by forcing every lookup to miss. Restores on exit even if

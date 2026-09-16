@@ -1,4 +1,4 @@
-import manna.tools._select as sel
+import manna.tools.workflows._select as sel
 from manna.archives._model import Archive
 
 
@@ -54,7 +54,7 @@ def test_no_candidate_payload_scopes_registry_hint_when_servicetype_given(monkey
         override=None,
         servicetype="tap",
     )
-    assert "vo_registry_search(servicetype='tap')" in out["hint"]
+    assert "search_ivoa_registry(servicetype='tap')" in out["hint"]
 
 
 def test_no_candidate_payload_bare_registry_hint_when_servicetype_omitted(monkeypatch):
@@ -63,5 +63,5 @@ def test_no_candidate_payload_bare_registry_hint_when_servicetype_omitted(monkey
     out = sel.no_candidate_payload(
         attr="count_target", service_label="count", waveband="optical", override=None
     )
-    assert "vo_registry_search(servicetype=" not in out["hint"]
-    assert "vo_registry_search" in out["hint"]
+    assert "search_ivoa_registry(servicetype=" not in out["hint"]
+    assert "search_ivoa_registry" in out["hint"]

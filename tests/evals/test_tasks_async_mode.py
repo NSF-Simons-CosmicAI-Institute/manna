@@ -16,7 +16,7 @@ import pytest
 from evals.harness import TaskRun, ToolCall
 from evals.score import load_tasks, score_programmatic
 
-# The tier-2/3 tasks whose vo_tap_query mode check gates on the async path.
+# The tier-2/3 tasks whose run_adql_query mode check gates on the async path.
 ASYNC_MODE_TASKS = ("t3-nrao-async", "t2-list-then-query", "t2-schema-bound-query")
 
 
@@ -32,15 +32,15 @@ _ADQL = "SELECT TOP 20 * FROM tap_schema.obscore WHERE instrument_name = 'GBT'"
 
 
 def _tap_run(*modes: str) -> TaskRun:
-    """A run whose vo_tap_query calls used `modes`, in order."""
+    """A run whose run_adql_query calls used `modes`, in order."""
     r = TaskRun("t", 3, "full", "m")
-    r.trace = [ToolCall("vo_tap_query", {"mode": m, "adql": _ADQL}, {}, False) for m in modes]
+    r.trace = [ToolCall("run_adql_query", {"mode": m, "adql": _ADQL}, {}, False) for m in modes]
     r.final_answer = "here are the rows"
     return r
 
 
 def _args_check(task_id: str, run: TaskRun) -> bool:
-    return score_programmatic(_task(task_id), run).checks["args:vo_tap_query"]
+    return score_programmatic(_task(task_id), run).checks["args:run_adql_query"]
 
 
 @pytest.mark.parametrize("task_id", ASYNC_MODE_TASKS)
@@ -52,13 +52,13 @@ def test_async_and_auto_both_accepted(task_id: str, mode: str):
 
 @pytest.mark.parametrize("task_id", ASYNC_MODE_TASKS)
 def test_bare_sync_still_rejected(task_id: str):
-    """mode='sync' is the actual trap: it 5xxs/times out on obscore reads."""
+    """mode='sync' is the actual pitfall: it 5xxs/times out on obscore reads."""
     assert _args_check(task_id, _tap_run("sync")) is False
 
 
 @pytest.mark.parametrize("task_id", ASYNC_MODE_TASKS)
 def test_sync_retry_loop_still_rejected(task_id: str):
-    """match: all — a model that keeps retrying bare sync has not avoided the trap,
+    """match: all — a model that keeps retrying bare sync has not avoided the pitfall,
     even if one call in the trace used auto."""
     assert _args_check(task_id, _tap_run("auto", "sync", "sync")) is False
 

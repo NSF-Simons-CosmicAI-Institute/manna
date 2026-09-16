@@ -16,7 +16,7 @@ and costs nothing.
 There is deliberately NO memoization here. An earlier version kept a
 process-global `dict` keyed by the full endpoint URL — i.e. keyed by a tool
 argument, unbounded, never evicted, in a server every tenant shares. One
-caller could grow it without limit (`vo_tap_abort` swallows upstream errors
+caller could grow it without limit (`abort_async_job` swallows upstream errors
 and still labels its response, so every call was a guaranteed write), and
 measured at ~141 bytes/entry that is a slow memory leak with an attacker
 holding the tap. It was removed rather than capped because it saved ~0.01us

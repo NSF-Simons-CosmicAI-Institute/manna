@@ -8,27 +8,27 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
 from manna import __version__
-from manna.archives._traps import silent_trap_cheatsheet
+from manna.archives._pitfalls import upfront_note_cheatsheet
 from manna.observability import (
     current_request_id,
     new_request_id,
 )
 from manna.tools import (
-    vo_archive_list,
-    vo_cone_search,
-    vo_count_observations,
-    vo_find_observations,
-    vo_inspect_table,
-    vo_registry_describe,
-    vo_registry_search,
-    vo_schema_describe,
-    vo_sia_search,
-    vo_survey_target,
-    vo_tap_abort,
-    vo_tap_query,
-    vo_tap_results,
-    vo_tap_status,
-    vo_target_resolve,
+    abort_async_job,
+    count_observations_near_target,
+    describe_ivoa_service,
+    describe_table,
+    find_observations_of_target,
+    get_async_job_results,
+    get_async_job_status,
+    list_archives,
+    preview_table,
+    resolve_target_name,
+    run_adql_query,
+    search_catalog_by_position,
+    search_images_by_position,
+    search_ivoa_registry,
+    survey_archives_for_target,
 )
 
 
@@ -58,10 +58,10 @@ class RequestIdMiddleware:
             current_request_id.reset(token)
 
 
-# Closed-world: reads only the in-process KB. Open-world: hits live services.
+# Closed-world: reads only the in-process archive notes. Open-world: hits live services.
 _LOCAL = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
 _REMOTE = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
-# vo_tap_abort DELETEs an upstream UWS job — not read-only, but idempotent
+# abort_async_job DELETEs an upstream UWS job — not read-only, but idempotent
 # (deleting an already-gone job is a no-op) and destructive.
 _ABORT = ToolAnnotations(
     readOnlyHint=False,
@@ -72,16 +72,16 @@ _ABORT = ToolAnnotations(
 
 
 def _tap_query_description() -> str:
-    """vo_tap_query's docstring + the derived silent-trap cheatsheet.
+    """run_adql_query's docstring + the derived cheatsheet of up-front notes.
 
     Derived here, at build time, rather than baked into the docstring: the blob
     depends on which archives are active (``MANNA_ARCHIVES``), and
-    ``silent_trap_cheatsheet`` reads the ``lru_cache``d active set at call time.
-    Empty cheatsheet (e.g. a selection with no tagged traps) leaves the
+    ``upfront_note_cheatsheet`` reads the ``lru_cache``d active set at call time.
+    Empty cheatsheet (e.g. a selection with no tagged pitfalls) leaves the
     docstring untouched.
     """
-    base = vo_tap_query.__doc__ or ""
-    cheatsheet = silent_trap_cheatsheet()
+    base = run_adql_query.__doc__ or ""
+    cheatsheet = upfront_note_cheatsheet()
     return f"{base}\n\n{cheatsheet}" if cheatsheet else base
 
 
@@ -89,9 +89,9 @@ def build_mcp() -> FastMCP:
     """Construct the FastMCP server with all tools registered.
 
     Every tool is read-only (the server never mutates archive state) except
-    ``vo_tap_abort``, which deletes an upstream UWS job. Tools that hit live
-    archive services are open-world; vo_archive_list is the one closed-world
-    KB reader (vo_schema_describe left that set when it grew a live column
+    ``abort_async_job``, which deletes an upstream UWS job. Tools that hit live
+    archive services are open-world; list_archives is the one closed-world
+    archive-notes reader (describe_table left that set when it grew a live column
     fetch).
     """
     # Pass version explicitly: FastMCP otherwise reports *its own* version in
@@ -99,21 +99,21 @@ def build_mcp() -> FastMCP:
     # release (e.g. "3.4.7") where MANNA's belongs. /health has always been
     # right; this makes the MCP seam agree with it.
     mcp = FastMCP(name="manna", version=__version__)
-    mcp.tool(vo_archive_list, annotations=_LOCAL)
-    mcp.tool(vo_tap_query, annotations=_REMOTE, description=_tap_query_description())
-    mcp.tool(vo_tap_status, annotations=_REMOTE)
-    mcp.tool(vo_tap_results, annotations=_REMOTE)
-    mcp.tool(vo_tap_abort, annotations=_ABORT)
-    mcp.tool(vo_registry_search, annotations=_REMOTE)
-    mcp.tool(vo_registry_describe, annotations=_REMOTE)
-    mcp.tool(vo_schema_describe, annotations=_REMOTE)
-    mcp.tool(vo_target_resolve, annotations=_REMOTE)
-    mcp.tool(vo_cone_search, annotations=_REMOTE)
-    mcp.tool(vo_sia_search, annotations=_REMOTE)
-    mcp.tool(vo_find_observations, annotations=_REMOTE)
-    mcp.tool(vo_count_observations, annotations=_REMOTE)
-    mcp.tool(vo_inspect_table, annotations=_REMOTE)
-    mcp.tool(vo_survey_target, annotations=_REMOTE)
+    mcp.tool(list_archives, annotations=_LOCAL)
+    mcp.tool(run_adql_query, annotations=_REMOTE, description=_tap_query_description())
+    mcp.tool(get_async_job_status, annotations=_REMOTE)
+    mcp.tool(get_async_job_results, annotations=_REMOTE)
+    mcp.tool(abort_async_job, annotations=_ABORT)
+    mcp.tool(search_ivoa_registry, annotations=_REMOTE)
+    mcp.tool(describe_ivoa_service, annotations=_REMOTE)
+    mcp.tool(describe_table, annotations=_REMOTE)
+    mcp.tool(resolve_target_name, annotations=_REMOTE)
+    mcp.tool(search_catalog_by_position, annotations=_REMOTE)
+    mcp.tool(search_images_by_position, annotations=_REMOTE)
+    mcp.tool(find_observations_of_target, annotations=_REMOTE)
+    mcp.tool(count_observations_near_target, annotations=_REMOTE)
+    mcp.tool(preview_table, annotations=_REMOTE)
+    mcp.tool(survey_archives_for_target, annotations=_REMOTE)
     return mcp
 
 

@@ -1,8 +1,8 @@
-"""End-to-end workflow: vo_target_resolve → vo_cone_search chain.
+"""End-to-end workflow: resolve_target_name → search_catalog_by_position chain.
 
 Simulates the LLM action:
-    1. Call vo_target_resolve to get RA/Dec for a named object.
-    2. Feed those coordinates directly into vo_cone_search.
+    1. Call resolve_target_name to get RA/Dec for a named object.
+    2. Feed those coordinates directly into search_catalog_by_position.
 
 Pins that the resolver → positional-query handoff works and that the
 coordinates flow through correctly. ConeSearchClient is faked; no network.
@@ -60,14 +60,14 @@ async def test_resolve_then_cone_search(mcp_server, fake_resolver, fake_cone):
     Verify the coordinates flow from resolve output into the cone query."""
     async with Client(mcp_server) as client:
         # Step 1: resolve the target name
-        resolve_result = await client.call_tool("vo_target_resolve", {"name": "M87"})
+        resolve_result = await client.call_tool("resolve_target_name", {"name": "M87"})
         rp = resolve_result.structured_content
         assert rp["resolved"] is True
         ra, dec = rp["ra"], rp["dec"]
 
         # Step 2: use the returned coords in a cone search
         cone_result = await client.call_tool(
-            "vo_cone_search",
+            "search_catalog_by_position",
             {
                 "endpoint": SCS_ENDPOINT,
                 "ra": ra,

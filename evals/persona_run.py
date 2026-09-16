@@ -22,7 +22,7 @@ from pathlib import Path
 
 import httpx
 
-from evals._common import judge_from_env, write_results
+from evals._common import is_manna_tool, judge_from_env, write_results
 from evals.mcp_quality import _accuracy
 from evals.personas import PersonaConfig, make_persona
 from evals.score import load_tasks, score_task
@@ -56,7 +56,7 @@ async def _serve(port: int):
 
 
 def _used_mcp(run) -> bool:
-    return any(c.tool.startswith("vo_") for c in run.trace)
+    return any(is_manna_tool(c.tool) for c in run.trace)
 
 
 def _same_model_persona(base_label: str) -> tuple[dict[str, str], str, str]:
@@ -138,7 +138,7 @@ async def _main(args: argparse.Namespace) -> int:
             sum(bool(r.final_answer.strip()) and not r.error for r in runs) / len(runs), 3
         ),
         "tool_use_rate": round(sum(_used_mcp(r) for r in runs) / len(runs), 3),
-        "mean_mcp_calls": mean([sum(c.tool.startswith("vo_") for c in r.trace) for r in runs]),
+        "mean_mcp_calls": mean([sum(is_manna_tool(c.tool) for c in r.trace) for r in runs]),
         "mean_turns": mean([r.steps for r in runs]),
         "mean_output_tokens": mean([r.output_tokens for r in ok]),
         "mean_latency_s": mean([r.latency_s for r in ok]),

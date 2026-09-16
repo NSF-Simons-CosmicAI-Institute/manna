@@ -47,7 +47,7 @@ class Persona(Protocol):
 
 
 def _tool_name(raw: str) -> str:
-    """Normalize an MCP tool to its bare vo_* name so it matches arg-checks/breakdown;
+    """Normalize an MCP tool to its bare MANNA name so it matches arg-checks/breakdown;
     leave harness built-ins (ToolSearch, Bash, …) as-is."""
     return raw[len(_MCP_PREFIX) :] if raw.startswith(_MCP_PREFIX) else raw
 

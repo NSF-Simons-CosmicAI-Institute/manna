@@ -3,14 +3,14 @@
 Per-table *content* (ALMA obscore enums, datalab Q3C, NRAO missing columns)
 is asserted per-archive in `tests/archives/test_<archive>.py`. This file covers
 the `Schema` dataclass, the `lookup_schema` contract, and the integrity of the
-aggregated `active_schema_kb()` view.
+aggregated `active_schemas()` view.
 """
 
 import pytest
 
 from manna.archives._endpoints import active_archives
 from manna.archives._knowledge import (
-    active_schema_kb,
+    active_schemas,
     lookup_schema,
 )
 from manna.archives._model import Schema
@@ -37,10 +37,10 @@ def test_schema_cross_refs_is_nested_tuple_shape():
 
 
 def test_lookup_schema_finds_known_entry():
-    s = lookup_schema(archive="nrao", table="tap_schema.obscore")
+    s = lookup_schema(archive="alma", table="ivoa.obscore")
     assert s is not None
-    assert s.archive == "nrao"
-    assert s.table == "tap_schema.obscore"
+    assert s.archive == "alma"
+    assert s.table == "ivoa.obscore"
 
 
 def test_lookup_schema_returns_none_for_unknown_pair():
@@ -48,16 +48,16 @@ def test_lookup_schema_returns_none_for_unknown_pair():
 
 
 def test_lookup_schema_is_case_sensitive():
-    assert lookup_schema(archive="NRAO", table="tap_schema.obscore") is None
-    assert lookup_schema(archive="nrao", table="TAP_SCHEMA.OBSCORE") is None
+    assert lookup_schema(archive="ALMA", table="ivoa.obscore") is None
+    assert lookup_schema(archive="alma", table="IVOA.OBSCORE") is None
 
 
-# ---------- active_schema_kb() view integrity ----------
+# ---------- active_schemas() view integrity ----------
 
 
 def test_every_schema_archive_is_a_known_archive_short_name():
     valid_short_names = {a.short_name for a in active_archives()}
-    for s in active_schema_kb():
+    for s in active_schemas():
         assert s.archive in valid_short_names, (
             f"Schema entry archive={s.archive!r} is not a known archive "
             f"short_name. Available: {sorted(valid_short_names)}"
@@ -66,18 +66,49 @@ def test_every_schema_archive_is_a_known_archive_short_name():
 
 def test_no_two_schemas_share_an_archive_table_pair():
     seen: set[tuple[str, str]] = set()
-    for s in active_schema_kb():
+    for s in active_schemas():
         key = (s.archive, s.table)
         assert key not in seen, f"Duplicate Schema entry for {key}; collapse the duplicates"
         seen.add(key)
 
 
 def test_every_cross_ref_resolves_to_another_schema_entry():
-    """Holds for the full shipped set (the default test deployment)."""
-    by_pair = {(s.archive, s.table): s for s in active_schema_kb()}
-    for s in active_schema_kb():
+    """Holds over the full SHIPPED set (discover_archives), not the active set:
+    a paused archive (nrao) may legitimately be the target of a cross_ref
+    while absent from the default active set."""
+    from manna.archives import discover_archives
+
+    shipped = tuple(s for a in discover_archives() for s in a.schemas)
+    by_pair = {(s.archive, s.table): s for s in shipped}
+    for s in shipped:
         for archive, table in s.cross_refs:
             assert (archive, table) in by_pair, (
                 f"Schema({s.archive}, {s.table}).cross_refs references "
-                f"{(archive, table)} but no such entry exists in the schema KB"
+                f"{(archive, table)} but no such entry exists in the archive notes"
             )
+
+
+# ---------- schema_to_dict: cross_refs never point at an inactive archive ----------
+
+
+def _alma_obscore():
+    s = lookup_schema(archive="alma", table="ivoa.obscore")
+    assert s is not None
+    return s
+
+
+def test_schema_to_dict_drops_cross_refs_to_inactive_archives():
+    """ALMA's obscore cross-refs NRAO's obscore. With nrao paused, the envelope
+    must not send the model to an archive describe_table would report as
+    unknown. The dataclass itself keeps the full tuple."""
+    from manna.archives._knowledge import schema_to_dict
+
+    s = _alma_obscore()
+    assert ("nrao", "tap_schema.obscore") in s.cross_refs
+    assert ["nrao", "tap_schema.obscore"] not in schema_to_dict(s)["cross_refs"]
+
+
+def test_schema_to_dict_keeps_cross_refs_to_active_archives(nrao_active):
+    from manna.archives._knowledge import schema_to_dict
+
+    assert ["nrao", "tap_schema.obscore"] in schema_to_dict(_alma_obscore())["cross_refs"]

@@ -3,7 +3,7 @@
 Unlike test_async_tap_lifecycle.py (fully faked), this exercises the REAL
 TapClient backend against recorded HTTP from a live async TAP job. It locks
 in the load-bearing assumption of the stateless design: a completed async
-job exposes a usable `result_uri`, and vo_tap_results surfaces it as a
+job exposes a usable `result_uri`, and get_async_job_results surfaces it as a
 `result_url` + pyvo `fetch_recipe` WITHOUT the server fetching any bytes.
 
 GAVO and ALMA are used because their async queues complete effectively
@@ -40,7 +40,7 @@ async def test_async_results_return_result_url_and_recipe(mcp_server, case):
     async with Client(mcp_server) as client:
         # 1) Submit async — promotion carries the real upstream job_url + recipe.
         promotion = await client.call_tool(
-            "vo_tap_query",
+            "run_adql_query",
             {"endpoint": endpoint, "adql": adql, "mode": "async"},
         )
         prom = promotion.structured_content
@@ -51,11 +51,11 @@ async def test_async_results_return_result_url_and_recipe(mcp_server, case):
         assert job_url in prom["fetch_recipe"]["code"]
 
         # 2) Poll status — GAVO completes instantly.
-        status = await client.call_tool("vo_tap_status", {"job_url": job_url})
+        status = await client.call_tool("get_async_job_status", {"job_url": job_url})
         assert status.structured_content["phase"] == "COMPLETED"
 
         # 3) Results: URL + recipe, no bytes fetched server-side.
-        results = await client.call_tool("vo_tap_results", {"job_url": job_url})
+        results = await client.call_tool("get_async_job_results", {"job_url": job_url})
         rp = results.structured_content
         assert rp["phase"] == "COMPLETED"
         assert rp["job_url"] == job_url

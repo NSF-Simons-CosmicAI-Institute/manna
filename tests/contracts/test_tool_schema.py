@@ -6,13 +6,14 @@ These tests enforce conventions every registered tool must follow:
 - Every `Field` has a non-empty description.
 - String fields surfacing endpoints/URLs/identifiers must have at least
   one example (LLM picks better URLs when given concrete options).
-- The tool's name is `vo_*` (project convention).
+- The tool's name is verb-first, descriptive snake_case with no `vo_` prefix.
 
 When a new tool gets added or an existing one gets edited, these tests
 catch drift before the LLM sees it.
 """
 
 import inspect
+import re
 from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
@@ -21,39 +22,39 @@ from pydantic.fields import FieldInfo
 from manna.app import build_mcp
 from manna.tools import __all__ as REGISTERED_TOOL_NAMES
 from manna.tools import (
-    vo_archive_list,
-    vo_cone_search,
-    vo_count_observations,
-    vo_find_observations,
-    vo_inspect_table,
-    vo_registry_describe,
-    vo_registry_search,
-    vo_schema_describe,
-    vo_sia_search,
-    vo_survey_target,
-    vo_tap_abort,
-    vo_tap_query,
-    vo_tap_results,
-    vo_tap_status,
-    vo_target_resolve,
+    abort_async_job,
+    count_observations_near_target,
+    describe_ivoa_service,
+    describe_table,
+    find_observations_of_target,
+    get_async_job_results,
+    get_async_job_status,
+    list_archives,
+    preview_table,
+    resolve_target_name,
+    run_adql_query,
+    search_catalog_by_position,
+    search_images_by_position,
+    search_ivoa_registry,
+    survey_archives_for_target,
 )
 
 ALL_TOOLS = (
-    vo_archive_list,
-    vo_cone_search,
-    vo_count_observations,
-    vo_find_observations,
-    vo_inspect_table,
-    vo_registry_describe,
-    vo_registry_search,
-    vo_schema_describe,
-    vo_sia_search,
-    vo_survey_target,
-    vo_tap_abort,
-    vo_tap_query,
-    vo_tap_results,
-    vo_tap_status,
-    vo_target_resolve,
+    list_archives,
+    search_catalog_by_position,
+    count_observations_near_target,
+    find_observations_of_target,
+    preview_table,
+    describe_ivoa_service,
+    search_ivoa_registry,
+    describe_table,
+    search_images_by_position,
+    survey_archives_for_target,
+    abort_async_job,
+    run_adql_query,
+    get_async_job_results,
+    get_async_job_status,
+    resolve_target_name,
 )
 
 
@@ -106,10 +107,12 @@ def test_all_tools_tuple_matches_dunder_all():
     assert {t.__name__ for t in ALL_TOOLS} == set(REGISTERED_TOOL_NAMES)
 
 
-def test_all_registered_tools_use_vo_prefix():
-    """Project convention: every tool name starts with `vo_`."""
+def test_registered_tool_names_are_descriptive():
+    """Naming convention (0.9.0): verb-first, descriptive snake_case, no protocol
+    prefix — the purpose must be clear from the name alone."""
     for name in _registered_tool_names():
-        assert name.startswith("vo_"), f"Tool {name!r} does not follow the vo_* naming convention"
+        assert not name.startswith("vo_"), f"{name!r} still carries the retired vo_ prefix"
+        assert re.fullmatch(r"[a-z]+(_[a-z0-9]+)+", name), f"{name!r} is not descriptive snake_case"
 
 
 # ---------- docstring presence ----------

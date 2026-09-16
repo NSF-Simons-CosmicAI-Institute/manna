@@ -1,18 +1,19 @@
 """MCP quality: does the server make workflows easier, cheaper, more accurate?
 
-Runs mcp_quality_tasks.yaml under all three arms and reports the lift:
+Runs mcp_quality_tasks.yaml under all three approaches (called `arm` in the code and
+results files) and reports the lift:
 
     full MCP  vs  raw TAP (run_adql only)  vs  raw web (http_get only)
 
-Per arm it reports accuracy (where scorable), completion rate, and efficiency (mean
-iterations / tokens / latency / tool-errors). The gap between 'mcp' and the raw arms is
+Per approach it reports accuracy (where scorable), completion rate, and efficiency (mean
+iterations / tokens / latency / tool-errors). The gap between 'mcp' and the raw approaches is
 the server's value.
 
 Scoring: tasks with a deterministic `ground_truth` are accuracy-scored now; tasks with
 only a `rubric` are accuracy-scored only when a judge is configured (EVAL_JUDGE_*) —
 otherwise they count toward COMPLETION + efficiency, and accuracy shows as unscored.
 
-Version-over-version: pass --set-baseline to record the current per-arm metrics, and
+Version-over-version: pass --set-baseline to record the current per-approach metrics, and
 future runs auto-diff against `results/mcp-quality-baseline.json` (or --baseline PATH) so
 a change to tools/notes visibly moves the numbers.
 
@@ -122,7 +123,7 @@ def _archive_of(call: ToolCall, host_map: dict[str, str]) -> str:
 
 
 def _breakdown(runs: list[TaskRun]) -> dict[str, dict[str, list[int]]]:
-    """Per-tool and per-archive [calls, error-calls] for the given (mcp-arm) runs —
+    """Per-tool and per-archive [calls, error-calls] for the given (mcp-approach) runs —
     shows where iterations and failures concentrate, i.e. what to refine next."""
     host_map = _archive_host_map()
     by_tool: dict[str, list[int]] = {}
@@ -183,6 +184,12 @@ async def _main(args: argparse.Namespace) -> int:
     cfg = ModelConfig.from_env()
     judge = judge_from_env()
     tasks = load_tasks(TASKS_PATH)
+
+    from evals.score import partition_by_archive, print_skipped
+
+    tasks, skipped = partition_by_archive(tasks)
+    if skipped:
+        print_skipped(skipped)
     arms = args.arm or ARMS
     version = _server_version()
     print(f"Model: {cfg.label}  |  server: {version}  |  judge: {judge.label if judge else 'none'}")
@@ -219,7 +226,7 @@ async def _main(args: argparse.Namespace) -> int:
     print("=" * 80)
     _print_table(per_arm, arms)
 
-    # Per-tool / per-archive breakdown for the mcp arm — what to refine next.
+    # Per-tool / per-archive breakdown for the mcp approach — what to refine next.
     breakdown = None
     if "mcp" in arms:
         breakdown = _breakdown([r for a, r, _ in results if a == "mcp"])
@@ -242,6 +249,7 @@ async def _main(args: argparse.Namespace) -> int:
         "task_ids": [t["id"] for t in tasks],
         "mcp_breakdown": breakdown,
         "runs": [r.to_dict() for _, r, _ in results],
+        "skipped": [t["id"] for t, _ in skipped],
     }
     out = write_results(record, prefix="mcp-quality")
     print(f"\nWrote {out}")
@@ -252,12 +260,16 @@ async def _main(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    from evals._env import load_env
+    from evals._env import load_env, refresh_active_set
 
     load_env()
-    p = argparse.ArgumentParser(description="MCP-quality arm comparison + diff.")
-    p.add_argument("--n", type=int, default=1, help="reps per (arm, task)")
-    p.add_argument("--arm", action="append", choices=ARMS, help="restrict arms; repeatable")
+    # The active set is cached at import (tools/tap.py builds its endpoint
+    # examples at import time), before .env is loaded. Re-read it so a
+    # MANNA_ARCHIVES line in evals/.env can re-enable a paused archive.
+    refresh_active_set()
+    p = argparse.ArgumentParser(description="MCP-quality approach comparison + diff.")
+    p.add_argument("--n", type=int, default=1, help="reps per (approach, task)")
+    p.add_argument("--arm", action="append", choices=ARMS, help="restrict approaches; repeatable")
     p.add_argument("--concurrency", type=int, default=2)
     p.add_argument(
         "--baseline", help="results JSON to diff against (default: mcp-quality-baseline.json)"

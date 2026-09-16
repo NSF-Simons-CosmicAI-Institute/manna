@@ -1,8 +1,8 @@
 """The transient-error retry around model.complete.
 
 A shared vLLM endpoint throws connection blips under load; without a retry those
-silently fail whichever ablation arm runs during a flaky window (observed: one arm
-at 0% infra-fail, the other at 39%), biasing the comparison. Pin the retry so a
+silently fail whichever with-and-without condition runs during a flaky window
+(observed: one condition at 0% infra-fail, the other at 39%), biasing the comparison. Pin the retry so a
 transient error is recovered but a persistent one still surfaces.
 """
 
@@ -47,6 +47,25 @@ def test_is_transient_recognizes_connection_and_timeout():
     assert _is_transient(_APIConnectionError("APIConnectionError: Connection error."))
     assert _is_transient(RuntimeError("Request timed out or interrupted"))
     assert not _is_transient(ValueError("bad ADQL syntax"))
+
+
+def test_is_transient_recognizes_a_proxy_html_page():
+    """2026-09-15: the NOIRLab nginx served a Next.js page with HTTP 200 for ~45 min
+    and 61/69 baseline runs died on `.content`. That is an endpoint blip, so it
+    must be retried like a connection error, not scored as a task failure."""
+    from evals.model_backends import ProxyResponseError
+
+    assert _is_transient(ProxyResponseError("non-JSON body from the model endpoint"))
+
+
+@pytest.mark.asyncio
+async def test_retry_recovers_from_a_proxy_html_page():
+    from evals.model_backends import ProxyResponseError
+
+    model = _FlakyModel(1, exc=ProxyResponseError("non-JSON body from the model endpoint"))
+    out = await _complete_with_retry(model, "s", [], [], attempts=3, backoff=0)
+    assert out == "OK"
+    assert model.calls == 2
 
 
 async def test_retry_recovers_from_transient_then_succeeds(monkeypatch):

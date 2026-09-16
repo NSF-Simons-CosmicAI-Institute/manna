@@ -2,7 +2,7 @@
 
 from manna.archives._audit import Audit
 from manna.archives._count import CountTarget, Q3CRadial
-from manna.archives._model import Archive, Note, Schema, Trap
+from manna.archives._model import Archive, Note, Pitfall, Schema
 
 ARCHIVE = Archive(
     short_name="datalab",
@@ -34,10 +34,10 @@ ARCHIVE = Archive(
             id="ivoa-registered",
             text=(
                 "Data Lab is fully registered in the IVOA registry under "
-                "`ivo://noirlab.edu/...` — vo_registry_search and vo_registry_describe "
+                "`ivo://noirlab.edu/...` — search_ivoa_registry and describe_ivoa_service "
                 "both work normally."
             ),
-            audit=Audit.manual("Registry-presence claim — verify via vo_registry_search."),
+            audit=Audit.manual("Registry-presence claim — verify via search_ivoa_registry."),
         ),
         Note(
             id="schema-object-convention",
@@ -74,12 +74,12 @@ ARCHIVE = Archive(
                     "WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', 10.0, 10.0, 0.01)) = 1"
                 ),
             ),
-            # Loud by mechanism, silent in effect (so: no triggers): the raw
-            # PostgreSQL complaint ("function point(...) does not exist") never
-            # hints that q3c is the answer, so the model can't recover from it.
+            # It errors, but unactionably, so it is an up-front note (no triggers):
+            # the raw PostgreSQL complaint ("function point(...) does not exist")
+            # never hints that q3c is the answer, so the model can't recover from it.
             # Prevention is what exp_a_matrix measured working (C=0/15 blind ->
             # D=12/15 injected).
-            trap=Trap(
+            pitfall=Pitfall(
                 guidance=(
                     "ADQL geometry (CONTAINS/CIRCLE/POINT) is NOT translated and errors. "
                     "For a cone use q3c_radial_query(ra, dec, <ra0>, <dec0>, <radius_deg>) = 't'; "
@@ -142,7 +142,7 @@ ARCHIVE = Archive(
             text=(
                 "Image access is SIA 1.0 (not SIA2), exposed per survey/image-type: "
                 "/sia/coadd_all (all coadds), or /sia/coadd/ls_dr9, /sia/coadd/des_dr1, "
-                "/sia/calibrated/smash_dr2. vo_sia_search drives these via its SIA1 fallback "
+                "/sia/calibrated/smash_dr2. search_images_by_position drives these via its SIA1 fallback "
                 "(version='auto'). Returned access_url values are on-the-fly cutout links "
                 "you fetch client-side."
             ),
@@ -151,7 +151,7 @@ ARCHIVE = Archive(
         Note(
             id="cone-returns-all-columns",
             text=(
-                "vo_cone_search works (e.g. /scs/nsc_dr2/object) but SCS returns EVERY column "
+                "search_catalog_by_position works (e.g. /scs/nsc_dr2/object) but SCS returns EVERY column "
                 "of these very wide tables. When you need only a few columns, prefer a TAP "
                 "query with an explicit column list plus a q3c_radial_query filter."
             ),

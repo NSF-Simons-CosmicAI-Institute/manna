@@ -14,8 +14,8 @@ Policy, in order:
 2. Host must be present.
 3. If ``MANNA_ALLOWED_HOSTS`` is set, the host must match it (exact or
    subdomain). Unset — the default — permits any *public* host, because
-   ``vo_registry_search`` is designed to surface archives MANNA carries no
-   curated knowledge of, and a curated-hosts-only allowlist would gate that
+   ``search_ivoa_registry`` is designed to surface archives MANNA carries no
+   archive notes for, and a curated-hosts-only allowlist would gate that
    core discovery workflow. See docs/archives-spec.md.
 4. The target must resolve entirely to public address space.
 

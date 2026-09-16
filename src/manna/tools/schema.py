@@ -1,15 +1,15 @@
-"""Tool for querying the curated per-table schema knowledge base.
+"""Tool for querying the per-table archive notes (curated schema facts).
 
-`vo_schema_describe(archive, table)` returns table-specific structured
+`describe_table(archive, table)` returns table-specific structured
 facts (missing ObsCore columns, enum values, spatial index columns) that
 the agent can use before composing an ADQL query. Archive-level quirks
-(ADQL bugs, mode requirements) are in vo_archive_list instead.
+(ADQL bugs, mode requirements) are in list_archives instead.
 
 It also returns the table's **real column list**, fetched live from the
 archive's `tap_schema.columns`. That used to be missing, which made this tool
 actively harmful: the curated notes told the model "always project an explicit
 column list" while supplying neither the columns nor a route to them, so a model
-that obeyed had to invent column names. The pointer to `vo_registry_describe`
+that obeyed had to invent column names. The pointer to `describe_ivoa_service`
 existed only on the miss path, so the better-curated a table was, the blinder the
 model got.
 
@@ -91,7 +91,13 @@ def _attach_columns(payload: dict, *, archive: str, table: str) -> dict:
     endpoint = known_archive.tap_url if known_archive else None
     if not endpoint:
         # No endpoint to ask, and a recipe naming an archive we can't identify is
-        # noise. Leave the miss envelope bare; vo_archive_list is the way out.
+        # noise. Leave the miss envelope bare except for a recovery hint;
+        # list_archives is the way out.
+        payload["hint"] = (
+            f"No active archive has short_name {archive!r}. Call list_archives "
+            "for the valid short_names; a paused or unlisted archive is still "
+            "reachable via search_ivoa_registry + describe_ivoa_service."
+        )
         return payload
 
     columns = _fetch_columns(endpoint, table)
@@ -105,22 +111,22 @@ def _attach_columns(payload: dict, *, archive: str, table: str) -> dict:
             f"No columns found for table_name = '{table}'. The name must be fully "
             "qualified as it appears in the archive's TAP schema (e.g. "
             "'nsc_dr2.object', not 'object') — an unqualified name returns an empty "
-            "list rather than an error. Use vo_registry_describe to list the "
+            "list rather than an error. Use describe_ivoa_service to list the "
             "archive's tables."
         )
     return payload
 
 
 @wrap_tool_errors
-def vo_schema_describe(
+def describe_table(
     archive: Annotated[
         str,
         Field(
             description=(
-                "Archive short_name (e.g. 'nrao', 'datalab', 'alma'). "
-                "Use vo_archive_list to discover available names."
+                "Archive short_name (e.g. 'alma', 'datalab', 'gaia'). "
+                "Use list_archives to discover available names."
             ),
-            examples=["nrao", "datalab", "alma"],
+            examples=["alma", "datalab", "gaia"],
         ),
     ],
     table: Annotated[
@@ -128,10 +134,10 @@ def vo_schema_describe(
         Field(
             description=(
                 "Fully qualified table name as it appears in the "
-                "archive's TAP schema (e.g. 'tap_schema.obscore', "
-                "'ivoa.obscore', 'nsc_dr2.object')."
+                "archive's TAP schema (e.g. 'ivoa.obscore', "
+                "'nsc_dr2.object')."
             ),
-            examples=["tap_schema.obscore", "ivoa.obscore", "nsc_dr2.object"],
+            examples=["ivoa.obscore", "nsc_dr2.object"],
         ),
     ],
 ) -> dict:
@@ -148,8 +154,8 @@ def vo_schema_describe(
       * `column_list_recipe`: the query to run yourself, if the fetch failed.
 
     `known: false` means only that we carry no curated notes for the table — for
-    a known archive the column list is still returned. Use `vo_registry_describe`
-    to discover which tables an archive has, or `vo_archive_list` for valid
+    a known archive the column list is still returned. Use `describe_ivoa_service`
+    to discover which tables an archive has, or `list_archives` for valid
     archive short_names.
     """
     archive_clean = archive.strip()
@@ -158,7 +164,7 @@ def vo_schema_describe(
         raise ValidationError(
             message=(
                 "Both 'archive' and 'table' must be non-empty. Use "
-                "vo_archive_list to discover archive short_names."
+                "list_archives to discover archive short_names."
             ),
         )
 
@@ -178,4 +184,4 @@ def vo_schema_describe(
     return _attach_columns(payload, archive=archive_clean, table=table_clean)
 
 
-vo_schema_describe.__doc__ = (vo_schema_describe.__doc__ or "") + _ERROR_DOCSTRING
+describe_table.__doc__ = (describe_table.__doc__ or "") + _ERROR_DOCSTRING

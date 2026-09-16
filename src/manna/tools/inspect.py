@@ -1,11 +1,11 @@
-"""Table-inspection facade: vo_inspect_table.
+"""Table-inspection workflow tool: preview_table.
 
 "What's actually in table T?" in one call — the real column list + curated
 value-enums/notes + a best-effort sample of rows. Columns and curated facts
-come from reliable metadata (tap_schema.columns + the schema KB); the sample is
+come from reliable metadata (tap_schema.columns + the archive notes); the sample is
 a soft-fail extra (an archive that rejects an unfiltered read just yields
 sample_status='error', never a hard failure). A convenience layer over
-vo_schema_describe; drop to it + vo_tap_query for full control.
+describe_table; drop to it + run_adql_query for full control.
 """
 
 import math
@@ -27,7 +27,7 @@ _tap: TapClient | None = None
 
 
 def _infer_archive(table: str) -> Archive | None:
-    """First active archive (priority order) whose curated knowledge names
+    """First active archive (priority order) whose archive notes name
     `table` — via a matching `Schema.table` or a `notable_tables` entry —
     and which has a `tap_url`. None if nothing matches."""
     for a in active_archives():
@@ -77,22 +77,19 @@ def _jsonify(v):
 
 
 @wrap_tool_errors
-def vo_inspect_table(
+def preview_table(
     table: Annotated[
         str,
         Field(
-            description=(
-                "Fully qualified table name (e.g. 'nsc_dr2.object', "
-                "'tap_schema.obscore', 'ivoa.obscore')."
-            ),
-            examples=["nsc_dr2.object", "tap_schema.obscore"],
+            description=("Fully qualified table name (e.g. 'ivoa.obscore', 'nsc_dr2.object')."),
+            examples=["ivoa.obscore", "nsc_dr2.object"],
         ),
     ],
     archive: Annotated[
         str | None,
         Field(
             description="Archive short_name. If omitted, inferred from curated schema knowledge.",
-            examples=["datalab", "nrao"],
+            examples=["datalab", "alma"],
         ),
     ] = None,
     sample_rows: Annotated[
@@ -111,7 +108,7 @@ def vo_inspect_table(
     disabled}). Reliable metadata is always returned even if the sample fails
     (some archives reject unfiltered reads). Soft-fails (`known: false` + hint)
     when the table/archive can't be identified. Note `known` means "has
-    curated schema knowledge" (same convention as vo_schema_describe), NOT
+    curated schema knowledge" (same convention as describe_table), NOT
     "table identified" — for a known archive/endpoint the column list is
     still returned even when `known` is false.
     """
@@ -119,7 +116,7 @@ def vo_inspect_table(
     if not table_clean:
         raise ValidationError(message="'table' must be non-empty (fully qualified).")
 
-    # Resolve owning archive: explicit, else INFERRED from curated knowledge
+    # Resolve owning archive: explicit, else INFERRED from the archive notes
     # (Schema.table / notable_tables) across the active archives.
     if archive:
         arch_name = archive.strip()
@@ -136,8 +133,8 @@ def vo_inspect_table(
             "table": table_clean,
             "hint": (
                 "Could not identify a TAP endpoint for this table. Pass an "
-                "explicit `archive` (see vo_archive_list) or use "
-                "vo_registry_search to locate the service."
+                "explicit `archive` (see list_archives) or use "
+                "search_ivoa_registry to locate the service."
             ),
         }
         return payload
@@ -166,4 +163,4 @@ def vo_inspect_table(
     return payload
 
 
-vo_inspect_table.__doc__ = (vo_inspect_table.__doc__ or "") + _ERROR_DOCSTRING
+preview_table.__doc__ = (preview_table.__doc__ or "") + _ERROR_DOCSTRING
