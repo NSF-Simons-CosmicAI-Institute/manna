@@ -71,6 +71,8 @@ dev = [
     # (tests/unit/test_save_recipe.py). Docker runtime uses --no-dev, so
     # the image is unaffected.
     "pandas>=2.0",
+    # tests/unit/test_tutorial_notebooks.py parses the committed tutorial notebooks.
+    "nbformat>=5.10",
 ]
 # Documentation site (docs/). Not needed to run the server.
 #   uv sync --group docs

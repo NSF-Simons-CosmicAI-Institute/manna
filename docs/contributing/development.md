@@ -73,8 +73,8 @@ reference is generated at build time from the running server
 (`docs/_ext/manna_tools.py`), so editing a tool's docstring or parameter
 description updates the site. Tutorial notebooks under `docs/tutorials/` are
 committed with their outputs and are not executed by the build. To re-record
-them after a tool or archive change (needs network access to the archives;
-the survey cell takes about a minute):
+them after a tool or archive change (run from the repo root; needs network
+access to the archives; the survey cell takes about a minute):
 
 ```bash
 uv sync --group tutorials
@@ -82,5 +82,8 @@ uv run jupyter nbconvert --execute --inplace --ExecutePreprocessor.timeout=600 d
 uv run pytest tests/unit/test_tutorial_notebooks.py
 ```
 
-Then update the "Recorded against" line in `docs/tutorials/index.md`. The
-test fails on any notebook that was not executed or whose cell raised.
+Notebook 2's `save_recipe` cell writes `manna_cache/` next to the notebook
+during execution; its last cell removes it, and the directory is gitignored
+either way. Then update the "Recorded against" line in
+`docs/tutorials/index.md`. The test fails on any notebook that was not
+executed or whose cell raised.

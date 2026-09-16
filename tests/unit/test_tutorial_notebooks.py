@@ -33,6 +33,12 @@ def test_notebook_is_executed_without_errors(name: str) -> None:
                 f"{name}: code cell {i} raised {out.get('ename')}: {out.get('evalue')}"
             )
 
+    counts = [c.execution_count for c in code_cells]
+    expected = list(range(1, len(code_cells) + 1))
+    assert counts == expected, (
+        f"{name}: execution_count {counts} is not a fresh top-to-bottom run 1..{len(code_cells)}"
+    )
+
 
 def test_no_unexpected_notebooks() -> None:
     found = sorted(p.name for p in TUTORIALS.glob("*.ipynb"))

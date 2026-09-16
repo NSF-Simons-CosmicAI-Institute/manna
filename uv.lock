@@ -1596,6 +1596,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "inline-snapshot" },
+    { name = "nbformat" },
     { name = "pandas" },
     { name = "pre-commit" },
     { name = "pyright" },
@@ -1642,6 +1643,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "inline-snapshot", specifier = ">=0.13" },
+    { name = "nbformat", specifier = ">=5.10" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "pre-commit", specifier = ">=3.7" },
     { name = "pyright", specifier = ">=1.1.380" },
