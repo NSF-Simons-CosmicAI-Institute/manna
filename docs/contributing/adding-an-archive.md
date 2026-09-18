@@ -142,9 +142,9 @@ constructor, not the bare class: `Audit.probe`, `Audit.count`, or
 | `columns` | `tuple[str, ...]` | `()` | required and non-empty for `count` (ValueError) |
 | `reason` | `str` | `""` | required and non-empty for `manual` (ValueError) |
 
-Two helpers write common probes: `has_table(table)` returns the
-`tap_schema.tables` lookup for `expect="nonempty"`, and `has_cols(table,
-columns)` is what `Audit.count` uses internally.
+Two helpers write common probes: `has_table(table)` returns the ADQL for a
+`tap_schema.tables` lookup, meant to be paired with `expect="nonempty"`, and
+`has_cols(table, columns)` is what `Audit.count` uses internally.
 
 ### `Pitfall`
 
@@ -198,7 +198,7 @@ archive, read by `count_observations_near_target` and
 
 | Geometry | Constructor | Predicate rendered | Use at |
 |---|---|---|---|
-| `ContainsPoint` | `ContainsPoint(ra_col, dec_col)` | `CONTAINS(POINT('ICRS', ra_col, dec_col), CIRCLE('ICRS', ra, dec, r)) = 1` | any archive that implements ADQL geometry (Gaia, ESO, IRSA) |
+| `ContainsPoint` | `ContainsPoint(ra_col, dec_col)` | `CONTAINS(POINT('ICRS', ra_col, dec_col), CIRCLE('ICRS', ra, dec, r)) = 1` | any archive that implements ADQL geometry (Gaia, ESO, NRAO obscore; also the IRSA example below) |
 | `IntersectsRegion` | `IntersectsRegion(region_col="s_region")` | `INTERSECTS(CIRCLE('ICRS', ra, dec, r), region_col) = 1` | footprint columns, so mosaics whose centre lies outside the circle still match (ALMA) |
 | `Q3CRadial` | `Q3CRadial(ra_col, dec_col)` | `q3c_radial_query(ra_col, dec_col, ra, dec, r) = 't'` | q3c-indexed PostgreSQL archives that do not translate ADQL geometry (Data Lab) |
 
