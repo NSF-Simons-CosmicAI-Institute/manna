@@ -88,6 +88,7 @@ reference/python-api
 :hidden:
 
 contributing/development
+contributing/adding-an-archive
 contributing/archives-spec
 contributing/evals
 contributing/releasing
