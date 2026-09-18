@@ -610,7 +610,7 @@ package and is discoverable, but is out of the default active set.
 
 1. Set `paused` on the archive to a dated reason ending with the re-enable
    instruction, following the shipped wording:
-   `paused="Paused YYYY-MM-DD at <who>'s request: <reason>; set MANNA_ARCHIVES to include '<short_name>' to re-enable."`
+   `paused="Paused YYYY-MM-DD at <who>'s request: <reason>; set MANNA_ARCHIVES to a list that includes '<short_name>' to re-enable."`
 2. Add the name to `PAUSED` in `tests/archives/test_registry.py`.
 3. Check the default tool surface no longer steers at it. The contract test
    `tests/contracts/test_no_paused_archive_steering.py` pins that no tool

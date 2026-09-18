@@ -17,8 +17,9 @@ archive selection use):
 
 `list_archives` returns the active ones with their endpoints, usage notes, and
 notable tables; `describe_table` returns per-table facts. Each archive is one
-file, so adding one is dropping a file in and deleting one is removing it
-({doc}`../contributing/archives-spec`).
+file, so adding one is dropping a file in and deleting one is removing it:
+{doc}`../contributing/adding-an-archive` is the step-by-step procedure and
+{doc}`../contributing/archives-spec` is the design behind it.
 
 ## The active set
 

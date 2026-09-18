@@ -241,18 +241,10 @@ tests/archives/
 
 ## 7. Adding / evolving an archive
 
-1. Create `src/manna/archives/<short_name>.py` exporting
-   `ARCHIVE = Archive(short_name="…", …, schemas=(Schema(archive="…", …),),
-   priority=N)`.
-2. Add `tests/archives/test_<short_name>.py` importing `ARCHIVE` and pinning its
-   content; add the name to `EXPECTED_ORDER`.
-3. `uv run pytest --record-mode=none -q && uv run ruff check .`
-4. To pause an archive, set `paused="Paused YYYY-MM-DD ...: <reason>; set MANNA_ARCHIVES to include '<name>' to re-enable."` and add its name to `PAUSED` in `test_registry.py`; tag any eval task that needs it with `requires_archive: <name>`.
-
-   To un-pause it: delete the `paused=` field, remove the name from `PAUSED` in
-   `test_registry.py`, and re-point or delete the steering contract test
-   (`tests/contracts/test_no_paused_archive_steering.py`); `requires_archive`
-   tags on its eval tasks become no-ops and may stay.
+The procedure — every field, every file to touch, verification, pausing, and
+removal — lives in `docs/contributing/adding-an-archive.md` (rendered as
+"Adding an archive" in the Contributing section of the site). This spec
+stays the design record.
 
 Per-archive history is just the git log of its file
 (`git log --follow -p archives/nrao.py`), so an archive-knowledge change is a
