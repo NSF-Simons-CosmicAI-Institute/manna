@@ -51,9 +51,14 @@ Work through these, in order, and write down what you find.
    translate (Data Lab), a table at a non-standard name (NRAO), a flag column
    that must be filtered to get real sources. Each becomes a `Note`; the
    ones that fail silently become up-front notes.
+6. **Images and cone services.** If the registry listed an SIA or cone-search
+   URL, call `search_images_by_position` or `search_catalog_by_position` at a
+   bright target once to confirm the service answers and note which SIA
+   version it speaks; those URLs become `sia_url` and `scs_url`.
 
-Keep the ADQL you ran. Every note you write needs a check, and the queries
-you just ran are those checks.
+Write down the endpoints, the waveband, the host substrings that identify
+this archive's URLs, the tables, and the facts. Keep the ADQL you ran. Every
+note you write needs a check, and the queries you just ran are those checks.
 
 ## The file
 
@@ -202,14 +207,25 @@ archive, read by `count_observations_near_target` and
 | `IntersectsRegion` | `IntersectsRegion(region_col="s_region")` | `INTERSECTS(CIRCLE('ICRS', ra, dec, r), region_col) = 1` | footprint columns, so mosaics whose centre lies outside the circle still match (ALMA) |
 | `Q3CRadial` | `Q3CRadial(ra_col, dec_col)` | `q3c_radial_query(ra_col, dec_col, ra, dec, r) = 't'` | q3c-indexed PostgreSQL archives that do not translate ADQL geometry (Data Lab) |
 
+Each geometry constructor above takes these fields:
+
+| Field | Type | Default | Used by |
+|---|---|---|---|
+| `ra_col` | `str` | required | `Q3CRadial`, `ContainsPoint` |
+| `dec_col` | `str` | required | `Q3CRadial`, `ContainsPoint` |
+| `region_col` | `str` | `"s_region"` | `IntersectsRegion` |
+
 ## Worked example: an IRSA archive
 
 This section builds an archive for NASA/IPAC's IRSA TAP service around the
-AllWISE source catalogue, one stage at a time. Each listing is complete and
-replaces the previous one. The facts in it were checked live on 2026-09-18
-and read "at the time of writing" for a reason: archives change, which is
-why every note carries a check. `irsa` is an example and is **not shipped**
-in MANNA; copy the pattern, not the file.
+AllWISE source catalogue, one stage at a time. Stages 1 to 3 are complete
+listings, each replacing the previous one; stages 4 and 5 show only the lines
+that change. The facts in it were checked live on 2026-09-18 and read "at the
+time of writing" for a reason: archives change, which is why every note
+carries a check. `irsa` is an example and is **not shipped** in MANNA; copy
+the pattern, not the file. Shipping an archive is a curation commitment:
+someone owns its notes, runs its checks when they drift, and answers for what
+the model is told. This one has no owner.
 
 Reconnaissance found: TAP at `https://irsa.ipac.caltech.edu/TAP`; the table
 `allwise_p3as_psd` with columns `designation`, `ra`, `dec`, `w1mpro`,
@@ -273,9 +289,7 @@ ARCHIVE = Archive(
         Note(
             id="allwise-default-table",
             text=(
-                "For WISE sources start with allwise_p3as_psd, the AllWISE "
-                "point-source catalogue; the older wise_allsky_4band_p3as_psd "
-                "is superseded for most uses."
+                "For WISE sources start with allwise_p3as_psd, the AllWISE point-source catalogue."
             ),
             audit=Audit.probe(expect="nonempty", adql=has_table("allwise_p3as_psd")),
         ),
@@ -302,9 +316,7 @@ ARCHIVE = Archive(
                 "quality letter. Filter cc_flags = '0000' for reliable "
                 "point sources."
             ),
-            audit=Audit.count(
-                table="allwise_p3as_psd", columns=("cc_flags", "ext_flg", "ph_qual")
-            ),
+            audit=Audit.count(table="allwise_p3as_psd", columns=("cc_flags", "ext_flg", "ph_qual")),
         ),
     ),
     priority=90,
@@ -344,9 +356,7 @@ ARCHIVE = Archive(
         Note(
             id="allwise-default-table",
             text=(
-                "For WISE sources start with allwise_p3as_psd, the AllWISE "
-                "point-source catalogue; the older wise_allsky_4band_p3as_psd "
-                "is superseded for most uses."
+                "For WISE sources start with allwise_p3as_psd, the AllWISE point-source catalogue."
             ),
             audit=Audit.probe(expect="nonempty", adql=has_table("allwise_p3as_psd")),
         ),
@@ -373,9 +383,7 @@ ARCHIVE = Archive(
                 "quality letter. Filter cc_flags = '0000' for reliable "
                 "point sources."
             ),
-            audit=Audit.count(
-                table="allwise_p3as_psd", columns=("cc_flags", "ext_flg", "ph_qual")
-            ),
+            audit=Audit.count(table="allwise_p3as_psd", columns=("cc_flags", "ext_flg", "ph_qual")),
         ),
     ),
     schemas=(
@@ -430,9 +438,7 @@ That is an up-front note: a `Pitfall` with no `triggers`.
                 "quality letter. Filter cc_flags = '0000' for reliable "
                 "point sources."
             ),
-            audit=Audit.count(
-                table="allwise_p3as_psd", columns=("cc_flags", "ext_flg", "ph_qual")
-            ),
+            audit=Audit.count(table="allwise_p3as_psd", columns=("cc_flags", "ext_flg", "ph_qual")),
             pitfall=Pitfall(
                 guidance=(
                     "cc_flags marks artifacts; filter cc_flags = '0000' or "
@@ -446,7 +452,9 @@ Add `Pitfall` to the `_model` import. The guidance line now appears in
 `run_adql_query`'s description under the cheatsheet header, keyed to
 `irsa.ipac.caltech.edu`, for every turn of every conversation. Run
 `uv run pytest tests/archives/test_pitfalls.py` to confirm the cheatsheet is
-still within its 200-token budget.
+still within its 200-token budget. That test runs on the default active set;
+if a paused archive may return, also run it with `MANNA_ARCHIVES` set to
+every archive, since a re-enabled archive's up-front notes count too.
 
 For comparison, an error hint recognises the failing ADQL and rides the
 error envelope instead. NRAO's is the shipped example:
@@ -455,7 +463,8 @@ error envelope instead. NRAO's is the shipped example:
             pitfall=Pitfall(
                 guidance=(
                     "NRAO's TAP rejects the ADQL string functions LOWER()/UPPER()/ILIKE "
-                    "and the || concatenation operator. Re-run without them."
+                    "and the || concatenation operator. Re-run without them: match exact "
+                    "case (instrument_name = 'GBT') or use a LIKE pattern."
                 ),
                 triggers=("LOWER(", "UPPER(", "ILIKE", "||"),
             ),
@@ -495,6 +504,7 @@ Every file that changes when an archive is added, with the edit.
 | `tests/archives/test_<short_name>.py` | new; content assertions for this archive, template below |
 | `tests/archives/test_registry.py` | insert `"<short_name>"` into `EXPECTED_ORDER` at the position `(priority, short_name)` sorts it to; `irsa` at priority 90 goes last |
 | `docs/guide/archives.md` | add a row to the archives table in priority order |
+| `docs/archives-spec.md` | append the archive to the priority list in §3.2 (`datalab 10, alma 20, … sdss 80`) |
 | `CLAUDE.md` | add `<short_name>.py` to the `currently:` list under `archives/` in the architecture tree |
 | `README.md` | only if the archive belongs in the one-line list of archives in the opening sentence |
 
@@ -558,14 +568,19 @@ time:
 
 Run these in order from the repo root.
 
-1. `uv run pytest --record-mode=none -q` — offline. Three failures to
+1. `uv run pytest --record-mode=none -q` — offline. Four failures to
    expect on a first attempt: `test_discover_finds_every_shipped_archive`
    when `EXPECTED_ORDER` was not updated or the priority sorts the new name
    somewhere else; `Duplicate Schema entry` when two archives declare the
    same `(archive, table)`; `test_cheatsheet_stays_within_the_token_budget`
    when a new up-front note pushes the block past 200 tokens (shorten the
-   `guidance`, do not raise the budget).
-2. `uv run ruff check .`
+   `guidance`, do not raise the budget); and a test that pins a waveband
+   filter to one archive (`tests/tools/test_list_archives.py::test_list_archives_filter_by_waveband`
+   expects `millimeter` to return only `alma`) when your archive shares that
+   waveband.
+2. `uv run ruff check . && uv run ruff format --check .` — CI also runs
+   `pyright` over `src/`, so the archive file must type-check too (the
+   dataclass constructors are fully typed; a wrong field type fails there).
 3. `uv sync --group eval && uv run python -m evals.audit --archive <short_name>` —
    live, needs network. Every `probe` and `count` check runs against the
    archive; `manual` rows are listed, not run. A failed check names the note
@@ -582,7 +597,7 @@ Run these in order from the repo root.
 
 - **Changing a note.** Keep the `id` stable; it is the address in check
   reports and in any test that looks the note up by id. Change the `text`,
-  and if the claim changed, change the check to match. Re-run the audit for
+  and if the claim changed, change the check to match. Re-run the checks for
   that archive.
 - **Adding a note.** One fact per note. Decide whether it fails silently (up-
   front note), fails recognisably (error hint), or is reachable knowledge
@@ -623,6 +638,8 @@ package and is discoverable, but is out of the default active set.
    `evals/tasks.yaml` so they are skipped, not failed, while it is paused.
 6. The archive notes page ({doc}`../guide/archives`) says which archives are
    paused; update it.
+7. `CLAUDE.md` tags the paused archive in its architecture tree
+   (`nrao.py [paused]`) and states when and why it was paused; update both.
 
 To un-pause: delete the `paused=` field, remove the name from `PAUSED`,
 re-point or delete the steering contract test, and update the guide. The
@@ -657,6 +674,7 @@ The archive stays reachable: `search_ivoa_registry` still finds it and
 [ ] CLAUDE.md archives/ list
 [ ] uv run pytest --record-mode=none -q
 [ ] uv run ruff check .
+[ ] uv run ruff format --check .
 [ ] uv run python -m evals.audit --archive <short_name>
 [ ] list_archives / describe_table show it
 [ ] restart any running server (label map is built at import)
