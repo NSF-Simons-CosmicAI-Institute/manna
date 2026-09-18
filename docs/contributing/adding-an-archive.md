@@ -202,4 +202,462 @@ archive, read by `count_observations_near_target` and
 | `IntersectsRegion` | `IntersectsRegion(region_col="s_region")` | `INTERSECTS(CIRCLE('ICRS', ra, dec, r), region_col) = 1` | footprint columns, so mosaics whose centre lies outside the circle still match (ALMA) |
 | `Q3CRadial` | `Q3CRadial(ra_col, dec_col)` | `q3c_radial_query(ra_col, dec_col, ra, dec, r) = 't'` | q3c-indexed PostgreSQL archives that do not translate ADQL geometry (Data Lab) |
 
-<!-- part two -->
+## Worked example: an IRSA archive
+
+This section builds an archive for NASA/IPAC's IRSA TAP service around the
+AllWISE source catalogue, one stage at a time. Each listing is complete and
+replaces the previous one. The facts in it were checked live on 2026-09-18
+and read "at the time of writing" for a reason: archives change, which is
+why every note carries a check. `irsa` is an example and is **not shipped**
+in MANNA; copy the pattern, not the file.
+
+Reconnaissance found: TAP at `https://irsa.ipac.caltech.edu/TAP`; the table
+`allwise_p3as_psd` with columns `designation`, `ra`, `dec`, `w1mpro`,
+`w2mpro`, `cc_flags`, `ext_flg`, `ph_qual`; `CONTAINS(POINT(...),
+CIRCLE(...))` works and a `COUNT(*)` over a 0.05 degree circle answers in
+sync in under a second; a `SELECT TOP 1` data read on the same table timed
+out on sync after 20 seconds, so row reads belong in `mode="auto"`;
+`q3c_radial_query` fails with `ORA-00904: "Q3C_RADIAL_QUERY": invalid
+identifier` (IRSA is Oracle-backed).
+
+### Stage 1: identity and endpoints
+
+```python
+"""NASA/IPAC Infrared Science Archive (IRSA)."""
+
+from manna.archives._model import Archive
+
+ARCHIVE = Archive(
+    short_name="irsa",
+    display_name="NASA/IPAC Infrared Science Archive",
+    host_substrings=("irsa.ipac",),
+    tap_url="https://irsa.ipac.caltech.edu/TAP",
+    waveband="infrared",
+    description=(
+        "Infrared catalogues and images from WISE, 2MASS, Spitzer, and "
+        "other NASA infrared missions, served over a single TAP service "
+        "with one table per catalogue release."
+    ),
+    notable_tables=("allwise_p3as_psd",),
+    priority=90,
+)
+```
+
+This already works: drop it in, and `list_archives` shows it last (priority
+90 sorts after `sdss` at 80), its TAP URL is a valid `endpoint`, and any
+envelope from a URL containing `irsa.ipac` is labelled `irsa`.
+
+### Stage 2: usage notes with checks
+
+One note of each check kind.
+
+```python
+"""NASA/IPAC Infrared Science Archive (IRSA)."""
+
+from manna.archives._audit import Audit, has_table
+from manna.archives._model import Archive, Note
+
+ARCHIVE = Archive(
+    short_name="irsa",
+    display_name="NASA/IPAC Infrared Science Archive",
+    host_substrings=("irsa.ipac",),
+    tap_url="https://irsa.ipac.caltech.edu/TAP",
+    waveband="infrared",
+    description=(
+        "Infrared catalogues and images from WISE, 2MASS, Spitzer, and "
+        "other NASA infrared missions, served over a single TAP service "
+        "with one table per catalogue release."
+    ),
+    notable_tables=("allwise_p3as_psd",),
+    usage_notes=(
+        Note(
+            id="allwise-default-table",
+            text=(
+                "For WISE sources start with allwise_p3as_psd, the AllWISE "
+                "point-source catalogue; the older wise_allsky_4band_p3as_psd "
+                "is superseded for most uses."
+            ),
+            audit=Audit.probe(expect="nonempty", adql=has_table("allwise_p3as_psd")),
+        ),
+        Note(
+            id="sync-row-reads-time-out",
+            text=(
+                "Row reads (SELECT TOP N ... with or without a cone) on "
+                "allwise_p3as_psd time out on /sync; aggregates such as "
+                "COUNT(*) over a small cone return in under a second. Run "
+                "row reads with mode='auto', which promotes to an async job "
+                "on timeout."
+            ),
+            audit=Audit.manual(
+                "Timeout-under-load behaviour observed 2026-09-18; not "
+                "deterministically probeable without a slow live scan."
+            ),
+        ),
+        Note(
+            id="quality-flag-columns",
+            text=(
+                "cc_flags marks contamination and confusion artifacts "
+                "(one character per band, '0' = clean); ext_flg marks "
+                "extended sources; ph_qual is the per-band photometric "
+                "quality letter. Filter cc_flags = '0000' for reliable "
+                "point sources."
+            ),
+            audit=Audit.count(
+                table="allwise_p3as_psd", columns=("cc_flags", "ext_flg", "ph_qual")
+            ),
+        ),
+    ),
+    priority=90,
+)
+```
+
+`Audit.probe` with `has_table` re-checks the table exists; `Audit.count`
+re-checks the three columns exist; `Audit.manual` records why the timeout
+claim cannot be probed. Every claim that a check can falsify should get a
+probe or a count; reserve `manual` for claims that need many rows, several
+endpoints, or a client-side flow.
+
+### Stage 3: a schema
+
+Per-table facts go on a `Schema`, not in `usage_notes`. `describe_table
+("irsa", "allwise_p3as_psd")` and `preview_table` read this.
+
+```python
+"""NASA/IPAC Infrared Science Archive (IRSA)."""
+
+from manna.archives._audit import Audit, has_table
+from manna.archives._model import Archive, Note, Schema
+
+ARCHIVE = Archive(
+    short_name="irsa",
+    display_name="NASA/IPAC Infrared Science Archive",
+    host_substrings=("irsa.ipac",),
+    tap_url="https://irsa.ipac.caltech.edu/TAP",
+    waveband="infrared",
+    description=(
+        "Infrared catalogues and images from WISE, 2MASS, Spitzer, and "
+        "other NASA infrared missions, served over a single TAP service "
+        "with one table per catalogue release."
+    ),
+    notable_tables=("allwise_p3as_psd",),
+    usage_notes=(
+        Note(
+            id="allwise-default-table",
+            text=(
+                "For WISE sources start with allwise_p3as_psd, the AllWISE "
+                "point-source catalogue; the older wise_allsky_4band_p3as_psd "
+                "is superseded for most uses."
+            ),
+            audit=Audit.probe(expect="nonempty", adql=has_table("allwise_p3as_psd")),
+        ),
+        Note(
+            id="sync-row-reads-time-out",
+            text=(
+                "Row reads (SELECT TOP N ... with or without a cone) on "
+                "allwise_p3as_psd time out on /sync; aggregates such as "
+                "COUNT(*) over a small cone return in under a second. Run "
+                "row reads with mode='auto', which promotes to an async job "
+                "on timeout."
+            ),
+            audit=Audit.manual(
+                "Timeout-under-load behaviour observed 2026-09-18; not "
+                "deterministically probeable without a slow live scan."
+            ),
+        ),
+        Note(
+            id="quality-flag-columns",
+            text=(
+                "cc_flags marks contamination and confusion artifacts "
+                "(one character per band, '0' = clean); ext_flg marks "
+                "extended sources; ph_qual is the per-band photometric "
+                "quality letter. Filter cc_flags = '0000' for reliable "
+                "point sources."
+            ),
+            audit=Audit.count(
+                table="allwise_p3as_psd", columns=("cc_flags", "ext_flg", "ph_qual")
+            ),
+        ),
+    ),
+    schemas=(
+        Schema(
+            archive="irsa",
+            table="allwise_p3as_psd",
+            value_enums={
+                # 0 = point source; 1-5 = increasing association with a
+                # 2MASS extended source.
+                "ext_flg": ("0", "1", "2", "3", "4", "5"),
+            },
+            notes=(
+                Note(
+                    id="magnitudes-are-vega",
+                    text=(
+                        "w1mpro..w4mpro are profile-fit magnitudes in the Vega "
+                        "system; w1sigmpro..w4sigmpro are their uncertainties. "
+                        "A NULL magnitude means no detection in that band."
+                    ),
+                    audit=Audit.count(
+                        table="allwise_p3as_psd",
+                        columns=("w1mpro", "w2mpro"),
+                    ),
+                ),
+            ),
+            cross_refs=(),
+        ),
+    ),
+    priority=90,
+)
+```
+
+`cross_refs` names `(archive, table)` pairs at other shipped archives that
+hold related data, for example ALMA's `ivoa.obscore` lists
+`("nrao", "tap_schema.obscore")`. Leave it empty unless the relation is
+real; on the full shipped set every pair must resolve to an existing
+`Schema` (`tests/archives/test_registry.py`).
+
+### Stage 4: a pitfall
+
+The `cc_flags` fact fails silently: a `COUNT(*)` that ignores it returns a
+plausible number with no error, so the model needs it before it queries.
+That is an up-front note: a `Pitfall` with no `triggers`.
+
+```python
+        Note(
+            id="quality-flag-columns",
+            text=(
+                "cc_flags marks contamination and confusion artifacts "
+                "(one character per band, '0' = clean); ext_flg marks "
+                "extended sources; ph_qual is the per-band photometric "
+                "quality letter. Filter cc_flags = '0000' for reliable "
+                "point sources."
+            ),
+            audit=Audit.count(
+                table="allwise_p3as_psd", columns=("cc_flags", "ext_flg", "ph_qual")
+            ),
+            pitfall=Pitfall(
+                guidance=(
+                    "cc_flags marks artifacts; filter cc_flags = '0000' or "
+                    "counts include spurious detections."
+                ),
+            ),
+        ),
+```
+
+Add `Pitfall` to the `_model` import. The guidance line now appears in
+`run_adql_query`'s description under the cheatsheet header, keyed to
+`irsa.ipac.caltech.edu`, for every turn of every conversation. Run
+`uv run pytest tests/archives/test_pitfalls.py` to confirm the cheatsheet is
+still within its 200-token budget.
+
+For comparison, an error hint recognises the failing ADQL and rides the
+error envelope instead. NRAO's is the shipped example:
+
+```python
+            pitfall=Pitfall(
+                guidance=(
+                    "NRAO's TAP rejects the ADQL string functions LOWER()/UPPER()/ILIKE "
+                    "and the || concatenation operator. Re-run without them."
+                ),
+                triggers=("LOWER(", "UPPER(", "ILIKE", "||"),
+            ),
+```
+
+### Stage 5: a count target
+
+The reconnaissance showed the standard geometry works and a cone `COUNT(*)`
+answers in sync, so the archive can take part in
+`count_observations_near_target` and `survey_archives_for_target`:
+
+```python
+from manna.archives._count import ContainsPoint, CountTarget
+
+    ...
+    count_target=CountTarget(
+        table="allwise_p3as_psd",
+        geometry=ContainsPoint("ra", "dec"),
+        count_expr="COUNT(*)",
+        mode="sync",
+    ),
+    priority=90,
+)
+```
+
+Had the count also timed out, `mode="auto"` would try sync and promote on
+timeout, and the survey tool would report the archive as `pending` with a
+`job_url` when its polling budget ran out.
+
+## Wiring it in
+
+Every file that changes when an archive is added, with the edit.
+
+| File | Edit |
+|---|---|
+| `src/manna/archives/<short_name>.py` | new; the file above |
+| `tests/archives/test_<short_name>.py` | new; content assertions for this archive, template below |
+| `tests/archives/test_registry.py` | insert `"<short_name>"` into `EXPECTED_ORDER` at the position `(priority, short_name)` sorts it to; `irsa` at priority 90 goes last |
+| `docs/guide/archives.md` | add a row to the archives table in priority order |
+| `CLAUDE.md` | add `<short_name>.py` to the `currently:` list under `archives/` in the architecture tree |
+| `README.md` | only if the archive belongs in the one-line list of archives in the opening sentence |
+
+The per-archive test pins the facts a reviewer would otherwise re-derive.
+Mirror `tests/archives/test_gaia.py`:
+
+```python
+"""Content assertions for the IRSA archive."""
+
+from manna.archives._count import ContainsPoint, CountTarget
+from manna.archives.irsa import ARCHIVE
+
+
+def test_irsa_identity():
+    assert ARCHIVE.short_name == "irsa"
+    assert ARCHIVE.tap_url == "https://irsa.ipac.caltech.edu/TAP"
+    assert "irsa.ipac" in ARCHIVE.host_substrings
+
+
+def test_irsa_usage_notes_cover_the_default_table_and_quality_flags():
+    notes = " ".join(n.text for n in ARCHIVE.usage_notes).lower()
+    assert "allwise_p3as_psd" in notes
+    assert "cc_flags" in notes
+
+
+def test_irsa_key_note_audit_expectations():
+    notes = {n.id: n for n in ARCHIVE.usage_notes}
+    assert notes["allwise-default-table"].audit.expect == "nonempty"
+    assert notes["quality-flag-columns"].audit.expect == "count"
+
+
+def test_irsa_quality_flag_note_is_an_upfront_note():
+    note = next(n for n in ARCHIVE.usage_notes if n.id == "quality-flag-columns")
+    assert note.pitfall is not None
+    assert note.pitfall.channel == "upfront"
+
+
+def test_irsa_count_target():
+    ct = ARCHIVE.count_target
+    assert isinstance(ct, CountTarget)
+    assert ct.table == "allwise_p3as_psd"
+    assert ct.geometry == ContainsPoint("ra", "dec")
+    assert ct.mode == "sync"
+```
+
+Nothing else needs an edit, because these derive from discovery at call
+time:
+
+- the `archive` label map in `_archive_label.py` (built from
+  `host_substrings` once at import, so restart a running server);
+- the example endpoint URLs in `run_adql_query`, `search_images_by_position`,
+  and `search_catalog_by_position` descriptions (the first two active
+  archives by priority that have that URL);
+- the cheatsheet in `run_adql_query`'s description (every up-front pitfall
+  on every active archive);
+- `evals/audit.py` (walks every note of every archive);
+- `list_archives`, `describe_table`, `preview_table`, and the workflow
+  tools' archive selection.
+
+## Verify
+
+Run these in order from the repo root.
+
+1. `uv run pytest --record-mode=none -q` — offline. Three failures to
+   expect on a first attempt: `test_discover_finds_every_shipped_archive`
+   when `EXPECTED_ORDER` was not updated or the priority sorts the new name
+   somewhere else; `Duplicate Schema entry` when two archives declare the
+   same `(archive, table)`; `test_cheatsheet_stays_within_the_token_budget`
+   when a new up-front note pushes the block past 200 tokens (shorten the
+   `guidance`, do not raise the budget).
+2. `uv run ruff check .`
+3. `uv sync --group eval && uv run python -m evals.audit --archive <short_name>` —
+   live, needs network. Every `probe` and `count` check runs against the
+   archive; `manual` rows are listed, not run. A failed check names the note
+   `id` so you can go straight to it.
+4. See it through a tool: with the in-memory client, `list_archives(short_name=
+   "<short_name>")` returns the archive with its notes, and `describe_table
+   (archive="<short_name>", table="<table>")` returns `known: True` with the
+   schema notes and value enums. Or start the server and use the Inspector
+   (see {doc}`../getting-started/first-query`).
+5. If you changed `docs/guide/archives.md`, build the site:
+   `uv run sphinx-build -W --keep-going -j auto -b html docs docs/_build/html`.
+
+## Evolving an archive
+
+- **Changing a note.** Keep the `id` stable; it is the address in check
+  reports and in any test that looks the note up by id. Change the `text`,
+  and if the claim changed, change the check to match. Re-run the audit for
+  that archive.
+- **Adding a note.** One fact per note. Decide whether it fails silently (up-
+  front note), fails recognisably (error hint), or is reachable knowledge
+  (plain note). Add a check.
+- **Adding a table.** A new `Schema` with `archive=` equal to the owning
+  `short_name`. If it is the table a model should start with, add it to
+  `notable_tables` too.
+- **Changing priority.** This reorders `list_archives`, may change which
+  archives appear as example endpoints, changes which archive the workflow
+  tools try first, and moves the name inside `EXPECTED_ORDER`.
+- **Referencing another archive.** A `cross_refs` pair must name a `Schema`
+  that some shipped archive declares; the full-set test fails otherwise.
+- **Endpoint moved.** Change the URL, and add or change a `host_substrings`
+  entry if the host changed, or envelopes from the new host will carry a
+  hostname-derived label instead of the `short_name`.
+
+Per-archive history is the git log of one file:
+`git log --follow -p src/manna/archives/<short_name>.py`.
+
+## Pausing and un-pausing
+
+Pause an archive when its service is being rebuilt or asks for less traffic
+and you want to keep the notes for when it returns. The archive stays in the
+package and is discoverable, but is out of the default active set.
+
+1. Set `paused` on the archive to a dated reason ending with the re-enable
+   instruction, following the shipped wording:
+   `paused="Paused YYYY-MM-DD at <who>'s request: <reason>; set MANNA_ARCHIVES to include '<short_name>' to re-enable."`
+2. Add the name to `PAUSED` in `tests/archives/test_registry.py`.
+3. Check the default tool surface no longer steers at it. The contract test
+   `tests/contracts/test_no_paused_archive_steering.py` pins that no tool
+   name, description, or parameter example mentions the paused archive's
+   name or host; extend its forbidden pattern if you pause a second archive.
+4. Tests that need the archive's content opt in with a fixture that widens
+   `MANNA_ARCHIVES` (see `nrao_active` in `tests/conftest.py`), listed before
+   `mcp_server` so the cheatsheet is built with the archive active.
+5. Tag eval tasks that need it with `requires_archive: <short_name>` in
+   `evals/tasks.yaml` so they are skipped, not failed, while it is paused.
+6. The archive notes page ({doc}`../guide/archives`) says which archives are
+   paused; update it.
+
+To un-pause: delete the `paused=` field, remove the name from `PAUSED`,
+re-point or delete the steering contract test, and update the guide. The
+`requires_archive` tags become no-ops and may stay. A deployment can turn a
+paused archive on at any time by naming it in `MANNA_ARCHIVES`; pausing is a
+default, not a lock.
+
+## Removing an archive
+
+1. Delete `src/manna/archives/<short_name>.py` and
+   `tests/archives/test_<short_name>.py`.
+2. Remove the name from `EXPECTED_ORDER` (and `PAUSED` if it was paused).
+3. Remove its row from `docs/guide/archives.md` and its entry in `CLAUDE.md`.
+4. Search the other archives for `cross_refs` that named one of its tables
+   and remove them; the full-set test will find any you miss.
+5. Run the suite.
+
+The archive stays reachable: `search_ivoa_registry` still finds it and
+`run_adql_query` still queries it. Only MANNA's claims about it are gone.
+
+## Checklist
+
+```text
+[ ] reconnaissance: endpoints, sync behaviour, geometry, tables, 3-5 facts
+[ ] src/manna/archives/<short_name>.py exporting ARCHIVE
+[ ]   every Note has a check; silent failures carry an up-front Pitfall
+[ ]   Schema per curated table, archive= matches short_name
+[ ]   CountTarget if a positional COUNT works
+[ ] tests/archives/test_<short_name>.py
+[ ] EXPECTED_ORDER in tests/archives/test_registry.py
+[ ] docs/guide/archives.md table row
+[ ] CLAUDE.md archives/ list
+[ ] uv run pytest --record-mode=none -q
+[ ] uv run ruff check .
+[ ] uv run python -m evals.audit --archive <short_name>
+[ ] list_archives / describe_table show it
+[ ] restart any running server (label map is built at import)
+```
