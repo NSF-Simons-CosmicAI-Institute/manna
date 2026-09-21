@@ -289,6 +289,16 @@ _JOB_URL_FIELD = Field(
     examples=["https://almascience.eso.org/tap/async/1234567"],
 )
 
+_WAIT_SECONDS_FIELD = Field(
+    description=(
+        "Seconds the server waits for the job to reach a terminal phase before "
+        "answering. Omit for the server default; values are clamped to the server "
+        "maximum. 0 answers immediately. One call with a wait replaces a burst "
+        "of instant polls — do not call this tool in a tight loop."
+    ),
+    examples=[30],
+)
+
 
 def _endpoint_from_job_url(job_url: str) -> str:
     """Recover the TAP base endpoint from a UWS job URL.
@@ -301,28 +311,69 @@ def _endpoint_from_job_url(job_url: str) -> str:
     return job_url.split("/async/")[0] if "/async/" in job_url else job_url
 
 
-def _status_payload(*, job, job_url: str) -> dict:
+def _status_next_steps(
+    *, phase: str, waited_seconds: float, error_message: str | None
+) -> list[str]:
+    """One imperative line for the phase seen, written for the weakest reader."""
+    if phase == "COMPLETED":
+        return ["Call get_async_job_results(job_url) to get the result_url and a fetch_recipe."]
+    if phase == "ERROR":
+        detail = error_message or "the archive gave no diagnostic"
+        return [
+            f"The archive rejected the query: {detail}. Fix the ADQL and re-submit "
+            "with run_adql_query."
+        ]
+    if phase == "ABORTED":
+        return [
+            "This job was aborted and will not complete. Re-submit with "
+            "run_adql_query if you still want the result."
+        ]
+    max_wait = int(get_settings().async_wait_max_seconds)
+    return [
+        f"Still {phase} after waiting {waited_seconds:g} s. Call "
+        f"get_async_job_status(job_url, wait_seconds={max_wait}) again — pass the "
+        "same job_url; do not re-submit the query."
+    ]
+
+
+def _status_payload(*, job, job_url: str, waited_seconds: float) -> dict:
     """Build the status response from a live AsyncTAPJob."""
-    error_message = job_error_message(job) if job.phase == "ERROR" else None
+    phase = job.phase
+    error_message = job_error_message(job) if phase == "ERROR" else None
 
     started = getattr(job, "starttime", None)
     ended = getattr(job, "endtime", None)
     return {
         "job_url": job_url,
-        "phase": job.phase,
+        "phase": phase,
         "started_at": started.isoformat() if started else None,
         "ended_at": ended.isoformat() if ended else None,
         "error_message": error_message,
         "archive": archive_label(job_url),
+        "waited_seconds": waited_seconds,
+        "next_steps": _status_next_steps(
+            phase=phase, waited_seconds=waited_seconds, error_message=error_message
+        ),
     }
 
 
 @wrap_tool_errors
-def get_async_job_status(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
-    """Fetch the live UWS phase for an async TAP job.
+def get_async_job_status(
+    job_url: Annotated[str, _JOB_URL_FIELD],
+    wait_seconds: Annotated[int | None, _WAIT_SECONDS_FIELD] = None,
+) -> dict:
+    """Wait (bounded) for an async TAP job, then report its live UWS phase.
 
-    Returns {job_url, phase, started_at, ended_at, error_message, archive}.
-    Phase is read live from the upstream service; no local caching.
+    The server blocks for up to `wait_seconds` — the server default when
+    omitted, clamped to the server maximum — re-reading the job every 2 s,
+    and answers as soon as the phase is terminal or the window expires. One
+    call with a wait replaces a burst of instant polls; `wait_seconds=0` is
+    an immediate read. Nothing is cached locally between calls.
+
+    Returns {job_url, phase, started_at, ended_at, error_message, archive,
+    waited_seconds, next_steps}. `next_steps` says what to do for the phase
+    seen — including to call this tool again with a longer wait when the job
+    is still running.
 
     Phases per UWS spec: PENDING, QUEUED, EXECUTING, COMPLETED, ERROR,
     ABORTED, ARCHIVED, HELD, SUSPENDED, UNKNOWN. The LLM branches on
@@ -332,8 +383,8 @@ def get_async_job_status(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     (retry_strategy=abandon) — re-submit rather than continuing to poll.
     """
     ensure_safe_url(job_url, param="job_url")
-    job = _get_tap().load_job(job_url)
-    return _status_payload(job=job, job_url=job_url)
+    job, waited = _wait_for_phase(job_url, budget_s=_resolve_wait_budget(wait_seconds))
+    return _status_payload(job=job, job_url=job_url, waited_seconds=waited)
 
 
 get_async_job_status.__doc__ = (get_async_job_status.__doc__ or "") + _ERROR_DOCSTRING
