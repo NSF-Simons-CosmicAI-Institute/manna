@@ -628,27 +628,36 @@ def shape_promotion(
     server-side job id: the server holds no per-job state, so nothing in this
     process can be reached by a caller who did not submit the job.
     """
+    next_steps = [
+        (
+            "The job has already finished — call get_async_job_results(job_url) "
+            "now; pass back the job_url from this response, verbatim."
+            if phase == "COMPLETED"
+            else "Poll get_async_job_status(job_url) until phase is COMPLETED or "
+            "ERROR — pass back the job_url from this response, verbatim. Each "
+            "call waits server-side for the job before answering, so call it "
+            "once and follow its next_steps rather than polling in a loop."
+        ),
+    ]
+    if phase != "COMPLETED":
+        # Already-COMPLETED jobs skip straight to get_async_job_results (the
+        # first line above already says so) — a second line repeating the
+        # same instruction is a no-op the model has to read past.
+        next_steps.append(
+            "When COMPLETED, call get_async_job_results(job_url) to get the "
+            "result_url and a fetch_recipe."
+        )
+    next_steps.append(
+        "Then execute the fetch_recipe code with your code-execution "
+        "tool to load the data — do not abandon the job or re-submit "
+        "the query."
+    )
     return {
         "mode": "async",
         "job_url": job_url,
         "phase": phase,
         "submitted_at": submitted_at.isoformat(),
         "archive": archive,
-        "next_steps": [
-            (
-                "The job has already finished — call get_async_job_results(job_url) "
-                "now; pass back the job_url from this response, verbatim."
-                if phase == "COMPLETED"
-                else "Poll get_async_job_status(job_url) until phase is COMPLETED or "
-                "ERROR — pass back the job_url from this response, verbatim. Each "
-                "call waits server-side for the job before answering, so call it "
-                "once and follow its next_steps rather than polling in a loop."
-            ),
-            "When COMPLETED, call get_async_job_results(job_url) to get the "
-            "result_url and a fetch_recipe.",
-            "Then execute the fetch_recipe code with your code-execution "
-            "tool to load the data — do not abandon the job or re-submit "
-            "the query.",
-        ],
+        "next_steps": next_steps,
         "fetch_recipe": build_fetch_recipe(job_url),
     }

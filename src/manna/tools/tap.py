@@ -1,5 +1,6 @@
 """Tools for IVOA TAP."""
 
+import logging
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -16,7 +17,7 @@ from manna.archives._endpoints import (
     tap_endpoint_urls,
 )
 from manna.archives._pitfalls import error_hint_for
-from manna.backends.tap import TapClient, job_error_message
+from manna.backends.tap import TapClient, job_error_message, job_phase
 from manna.config import get_settings
 from manna.errors import (
     ArchiveError,
@@ -36,6 +37,8 @@ from manna.results import (
 )
 from manna.tools._constants import _ERROR_DOCSTRING
 
+log = logging.getLogger(__name__)
+
 _tap: TapClient | None = None
 _sleep = time.sleep  # module-level so tests can patch the pair
 _monotonic = time.monotonic
@@ -53,26 +56,28 @@ def _get_tap() -> TapClient:
     return _tap
 
 
-def _wait_for_phase(job_url: str, *, budget_s: float) -> tuple[Any, float]:
+def _wait_for_phase(job_url: str, *, budget_s: float) -> tuple[Any, str, float]:
     """Re-read a job until it reaches a terminal phase or the budget is spent.
 
-    Returns ``(job, waited_seconds)``. The last-loaded job is returned whatever
+    Returns ``(job, phase, waited_seconds)``. The last-loaded job (and its
+    phase, read once per iteration via the cached backend seam ``job_phase``
+    rather than pyvo's refetching ``.phase`` property) is returned whatever
     its phase — the caller decides what a non-terminal phase means. A zero
-    budget is exactly one read. The loop is the whole wait: nothing is recorded
-    between reads and the job_url stays the only handle.
+    budget is exactly one read. The loop is the whole wait: nothing is
+    recorded between reads and the job_url stays the only handle.
     """
     tap = _get_tap()
     start = _monotonic()
     while True:
         job = tap.load_job(job_url)
-        phase = job.phase
+        phase = job_phase(job)
         elapsed = _monotonic() - start
         if phase in _TERMINAL_PHASES or elapsed >= budget_s:
-            return job, round(elapsed, 1)
+            return job, phase, round(elapsed, 1)
         _sleep(min(_POLL_INTERVAL_S, budget_s - elapsed))
 
 
-def _resolve_wait_budget(wait_seconds: int | None) -> float:
+def _resolve_wait_budget(wait_seconds: float | None) -> float:
     """Server default when omitted; otherwise clamp to [0, max]."""
     s = get_settings()
     if wait_seconds is None:
@@ -107,9 +112,26 @@ def _settle_promotion(*, job_url: str, endpoint: str, submitted_at: datetime) ->
     A job that finishes inside the window comes back phase=COMPLETED so the
     model skips straight to get_async_job_results. ERROR and ABORTED raise now
     rather than on the first poll — the same mapping workflows/count.py uses.
+
+    The wait is wrapped: submit_async already succeeded by the time this
+    runs, so a transient read failure (e.g. a single GET timing out) during
+    the wait must not discard the live job. ArchiveError from the wait is
+    swallowed into a phase=UNKNOWN promotion envelope that still carries the
+    job_url, so the model can recover via get_async_job_status instead of
+    re-submitting and orphaning the job the archive is already running.
+    JobGoneError is not an ArchiveError, so it still propagates — the job
+    really is gone, and abandoning it is correct.
     """
-    job, _ = _wait_for_phase(job_url, budget_s=get_settings().async_wait_seconds)
-    phase = job.phase
+    try:
+        job, phase, _ = _wait_for_phase(job_url, budget_s=get_settings().async_wait_seconds)
+    except ArchiveError as wait_err:
+        log.warning("promotion wait failed for %s: %s", job_url, wait_err.message)
+        return shape_promotion(
+            job_url=job_url,
+            archive=archive_label(endpoint),
+            phase="UNKNOWN",
+            submitted_at=submitted_at,
+        )
     if phase == "ERROR":
         raise DalQueryError(
             message=job_error_message(job)
@@ -323,6 +345,7 @@ _JOB_URL_FIELD = Field(
 )
 
 _WAIT_SECONDS_FIELD = Field(
+    ge=0,
     description=(
         "Seconds the server waits for the job to reach a terminal phase before "
         "answering. Omit for the server default; values are clamped to the server "
@@ -369,9 +392,8 @@ def _status_next_steps(
     ]
 
 
-def _status_payload(*, job, job_url: str, waited_seconds: float) -> dict:
+def _status_payload(*, job, job_url: str, phase: str, waited_seconds: float) -> dict:
     """Build the status response from a live AsyncTAPJob."""
-    phase = job.phase
     error_message = job_error_message(job) if phase == "ERROR" else None
 
     started = getattr(job, "starttime", None)
@@ -393,7 +415,7 @@ def _status_payload(*, job, job_url: str, waited_seconds: float) -> dict:
 @wrap_tool_errors
 def get_async_job_status(
     job_url: Annotated[str, _JOB_URL_FIELD],
-    wait_seconds: Annotated[int | None, _WAIT_SECONDS_FIELD] = None,
+    wait_seconds: Annotated[float | None, _WAIT_SECONDS_FIELD] = None,
 ) -> dict:
     """Wait (bounded) for an async TAP job, then report its live UWS phase.
 
@@ -416,8 +438,8 @@ def get_async_job_status(
     (retry_strategy=abandon) — re-submit rather than continuing to poll.
     """
     ensure_safe_url(job_url, param="job_url")
-    job, waited = _wait_for_phase(job_url, budget_s=_resolve_wait_budget(wait_seconds))
-    return _status_payload(job=job, job_url=job_url, waited_seconds=waited)
+    job, phase, waited = _wait_for_phase(job_url, budget_s=_resolve_wait_budget(wait_seconds))
+    return _status_payload(job=job, job_url=job_url, phase=phase, waited_seconds=waited)
 
 
 get_async_job_status.__doc__ = (get_async_job_status.__doc__ or "") + _ERROR_DOCSTRING
@@ -443,7 +465,7 @@ def get_async_job_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     """
     ensure_safe_url(job_url, param="job_url")
     job = _get_tap().load_job(job_url)
-    phase = job.phase
+    phase = job_phase(job)
 
     if phase == "ERROR":
         msg = job_error_message(job)

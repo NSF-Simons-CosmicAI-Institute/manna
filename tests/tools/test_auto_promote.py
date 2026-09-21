@@ -6,7 +6,7 @@ import pytest
 from astropy.table import Table
 from fastmcp import Client
 
-from manna.errors import ArchiveError, TimeoutArchiveError
+from manna.errors import ArchiveError, JobGoneError, TimeoutArchiveError
 from manna.tools import tap as tap_tools
 
 
@@ -23,6 +23,9 @@ class _FakeTapClient:
         self.submit_calls = 0
         self.load_phases: list[str] = ["EXECUTING"]
         self.load_uws = None
+        self.load_raises_on_call: int | None = None
+        self.load_error = ArchiveError(message="read timed out")
+        self.load_calls = 0
 
     def query(self, *, endpoint, adql, maxrec):
         if self.query_raises is not None:
@@ -34,6 +37,9 @@ class _FakeTapClient:
         return self.submit_returns
 
     def load_job(self, job_url):
+        self.load_calls += 1
+        if self.load_raises_on_call is not None and self.load_calls == self.load_raises_on_call:
+            raise self.load_error
         phase = self.load_phases.pop(0) if len(self.load_phases) > 1 else self.load_phases[0]
         return SimpleNamespace(
             phase=phase,
@@ -315,4 +321,42 @@ async def test_mode_async_aborted_in_window_says_abandon(mcp_server, fake_tap):
         payload = result.structured_content
 
     assert payload["error_class"] == "validation_error"
+    assert payload["retry_strategy"] == "abandon"
+
+
+@pytest.mark.asyncio
+async def test_mode_async_transient_read_error_still_returns_job_url(
+    mcp_server, fake_tap, wait_clock
+):
+    # submit_async already succeeded — a read failure during the post-submit
+    # wait must not lose the job_url. First read is non-terminal (so the loop
+    # sleeps and tries again), second read raises.
+    fake_tap.load_raises_on_call = 2
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "run_adql_query",
+            {"endpoint": "https://datalab.noirlab.edu/tap", "adql": "SELECT 1", "mode": "async"},
+        )
+        payload = result.structured_content
+
+    assert payload["mode"] == "async"
+    assert payload["job_url"]
+    assert payload["phase"] == "UNKNOWN"
+    assert "get_async_job_status" in payload["next_steps"][0]
+
+
+@pytest.mark.asyncio
+async def test_mode_async_job_gone_during_wait_says_abandon(mcp_server, fake_tap, wait_clock):
+    fake_tap.load_raises_on_call = 2
+    fake_tap.load_error = JobGoneError(message="gone")
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "run_adql_query",
+            {"endpoint": "https://datalab.noirlab.edu/tap", "adql": "SELECT 1", "mode": "async"},
+        )
+        payload = result.structured_content
+
+    assert payload["error_class"] == "job_gone"
     assert payload["retry_strategy"] == "abandon"

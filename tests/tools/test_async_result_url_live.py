@@ -63,8 +63,7 @@ async def test_async_results_return_result_url_and_recipe(mcp_server, case):
         # has already carried the job to COMPLETED by the time this status
         # call runs — replayed against the real recorded UWS XML.
         status = await client.call_tool("get_async_job_status", {"job_url": job_url})
-        status_phase = status.structured_content["phase"]
-        assert status_phase == "COMPLETED"
+        assert status.structured_content["phase"] == "COMPLETED"
 
         # 3) Results: URL + recipe, no bytes fetched server-side.
         results = await client.call_tool("get_async_job_results", {"job_url": job_url})

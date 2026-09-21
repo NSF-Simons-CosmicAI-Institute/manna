@@ -96,6 +96,8 @@ def test_shape_promotion_completed_skips_the_poll_step():
     assert first.startswith("The job has already finished")
     assert "get_async_job_results(job_url)" in first
     assert "get_async_job_status" not in first
+    assert len(env["next_steps"]) == 2
+    assert not any(s.startswith("When COMPLETED") for s in env["next_steps"])
 
 
 def test_shape_promotion_running_first_step_says_status_call_waits():

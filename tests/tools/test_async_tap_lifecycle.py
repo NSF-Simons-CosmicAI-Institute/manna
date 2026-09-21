@@ -237,6 +237,7 @@ async def test_status_waits_default_budget_when_job_still_running(mcp_server, fa
     assert sum(wait_clock.sleeps) == 20.0
     # Imperative, names the exact next call, and forbids the resubmit loop.
     step = payload["next_steps"][0]
+    assert "waiting 20 s" in step
     assert "get_async_job_status(job_url, wait_seconds=30)" in step
     assert "do not re-submit" in step
 
@@ -304,3 +305,4 @@ async def test_status_schema_exposes_wait_seconds(mcp_server):
     props = tools["get_async_job_status"].inputSchema["properties"]
     assert "wait_seconds" in props
     assert "clamped" in props["wait_seconds"]["description"]
+    assert props["wait_seconds"]["anyOf"][0].get("minimum") == 0

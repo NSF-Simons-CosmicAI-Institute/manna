@@ -42,6 +42,20 @@ def job_error_message(job: AsyncTAPJob) -> str | None:
     return str(text).strip()
 
 
+def job_phase(job: AsyncTAPJob) -> str:
+    """The phase pyvo parsed when the job was last fetched, without refetching.
+
+    ``AsyncTAPJob.phase`` is a property that issues a new GET on every access;
+    the constructor has already fetched the job, so the cached UWS tree at
+    ``job._job`` is current for the read that just happened. Test doubles
+    that carry a plain ``phase`` attribute and no cached tree fall through
+    to it.
+    """
+    cached = getattr(job, "_job", None)
+    phase = getattr(cached, "phase", None)
+    return str(phase) if phase is not None else str(job.phase)
+
+
 def _http_status(e: Exception) -> int | None:
     """HTTP status carried by a pyvo exception, if any.
 
