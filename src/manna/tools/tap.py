@@ -101,8 +101,38 @@ def _pitfall_hint(*, endpoint: str, adql: str) -> Iterator[None]:
         raise
 
 
+def _settle_promotion(*, job_url: str, endpoint: str, submitted_at: datetime) -> dict:
+    """Wait the default window after submission, then shape the promotion.
+
+    A job that finishes inside the window comes back phase=COMPLETED so the
+    model skips straight to get_async_job_results. ERROR and ABORTED raise now
+    rather than on the first poll — the same mapping workflows/count.py uses.
+    """
+    job, _ = _wait_for_phase(job_url, budget_s=get_settings().async_wait_seconds)
+    phase = job.phase
+    if phase == "ERROR":
+        raise DalQueryError(
+            message=job_error_message(job)
+            or "Async TAP job ended in ERROR (the archive gave no diagnostic)."
+        )
+    if phase == "ABORTED":
+        raise ValidationError(
+            message=(
+                "The async job was aborted before it completed; re-submit if you "
+                "still want results."
+            ),
+            retry_strategy="abandon",
+        )
+    return shape_promotion(
+        job_url=job_url,
+        archive=archive_label(endpoint),
+        phase=phase,
+        submitted_at=submitted_at,
+    )
+
+
 def _promote_async(*, endpoint: str, adql: str, maxrec: int) -> dict:
-    """Submit async and return a promotion envelope.
+    """Submit async, wait the default window, and return a promotion envelope.
 
     Raises ArchiveError if the async submission itself fails (so the caller
     still gets a structured payload via wrap_tool_errors).
@@ -110,27 +140,24 @@ def _promote_async(*, endpoint: str, adql: str, maxrec: int) -> dict:
     Nothing is recorded server-side: the returned job_url is the whole handle.
     """
     job_url = _get_tap().submit_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
-    return shape_promotion(
-        job_url=job_url,
-        archive=archive_label(endpoint),
-        phase="EXECUTING",
-        submitted_at=datetime.now(UTC),
-    )
+    return _settle_promotion(job_url=job_url, endpoint=endpoint, submitted_at=datetime.now(UTC))
 
 
 def _auto_promote(*, endpoint: str, adql: str, maxrec: int) -> dict:
     """Promote to async from the mode='auto' path (timeout or oversize).
 
     Wraps a submission failure in a friendlier archive_error so the LLM
-    gets a coherent retry signal rather than a raw submit error.
+    gets a coherent retry signal rather than a raw submit error. Only the
+    submit is wrapped; a failure while waiting on the job is reported as-is.
     """
     try:
-        return _promote_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
+        job_url = _get_tap().submit_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
     except ArchiveError as submit_err:
         raise ArchiveError(
             message=f"auto-promote submission failed: {submit_err.message}",
             retry_strategy="wait_and_retry",
         ) from submit_err
+    return _settle_promotion(job_url=job_url, endpoint=endpoint, submitted_at=datetime.now(UTC))
 
 
 @wrap_tool_errors
@@ -180,10 +207,11 @@ def run_adql_query(
         Field(
             description=(
                 "Execution mode. 'sync' = TAP /sync only (default Slice-A "
-                "behavior; times out as archive_error). 'async' = skip "
-                "sync, submit /async, return a promotion envelope with "
-                "job_url. 'auto' (default) = try sync first; on timeout, "
-                "transparently promote to async."
+                "behavior; times out as archive_error). 'async' = submit to "
+                "TAP /async, wait up to the server's default window, and "
+                "return a job_url (phase may already be COMPLETED). 'auto' "
+                "(default) = try sync first; on timeout, transparently "
+                "promote to async."
             ),
         ),
     ] = "auto",
@@ -215,10 +243,12 @@ def run_adql_query(
     mode='sync' with an oversize result does NOT auto-promote — it raises
     validation_error telling you to re-run with mode='async'.
 
-    For async results, poll get_async_job_status(job_url) until phase is
-    COMPLETED, then call get_async_job_results(job_url) — or fetch client-side
-    with the pyvo fetch_recipe carried on the promotion envelope. Pass the
-    job_url back verbatim; it is the job's only handle.
+    For async results the server has already waited its default window before
+    answering; if `phase` is COMPLETED go straight to get_async_job_results(job_url).
+    Otherwise call get_async_job_status(job_url) — it waits server-side too, so
+    one call usually suffices — then get_async_job_results(job_url), or fetch
+    client-side with the pyvo fetch_recipe carried on the promotion envelope.
+    Pass the job_url back verbatim; it is the job's only handle.
 
     Successful result envelopes also carry `query_fingerprint` and a
     `save_recipe` — after loading the result, execute save_recipe.code

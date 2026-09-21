@@ -616,7 +616,9 @@ def shape_promotion(
     submitted_at: datetime,
 ) -> dict[str, Any]:
     """Envelope returned when run_adql_query goes async (explicit mode=async,
-    auto-mode timeout fallback, or an oversize sync result).
+    auto-mode timeout fallback, or an oversize sync result). The server has
+    already waited its default window, so `phase` may be COMPLETED, in which
+    case next_steps sends the model straight to get_async_job_results.
 
     Shape-disjoint from the inline tabular envelope: there are no rows.
     The LLM branches on the literal `mode: "async"`.
@@ -633,8 +635,15 @@ def shape_promotion(
         "submitted_at": submitted_at.isoformat(),
         "archive": archive,
         "next_steps": [
-            "Poll get_async_job_status(job_url) until phase is COMPLETED or ERROR — "
-            "pass back the job_url from this response, verbatim.",
+            (
+                "The job has already finished — call get_async_job_results(job_url) "
+                "now; pass back the job_url from this response, verbatim."
+                if phase == "COMPLETED"
+                else "Poll get_async_job_status(job_url) until phase is COMPLETED or "
+                "ERROR — pass back the job_url from this response, verbatim. Each "
+                "call waits server-side for the job before answering, so call it "
+                "once and follow its next_steps rather than polling in a loop."
+            ),
             "When COMPLETED, call get_async_job_results(job_url) to get the "
             "result_url and a fetch_recipe.",
             "Then execute the fetch_recipe code with your code-execution "

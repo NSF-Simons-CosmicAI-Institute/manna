@@ -1,5 +1,7 @@
 """run_adql_query mode parameter + auto-promote behavior."""
 
+from types import SimpleNamespace
+
 import pytest
 from astropy.table import Table
 from fastmcp import Client
@@ -8,12 +10,19 @@ from manna.errors import ArchiveError, TimeoutArchiveError
 from manna.tools import tap as tap_tools
 
 
+def _uws_error(message: str):
+    """pyvo's real shape for an ERROR job: text at _job.errorsummary.message.content."""
+    return SimpleNamespace(errorsummary=SimpleNamespace(message=SimpleNamespace(content=message)))
+
+
 class _FakeTapClient:
     def __init__(self):
         self.query_table = Table({"ra": [1.0], "dec": [2.0]})
         self.query_raises = None
         self.submit_returns = "https://datalab.noirlab.edu/tap/async/auto-promoted"
         self.submit_calls = 0
+        self.load_phases: list[str] = ["EXECUTING"]
+        self.load_uws = None
 
     def query(self, *, endpoint, adql, maxrec):
         if self.query_raises is not None:
@@ -25,13 +34,13 @@ class _FakeTapClient:
         return self.submit_returns
 
     def load_job(self, job_url):
-        class _J:
-            phase = "EXECUTING"
-            starttime = None
-            endtime = None
-            _job = None
-
-        return _J()
+        phase = self.load_phases.pop(0) if len(self.load_phases) > 1 else self.load_phases[0]
+        return SimpleNamespace(
+            phase=phase,
+            starttime=None,
+            endtime=None,
+            _job=self.load_uws if self.load_uws is not None else SimpleNamespace(errorsummary=None),
+        )
 
     def abort_job(self, job_url):
         pass
@@ -241,3 +250,69 @@ async def test_mode_async_skips_sync_and_returns_promotion(mcp_server, fake_tap)
         assert payload["phase"] == "EXECUTING"
 
     assert fake_tap.submit_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_mode_async_reports_completed_when_job_finishes_in_window(
+    mcp_server, fake_tap, wait_clock
+):
+    fake_tap.load_phases = ["EXECUTING", "COMPLETED"]
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "run_adql_query",
+            {"endpoint": "https://datalab.noirlab.edu/tap", "adql": "SELECT 1", "mode": "async"},
+        )
+        payload = result.structured_content
+
+    assert payload["mode"] == "async"
+    assert payload["phase"] == "COMPLETED"
+    assert payload["next_steps"][0].startswith("The job has already finished")
+    assert wait_clock.sleeps == [2.0]
+
+
+@pytest.mark.asyncio
+async def test_mode_async_still_running_after_window_returns_promotion(
+    mcp_server, fake_tap, wait_clock
+):
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "run_adql_query",
+            {"endpoint": "https://datalab.noirlab.edu/tap", "adql": "SELECT 1", "mode": "async"},
+        )
+        payload = result.structured_content
+
+    assert payload["phase"] == "EXECUTING"
+    assert sum(wait_clock.sleeps) == 20.0
+    assert "get_async_job_status(job_url)" in payload["next_steps"][0]
+
+
+@pytest.mark.asyncio
+async def test_mode_async_error_in_window_raises_tap_query_error(mcp_server, fake_tap):
+    fake_tap.load_phases = ["ERROR"]
+    fake_tap.load_uws = _uws_error("Column 'nope' not found")
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "run_adql_query",
+            {"endpoint": "https://datalab.noirlab.edu/tap", "adql": "SELECT nope", "mode": "async"},
+        )
+        payload = result.structured_content
+
+    assert payload["error_class"] == "tap_query_error"
+    assert "nope" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_mode_async_aborted_in_window_says_abandon(mcp_server, fake_tap):
+    fake_tap.load_phases = ["ABORTED"]
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "run_adql_query",
+            {"endpoint": "https://datalab.noirlab.edu/tap", "adql": "SELECT 1", "mode": "async"},
+        )
+        payload = result.structured_content
+
+    assert payload["error_class"] == "validation_error"
+    assert payload["retry_strategy"] == "abandon"

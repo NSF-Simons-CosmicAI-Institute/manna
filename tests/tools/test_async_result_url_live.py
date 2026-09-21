@@ -46,13 +46,21 @@ async def test_async_results_return_result_url_and_recipe(mcp_server, case):
         prom = promotion.structured_content
         assert prom["mode"] == "async"
         job_url = prom["job_url"]
-        job_url = prom["job_url"]
         assert "/async/" in job_url
         assert job_url in prom["fetch_recipe"]["code"]
 
-        # 2) Poll status — GAVO completes instantly.
-        status = await client.call_tool("get_async_job_status", {"job_url": job_url})
-        assert status.structured_content["phase"] == "COMPLETED"
+        # 2) GAVO/ALMA complete instantly, so the server's own default wait
+        # (run_adql_query now waits its default window before answering) has
+        # already carried the job to COMPLETED — per the promotion envelope's
+        # own next_steps, go straight to get_async_job_results. A still-running
+        # job (belt-and-suspenders, in case an archive is slow on a given
+        # replay) falls back to the explicit status poll.
+        if prom["phase"] == "COMPLETED":
+            status_phase = prom["phase"]
+        else:
+            status = await client.call_tool("get_async_job_status", {"job_url": job_url})
+            status_phase = status.structured_content["phase"]
+        assert status_phase == "COMPLETED"
 
         # 3) Results: URL + recipe, no bytes fetched server-side.
         results = await client.call_tool("get_async_job_results", {"job_url": job_url})
