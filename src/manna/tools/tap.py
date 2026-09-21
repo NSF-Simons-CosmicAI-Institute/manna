@@ -173,7 +173,8 @@ def _auto_promote(*, endpoint: str, adql: str, maxrec: int) -> dict:
 
     Wraps a submission failure in a friendlier archive_error so the LLM
     gets a coherent retry signal rather than a raw submit error. Only the
-    submit is wrapped; a failure while waiting on the job is reported as-is.
+    submit is wrapped; a failure while waiting on the job is handled by
+    _settle_promotion (phase=UNKNOWN, job_url kept).
     """
     try:
         job_url = _get_tap().submit_async(endpoint=endpoint, adql=adql, maxrec=maxrec)

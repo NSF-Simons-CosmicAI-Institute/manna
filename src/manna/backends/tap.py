@@ -53,7 +53,11 @@ def job_phase(job: AsyncTAPJob) -> str:
     """
     cached = getattr(job, "_job", None)
     phase = getattr(cached, "phase", None)
-    return str(phase) if phase is not None else str(job.phase)
+    if phase is not None:
+        return str(phase)
+    # No cached tree (a test double) or a UWS body with no <uws:phase>: fall
+    # through to the property; a still-missing phase is UNKNOWN per UWS.
+    return str(job.phase or "UNKNOWN")
 
 
 def _http_status(e: Exception) -> int | None:
