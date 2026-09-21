@@ -18,6 +18,16 @@ The client-side fetch round-trip (both recipe paths) was verified live
 against GAVO, ALMA, and NOIRLab Data Lab during development; pyvo owns the
 fetch itself, so this test guards only the server contract.
 
+run_adql_query's async promotion now waits (server-side) for the job before
+answering, so the recorded lifecycle needs enough GETs of the job URL for
+BOTH that wait and this test's own explicit get_async_job_status /
+get_async_job_results calls — each pyvo AsyncTAPJob read re-fetches the job
+(construction, then another GET on `.phase` or `.query` access), so a single
+logical "read the job" costs more than one recorded HTTP interaction. The
+`wait_clock` fixture (tests/conftest.py, autouse) fakes the sleep between
+polls, including during recording, so a recording session hits the live
+archive rapidly rather than actually sleeping.
+
 Re-record with:  uv run pytest --record-mode=once -k async_result_url_live
 """
 
@@ -49,17 +59,11 @@ async def test_async_results_return_result_url_and_recipe(mcp_server, case):
         assert "/async/" in job_url
         assert job_url in prom["fetch_recipe"]["code"]
 
-        # 2) GAVO/ALMA complete instantly, so the server's own default wait
-        # (run_adql_query now waits its default window before answering) has
-        # already carried the job to COMPLETED — per the promotion envelope's
-        # own next_steps, go straight to get_async_job_results. A still-running
-        # job (belt-and-suspenders, in case an archive is slow on a given
-        # replay) falls back to the explicit status poll.
-        if prom["phase"] == "COMPLETED":
-            status_phase = prom["phase"]
-        else:
-            status = await client.call_tool("get_async_job_status", {"job_url": job_url})
-            status_phase = status.structured_content["phase"]
+        # 2) GAVO/ALMA complete instantly, so the server's own promotion wait
+        # has already carried the job to COMPLETED by the time this status
+        # call runs — replayed against the real recorded UWS XML.
+        status = await client.call_tool("get_async_job_status", {"job_url": job_url})
+        status_phase = status.structured_content["phase"]
         assert status_phase == "COMPLETED"
 
         # 3) Results: URL + recipe, no bytes fetched server-side.

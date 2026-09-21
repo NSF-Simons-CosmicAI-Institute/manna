@@ -135,7 +135,10 @@ def _promote_async(*, endpoint: str, adql: str, maxrec: int) -> dict:
     """Submit async, wait the default window, and return a promotion envelope.
 
     Raises ArchiveError if the async submission itself fails (so the caller
-    still gets a structured payload via wrap_tool_errors).
+    still gets a structured payload via wrap_tool_errors). Via
+    _settle_promotion, it also raises DalQueryError when the job ends in
+    ERROR inside the wait window, and ValidationError (retry_strategy=abandon)
+    when the job ends ABORTED inside the wait window.
 
     Nothing is recorded server-side: the returned job_url is the whole handle.
     """
