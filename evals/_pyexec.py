@@ -27,9 +27,19 @@ DEFAULT_TIMEOUT_S = 120.0
 
 # Runs inside the child: one JSON request per stdin line, one JSON reply per stdout line.
 # BaseException so sys.exit() / KeyboardInterrupt in a snippet never end the session.
+#
+# fd 1 is the pipe the parent reads JSON replies from. A snippet (or a subprocess
+# it launches) can write to fd 1 directly — subprocess.run(...) without capture,
+# os.system(...), os.write(1, ...) — bypassing redirect_stdout, which only patches
+# the Python-level sys.stdout. That would corrupt the protocol. So before the
+# request loop we dup the original fd 1 to a private `reply` handle used only for
+# JSON replies, then repoint fd 1 at /dev/null so any fd-level write is discarded.
+# Python-level print() is still captured by redirect_stdout during exec.
 REPL_SOURCE = r"""
-import io, json, sys, traceback
+import io, json, os, sys, traceback
 from contextlib import redirect_stderr, redirect_stdout
+reply = os.fdopen(os.dup(1), "w")
+os.dup2(os.open(os.devnull, os.O_WRONLY), 1)
 ns = {"__name__": "__main__"}
 for line in sys.stdin:
     req = json.loads(line)
@@ -39,8 +49,8 @@ for line in sys.stdin:
             exec(compile(req["code"], "<execute_python>", "exec"), ns)
         except BaseException:
             error = traceback.format_exc()
-    sys.stdout.write(json.dumps({"stdout": out.getvalue(), "stderr": err.getvalue(), "error": error}) + "\n")
-    sys.stdout.flush()
+    reply.write(json.dumps({"stdout": out.getvalue(), "stderr": err.getvalue(), "error": error}) + "\n")
+    reply.flush()
 """
 
 EXECUTE_PYTHON_TOOL: dict = {
@@ -50,7 +60,8 @@ EXECUTE_PYTHON_TOOL: dict = {
         "calls, like notebook cells. Use it to execute the fetch_recipe / load_recipe / "
         "save_recipe code carried on tool results, and to inspect the resulting `table`. "
         "pyvo and astropy are importable. Only printed output is returned, so print what "
-        "you need to see. Each call is limited to 120 s."
+        "you need to see. Each call has a time limit (120 s by default); a call that "
+        "exceeds it is killed and the session restarts with its variables lost."
     ),
     "input_schema": {
         "type": "object",
@@ -101,6 +112,7 @@ class PythonSession:
         self._proc: asyncio.subprocess.Process | None = None
 
     async def start(self) -> None:
+        await self._kill()
         if self.cwd is None:
             self.cwd = tempfile.mkdtemp(prefix="manna-eval-")
         await self._spawn()
@@ -145,7 +157,17 @@ class PythonSession:
                 round(time.monotonic() - t0, 1),
                 restarted=True,
             )
-        reply = json.loads(line)
+        try:
+            reply = json.loads(line)
+        except json.JSONDecodeError:
+            await self._restart()
+            return ExecResult(
+                "",
+                "",
+                "session output was corrupted; session restarted, variables lost",
+                round(time.monotonic() - t0, 1),
+                restarted=True,
+            )
         return ExecResult(
             _cap(reply["stdout"]),
             _cap(reply["stderr"]),

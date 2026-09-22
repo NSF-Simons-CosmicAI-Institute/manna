@@ -120,3 +120,52 @@ def test_tool_schema_shape():
     desc = EXECUTE_PYTHON_TOOL["description"]
     for word in ("persistent", "fetch_recipe", "print"):
         assert word in desc
+
+
+@pytest.mark.asyncio
+async def test_fd_level_stdout_from_a_subprocess_cannot_corrupt_the_protocol(session):
+    res = await session.run("import subprocess; subprocess.run(['echo', 'raw-bytes']); print('ok')")
+    assert res.error is None
+    assert res.stdout == "ok\n"  # the subprocess's bytes never reach the reply stream
+    assert res.restarted is False
+    assert (await session.run("print(2)")).stdout == "2\n"  # still in sync
+
+
+@pytest.mark.asyncio
+async def test_os_write_to_fd1_is_discarded_not_desyncing(session):
+    res = await session.run("import os; os.write(1, b'garbage\\n'); x = 5")
+    assert res.error is None and res.stdout == ""
+    assert (await session.run("print(x)")).stdout == "5\n"
+
+
+@pytest.mark.asyncio
+async def test_corrupted_reply_line_restarts_the_session(monkeypatch):
+    """Belt and braces: if a non-JSON line ever reaches the parent, run() recovers."""
+    s = PythonSession()
+    await s.start()
+    try:
+        proc = s._proc
+        real_readline = proc.stdout.readline
+
+        async def fake_readline():
+            await real_readline()  # consume the genuine reply
+            return b"not json\n"
+
+        monkeypatch.setattr(proc.stdout, "readline", fake_readline)
+        res = await s.run("print(1)")
+        assert res.restarted is True and "corrupted" in (res.error or "")
+        assert (await s.run("print(3)")).stdout == "3\n"
+    finally:
+        await s.close()
+
+
+@pytest.mark.asyncio
+async def test_double_start_replaces_the_child_without_leaking():
+    s = PythonSession()
+    await s.start()
+    first = s._proc
+    await s.start()
+    assert s._proc is not first
+    assert first.returncode is not None  # the first child was killed and reaped
+    assert (await s.run("print('fresh')")).stdout == "fresh\n"
+    await s.close()
