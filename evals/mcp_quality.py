@@ -199,14 +199,17 @@ async def _main(args: argparse.Namespace) -> int:
     arms = args.arm or ARMS
     version = _server_version()
     print(f"Model: {cfg.label}  |  server: {version}  |  judge: {judge.label if judge else 'none'}")
-    print(f"arms: {', '.join(arms)}  |  N={args.n}  |  {len(tasks)} tasks\n")
+    print(
+        f"arms: {', '.join(arms)}  |  N={args.n}  |  {len(tasks)} tasks  |  "
+        f"exec: {'on' if args.exec_tool else 'off'}\n"
+    )
 
     sem = asyncio.Semaphore(args.concurrency)
 
     async def one(arm: str, task: dict[str, Any]) -> tuple[str, TaskRun, bool | None]:
         async with sem:
             try:
-                run = await run_task(task, cfg, "full", arm=arm)
+                run = await run_task(task, cfg, "full", arm=arm, exec_tool=args.exec_tool)
             except Exception as exc:
                 run = TaskRun(task["id"], task["tier"], "full", cfg.label, arm=arm)
                 run.error = f"{type(exc).__name__}: {exc}"
@@ -250,6 +253,7 @@ async def _main(args: argparse.Namespace) -> int:
     record = {
         "server_version": version,
         "model": cfg.label,
+        "mcp_exec": args.exec_tool,
         "timestamp": time.strftime("%Y%m%dT%H%M%S"),
         "per_arm": {a: per_arm[a] for a in arms},
         "task_ids": [t["id"] for t in tasks],
@@ -277,6 +281,12 @@ def main() -> int:
     p.add_argument("--n", type=int, default=1, help="reps per (approach, task)")
     p.add_argument("--arm", action="append", choices=ARMS, help="restrict approaches; repeatable")
     p.add_argument("--task", action="append", help="restrict to these task ids; repeatable")
+    p.add_argument(
+        "--no-exec",
+        dest="exec_tool",
+        action="store_false",
+        help="withhold the harness-side execute_python tool from the mcp arm (pre-2026-09-22 behaviour)",
+    )
     p.add_argument("--concurrency", type=int, default=2)
     p.add_argument(
         "--baseline", help="results JSON to diff against (default: mcp-quality-baseline.json)"
