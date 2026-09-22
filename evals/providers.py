@@ -102,6 +102,9 @@ class MCPToolProvider(ToolProvider):
                 await self._session.start()
                 self.tools = [*self.tools, execute_python_tool(self._session.timeout_s)]
         except BaseException:
+            if self._session is not None:
+                await self._session.close()
+                self._session = None
             await self._client.__aexit__(None, None, None)
             raise
         return self

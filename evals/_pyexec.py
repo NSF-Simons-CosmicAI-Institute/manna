@@ -123,21 +123,6 @@ def _timeout_s() -> float:
     return float(os.getenv("EVAL_EXEC_TIMEOUT", str(DEFAULT_TIMEOUT_S)))
 
 
-def _cap(text: str) -> str:
-    """No-op safety net: the child already caps this field before it crosses the pipe."""
-    if len(text) <= OUTPUT_CAP_CHARS:
-        return text
-    omitted = len(text) - OUTPUT_CAP_CHARS
-    return f"... [truncated: {omitted} chars omitted]\n" + text[-OUTPUT_CAP_CHARS:]
-
-
-def _error_tail(tb: str | None, lines: int = 20) -> str | None:
-    """No-op safety net: the child already tails this field before it crosses the pipe."""
-    if not tb:
-        return None
-    return "\n".join(tb.rstrip().splitlines()[-lines:])
-
-
 @dataclass
 class ExecResult:
     stdout: str
@@ -179,8 +164,9 @@ class PythonSession:
         proc = self._proc
         assert proc is not None and proc.stdin is not None and proc.stdout is not None
         t0 = time.monotonic()
+        request = (json.dumps({"code": code}) + "\n").encode()
         try:
-            proc.stdin.write((json.dumps({"code": code}) + "\n").encode())
+            proc.stdin.write(request)
             await proc.stdin.drain()
             line = await asyncio.wait_for(proc.stdout.readline(), self.timeout_s)
         except TimeoutError:
@@ -218,7 +204,7 @@ class PythonSession:
             )
         try:
             reply = json.loads(line)
-        except (json.JSONDecodeError, ValueError):
+        except ValueError:  # json.JSONDecodeError is a ValueError
             await self._restart()
             return ExecResult(
                 "",
@@ -227,10 +213,11 @@ class PythonSession:
                 round(time.monotonic() - t0, 1),
                 restarted=True,
             )
+        # Every field was capped in the child before it crossed the pipe.
         return ExecResult(
-            _cap(reply["stdout"]),
-            _cap(reply["stderr"]),
-            _error_tail(reply["error"]),
+            reply["stdout"],
+            reply["stderr"],
+            reply["error"],
             round(time.monotonic() - t0, 1),
         )
 

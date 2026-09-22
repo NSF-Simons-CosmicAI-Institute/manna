@@ -165,6 +165,8 @@ async def test_huge_stdout_is_capped_in_the_child_and_session_stays_in_sync(sess
     """A snippet that prints well past asyncio's 64 KiB readline default must not
     escape run() as a ValueError or desync the reply stream."""
     res = await session.run("print('a' * 200_000 + 'END')")
+    # The marker must report the child's true count, not a parent-side re-cap.
+    assert "192004 chars omitted" in res.stdout
     assert res.error is None
     assert res.restarted is False
     assert len(res.stdout) <= OUTPUT_CAP_CHARS + 60
@@ -177,6 +179,7 @@ async def test_huge_stdout_is_capped_in_the_child_and_session_stays_in_sync(sess
 @pytest.mark.asyncio
 async def test_huge_error_is_capped_in_the_child(session):
     res = await session.run("raise ValueError('x' * 100_000)")
+    assert '"<execute_python>", line 1' in res.error  # location survives truncation
     assert res.error is not None
     assert "ValueError" in res.error
     assert len(res.error) <= 8100
