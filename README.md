@@ -28,7 +28,7 @@ re-verifies it. Every tool below is tagged with the layer it belongs to.
 | `describe_table` | — | Archive notes | Curated per-table schema facts (missing columns, enum values, spatial index hints) |
 | `resolve_target_name` | Sesame | Connections | Resolve an object name (e.g. "M87", "Cygnus A") to RA/Dec coordinates |
 | `run_adql_query` | TAP | Connections · Result handling | Submit sync or async ADQL queries; returns inline or promoted results |
-| `get_async_job_status` | TAP | Connections | Poll an async job by ID |
+| `get_async_job_status` | TAP | Connections | Wait for / check an async job by job_url |
 | `get_async_job_results` | TAP | Connections · Result handling | Return a completed async job's result URL + pyvo fetch recipe (client fetches the data) |
 | `abort_async_job` | TAP | Connections | Abort a running async job |
 | `search_ivoa_registry` | RegTAP | Connections | Search the IVOA registry by keyword or service type |

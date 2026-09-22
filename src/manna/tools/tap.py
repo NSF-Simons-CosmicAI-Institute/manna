@@ -1,9 +1,11 @@
 """Tools for IVOA TAP."""
 
+import logging
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
@@ -15,7 +17,7 @@ from manna.archives._endpoints import (
     tap_endpoint_urls,
 )
 from manna.archives._pitfalls import error_hint_for
-from manna.backends.tap import TapClient, job_error_message
+from manna.backends.tap import TapClient, job_error_message, job_phase
 from manna.config import get_settings
 from manna.errors import (
     ArchiveError,
@@ -35,7 +37,13 @@ from manna.results import (
 )
 from manna.tools._constants import _ERROR_DOCSTRING
 
+log = logging.getLogger(__name__)
+
 _tap: TapClient | None = None
+_sleep = time.sleep  # module-level so tests can patch the pair
+_monotonic = time.monotonic
+_POLL_INTERVAL_S = 2.0
+_TERMINAL_PHASES = frozenset({"COMPLETED", "ERROR", "ABORTED"})
 
 
 def _get_tap() -> TapClient:
@@ -46,6 +54,35 @@ def _get_tap() -> TapClient:
             sync_timeout_seconds=get_settings().tap_sync_timeout_seconds,
         )
     return _tap
+
+
+def _wait_for_phase(job_url: str, *, budget_s: float) -> tuple[Any, str, float]:
+    """Re-read a job until it reaches a terminal phase or the budget is spent.
+
+    Returns ``(job, phase, waited_seconds)``. The last-loaded job (and its
+    phase, read once per iteration via the cached backend seam ``job_phase``
+    rather than pyvo's refetching ``.phase`` property) is returned whatever
+    its phase — the caller decides what a non-terminal phase means. A zero
+    budget is exactly one read. The loop is the whole wait: nothing is
+    recorded between reads and the job_url stays the only handle.
+    """
+    tap = _get_tap()
+    start = _monotonic()
+    while True:
+        job = tap.load_job(job_url)
+        phase = job_phase(job)
+        elapsed = _monotonic() - start
+        if phase in _TERMINAL_PHASES or elapsed >= budget_s:
+            return job, phase, round(elapsed, 1)
+        _sleep(min(_POLL_INTERVAL_S, budget_s - elapsed))
+
+
+def _resolve_wait_budget(wait_seconds: float | None) -> float:
+    """Server default when omitted; otherwise clamp to [0, max]."""
+    s = get_settings()
+    if wait_seconds is None:
+        return s.async_wait_seconds
+    return max(0.0, min(float(wait_seconds), s.async_wait_max_seconds))
 
 
 @contextmanager
@@ -69,36 +106,84 @@ def _pitfall_hint(*, endpoint: str, adql: str) -> Iterator[None]:
         raise
 
 
+def _settle_promotion(*, job_url: str, endpoint: str, submitted_at: datetime) -> dict:
+    """Wait the default window after submission, then shape the promotion.
+
+    A job that finishes inside the window comes back phase=COMPLETED so the
+    model skips straight to get_async_job_results. ERROR and ABORTED raise now
+    rather than on the first poll — the same mapping workflows/count.py uses.
+
+    The wait is wrapped: submit_async already succeeded by the time this
+    runs, so a transient read failure (e.g. a single GET timing out) during
+    the wait must not discard the live job. ArchiveError from the wait is
+    swallowed into a phase=UNKNOWN promotion envelope that still carries the
+    job_url, so the model can recover via get_async_job_status instead of
+    re-submitting and orphaning the job the archive is already running.
+    JobGoneError is not an ArchiveError, so it still propagates — the job
+    really is gone, and abandoning it is correct.
+    """
+    try:
+        job, phase, _ = _wait_for_phase(job_url, budget_s=get_settings().async_wait_seconds)
+    except ArchiveError as wait_err:
+        log.warning("promotion wait failed for %s: %s", job_url, wait_err.message)
+        return shape_promotion(
+            job_url=job_url,
+            archive=archive_label(endpoint),
+            phase="UNKNOWN",
+            submitted_at=submitted_at,
+        )
+    if phase == "ERROR":
+        raise DalQueryError(
+            message=job_error_message(job)
+            or "Async TAP job ended in ERROR (the archive gave no diagnostic)."
+        )
+    if phase == "ABORTED":
+        raise ValidationError(
+            message=(
+                "The async job was aborted before it completed; re-submit if you "
+                "still want results."
+            ),
+            retry_strategy="abandon",
+        )
+    return shape_promotion(
+        job_url=job_url,
+        archive=archive_label(endpoint),
+        phase=phase,
+        submitted_at=submitted_at,
+    )
+
+
 def _promote_async(*, endpoint: str, adql: str, maxrec: int) -> dict:
-    """Submit async and return a promotion envelope.
+    """Submit async, wait the default window, and return a promotion envelope.
 
     Raises ArchiveError if the async submission itself fails (so the caller
-    still gets a structured payload via wrap_tool_errors).
+    still gets a structured payload via wrap_tool_errors). Via
+    _settle_promotion, it also raises DalQueryError when the job ends in
+    ERROR inside the wait window, and ValidationError (retry_strategy=abandon)
+    when the job ends ABORTED inside the wait window.
 
     Nothing is recorded server-side: the returned job_url is the whole handle.
     """
     job_url = _get_tap().submit_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
-    return shape_promotion(
-        job_url=job_url,
-        archive=archive_label(endpoint),
-        phase="EXECUTING",
-        submitted_at=datetime.now(UTC),
-    )
+    return _settle_promotion(job_url=job_url, endpoint=endpoint, submitted_at=datetime.now(UTC))
 
 
 def _auto_promote(*, endpoint: str, adql: str, maxrec: int) -> dict:
     """Promote to async from the mode='auto' path (timeout or oversize).
 
     Wraps a submission failure in a friendlier archive_error so the LLM
-    gets a coherent retry signal rather than a raw submit error.
+    gets a coherent retry signal rather than a raw submit error. Only the
+    submit is wrapped; a failure while waiting on the job is handled by
+    _settle_promotion (phase=UNKNOWN, job_url kept).
     """
     try:
-        return _promote_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
+        job_url = _get_tap().submit_async(endpoint=endpoint, adql=adql, maxrec=maxrec)
     except ArchiveError as submit_err:
         raise ArchiveError(
             message=f"auto-promote submission failed: {submit_err.message}",
             retry_strategy="wait_and_retry",
         ) from submit_err
+    return _settle_promotion(job_url=job_url, endpoint=endpoint, submitted_at=datetime.now(UTC))
 
 
 @wrap_tool_errors
@@ -148,10 +233,11 @@ def run_adql_query(
         Field(
             description=(
                 "Execution mode. 'sync' = TAP /sync only (default Slice-A "
-                "behavior; times out as archive_error). 'async' = skip "
-                "sync, submit /async, return a promotion envelope with "
-                "job_url. 'auto' (default) = try sync first; on timeout, "
-                "transparently promote to async."
+                "behavior; times out as archive_error). 'async' = submit to "
+                "TAP /async, wait up to the server's default window, and "
+                "return a job_url (phase may already be COMPLETED). 'auto' "
+                "(default) = try sync first; on timeout, transparently "
+                "promote to async."
             ),
         ),
     ] = "auto",
@@ -183,10 +269,12 @@ def run_adql_query(
     mode='sync' with an oversize result does NOT auto-promote — it raises
     validation_error telling you to re-run with mode='async'.
 
-    For async results, poll get_async_job_status(job_url) until phase is
-    COMPLETED, then call get_async_job_results(job_url) — or fetch client-side
-    with the pyvo fetch_recipe carried on the promotion envelope. Pass the
-    job_url back verbatim; it is the job's only handle.
+    For async results the server has already waited its default window before
+    answering; if `phase` is COMPLETED go straight to get_async_job_results(job_url).
+    Otherwise call get_async_job_status(job_url) — it waits server-side too, so
+    one call usually suffices — then get_async_job_results(job_url), or fetch
+    client-side with the pyvo fetch_recipe carried on the promotion envelope.
+    Pass the job_url back verbatim; it is the job's only handle.
 
     Successful result envelopes also carry `query_fingerprint` and a
     `save_recipe` — after loading the result, execute save_recipe.code
@@ -257,6 +345,17 @@ _JOB_URL_FIELD = Field(
     examples=["https://almascience.eso.org/tap/async/1234567"],
 )
 
+_WAIT_SECONDS_FIELD = Field(
+    ge=0,
+    description=(
+        "Seconds the server waits for the job to reach a terminal phase before "
+        "answering. Omit for the server default; values are clamped to the server "
+        "maximum. 0 answers immediately. One call with a wait replaces a burst "
+        "of instant polls — do not call this tool in a tight loop."
+    ),
+    examples=[30],
+)
+
 
 def _endpoint_from_job_url(job_url: str) -> str:
     """Recover the TAP base endpoint from a UWS job URL.
@@ -269,28 +368,68 @@ def _endpoint_from_job_url(job_url: str) -> str:
     return job_url.split("/async/")[0] if "/async/" in job_url else job_url
 
 
-def _status_payload(*, job, job_url: str) -> dict:
+def _status_next_steps(
+    *, phase: str, waited_seconds: float, error_message: str | None
+) -> list[str]:
+    """One imperative line for the phase seen, written for the weakest reader."""
+    if phase == "COMPLETED":
+        return ["Call get_async_job_results(job_url) to get the result_url and a fetch_recipe."]
+    if phase == "ERROR":
+        detail = error_message or "the archive gave no diagnostic"
+        return [
+            f"The archive rejected the query: {detail}. Fix the ADQL and re-submit "
+            "with run_adql_query."
+        ]
+    if phase == "ABORTED":
+        return [
+            "This job was aborted and will not complete. Re-submit with "
+            "run_adql_query if you still want the result."
+        ]
+    max_wait = int(get_settings().async_wait_max_seconds)
+    return [
+        f"Still {phase} after waiting {waited_seconds:g} s. Call "
+        f"get_async_job_status(job_url, wait_seconds={max_wait}) again — pass the "
+        "same job_url; do not re-submit the query."
+    ]
+
+
+def _status_payload(*, job, job_url: str, phase: str, waited_seconds: float) -> dict:
     """Build the status response from a live AsyncTAPJob."""
-    error_message = job_error_message(job) if job.phase == "ERROR" else None
+    error_message = job_error_message(job) if phase == "ERROR" else None
 
     started = getattr(job, "starttime", None)
     ended = getattr(job, "endtime", None)
     return {
         "job_url": job_url,
-        "phase": job.phase,
+        "phase": phase,
         "started_at": started.isoformat() if started else None,
         "ended_at": ended.isoformat() if ended else None,
         "error_message": error_message,
         "archive": archive_label(job_url),
+        "waited_seconds": waited_seconds,
+        "next_steps": _status_next_steps(
+            phase=phase, waited_seconds=waited_seconds, error_message=error_message
+        ),
     }
 
 
 @wrap_tool_errors
-def get_async_job_status(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
-    """Fetch the live UWS phase for an async TAP job.
+def get_async_job_status(
+    job_url: Annotated[str, _JOB_URL_FIELD],
+    wait_seconds: Annotated[float | None, _WAIT_SECONDS_FIELD] = None,
+) -> dict:
+    """Wait (bounded) for an async TAP job, then report its live UWS phase.
 
-    Returns {job_url, phase, started_at, ended_at, error_message, archive}.
-    Phase is read live from the upstream service; no local caching.
+    The server blocks for up to `wait_seconds` — the server default when
+    omitted, clamped to the server maximum — re-reading the job every 2 s,
+    and answers as soon as the phase is terminal or the window expires. One
+    call with a wait replaces a burst of instant polls; `wait_seconds=0` is
+    an immediate read. Nothing is cached locally between calls.
+
+    Returns {job_url, phase, started_at, ended_at, error_message, archive,
+    waited_seconds, next_steps}. `next_steps` says what to do for the phase
+    seen — including to call this tool again with a longer wait when the job
+    is still running.
 
     Phases per UWS spec: PENDING, QUEUED, EXECUTING, COMPLETED, ERROR,
     ABORTED, ARCHIVED, HELD, SUSPENDED, UNKNOWN. The LLM branches on
@@ -300,8 +439,8 @@ def get_async_job_status(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     (retry_strategy=abandon) — re-submit rather than continuing to poll.
     """
     ensure_safe_url(job_url, param="job_url")
-    job = _get_tap().load_job(job_url)
-    return _status_payload(job=job, job_url=job_url)
+    job, phase, waited = _wait_for_phase(job_url, budget_s=_resolve_wait_budget(wait_seconds))
+    return _status_payload(job=job, job_url=job_url, phase=phase, waited_seconds=waited)
 
 
 get_async_job_status.__doc__ = (get_async_job_status.__doc__ or "") + _ERROR_DOCSTRING
@@ -327,7 +466,7 @@ def get_async_job_results(job_url: Annotated[str, _JOB_URL_FIELD]) -> dict:
     """
     ensure_safe_url(job_url, param="job_url")
     job = _get_tap().load_job(job_url)
-    phase = job.phase
+    phase = job_phase(job)
 
     if phase == "ERROR":
         msg = job_error_message(job)

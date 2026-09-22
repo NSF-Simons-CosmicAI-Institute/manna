@@ -184,6 +184,12 @@ async def _main(args: argparse.Namespace) -> int:
     cfg = ModelConfig.from_env()
     judge = judge_from_env()
     tasks = load_tasks(TASKS_PATH)
+    if args.task:
+        wanted = set(args.task)
+        unknown = wanted - {t["id"] for t in tasks}
+        if unknown:
+            raise SystemExit(f"unknown task id(s): {', '.join(sorted(unknown))}")
+        tasks = [t for t in tasks if t["id"] in wanted]
 
     from evals.score import partition_by_archive, print_skipped
 
@@ -270,6 +276,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="MCP-quality approach comparison + diff.")
     p.add_argument("--n", type=int, default=1, help="reps per (approach, task)")
     p.add_argument("--arm", action="append", choices=ARMS, help="restrict approaches; repeatable")
+    p.add_argument("--task", action="append", help="restrict to these task ids; repeatable")
     p.add_argument("--concurrency", type=int, default=2)
     p.add_argument(
         "--baseline", help="results JSON to diff against (default: mcp-quality-baseline.json)"

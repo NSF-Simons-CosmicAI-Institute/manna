@@ -15,6 +15,8 @@ of truth is `src/manna/config.py`.
 | `MANNA_TAP_SYNC_TIMEOUT_SECONDS` | `20.0` | Client timeout for a TAP `/sync` request; in `mode="auto"` a timeout promotes the query to an async job |
 | `MANNA_COUNT_ASYNC_BUDGET_SECONDS` | `15.0` | `count_observations_near_target`: how long to poll an async count job before returning a pending envelope with the `job_url` |
 | `MANNA_COUNT_ASYNC_POLL_INTERVAL_SECONDS` | `1.0` | Interval between those polls |
+| `MANNA_ASYNC_WAIT_SECONDS` | `20.0` | How long `get_async_job_status` waits server-side for a terminal phase when the call omits `wait_seconds`; also the wait after an async submission in `run_adql_query` before the promotion envelope is returned |
+| `MANNA_ASYNC_WAIT_MAX_SECONDS` | `30.0` | Ceiling applied to any caller-supplied `wait_seconds`. Keep it under the MCP client's per-call timeout (60 s in the MCP SDKs) |
 | `MANNA_INLINE_ROW_LIMIT` | `200` | Max rows returned inline before a TAP result is promoted to async or a cone/SIA result is truncated |
 | `MANNA_INLINE_BYTE_LIMIT` | `49152` | Same, in bytes of the serialized envelope (48 KiB) |
 | `MANNA_REGISTRY_DESCRIBE_BYTE_LIMIT` | `49152` | Above this, `describe_ivoa_service` degrades from per-column detail to a table catalog (names, descriptions, column counts) |

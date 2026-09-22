@@ -18,6 +18,16 @@ The client-side fetch round-trip (both recipe paths) was verified live
 against GAVO, ALMA, and NOIRLab Data Lab during development; pyvo owns the
 fetch itself, so this test guards only the server contract.
 
+run_adql_query's async promotion now waits (server-side) for the job before
+answering, so the recorded lifecycle needs enough GETs of the job URL for
+BOTH that wait and this test's own explicit get_async_job_status /
+get_async_job_results calls — each pyvo AsyncTAPJob read re-fetches the job
+(construction, then another GET on `.phase` or `.query` access), so a single
+logical "read the job" costs more than one recorded HTTP interaction. The
+`wait_clock` fixture (tests/conftest.py, autouse) fakes the sleep between
+polls, including during recording, so a recording session hits the live
+archive rapidly rather than actually sleeping.
+
 Re-record with:  uv run pytest --record-mode=once -k async_result_url_live
 """
 
@@ -46,11 +56,12 @@ async def test_async_results_return_result_url_and_recipe(mcp_server, case):
         prom = promotion.structured_content
         assert prom["mode"] == "async"
         job_url = prom["job_url"]
-        job_url = prom["job_url"]
         assert "/async/" in job_url
         assert job_url in prom["fetch_recipe"]["code"]
 
-        # 2) Poll status — GAVO completes instantly.
+        # 2) GAVO/ALMA complete instantly, so the server's own promotion wait
+        # has already carried the job to COMPLETED by the time this status
+        # call runs — replayed against the real recorded UWS XML.
         status = await client.call_tool("get_async_job_status", {"job_url": job_url})
         assert status.structured_content["phase"] == "COMPLETED"
 
