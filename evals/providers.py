@@ -15,10 +15,12 @@ server's shaping/async/error-taxonomy — that curation is exactly what's under 
 from __future__ import annotations
 
 import math
+from dataclasses import asdict
 from typing import Any
 
 from fastmcp import Client
 
+from evals._pyexec import EXECUTE_PYTHON_TOOL, PythonSession
 from evals.harness import _anthropic_tools, _result_payload
 from manna.app import build_mcp
 
@@ -66,14 +68,22 @@ class ToolProvider:
 
 
 class MCPToolProvider(ToolProvider):
-    """The full MANNA server — the 'mcp' approach (arm='mcp')."""
+    """The full MANNA server — the 'mcp' approach (arm='mcp').
+
+    Also serves ``execute_python`` (harness-side, see _pyexec.py) so the model can run
+    the recipes MANNA hands it, as a Jupyter or Claude Code client would.
+    """
 
     label = "mcp"
 
-    def __init__(self, *, inject_notes: bool = True, no_discovery: bool = False):
+    def __init__(
+        self, *, inject_notes: bool = True, no_discovery: bool = False, exec_tool: bool = True
+    ):
         self._inject_notes = inject_notes
         self._no_discovery = no_discovery
+        self._exec_tool = exec_tool
         self._client: Client | None = None
+        self._session: PythonSession | None = None
 
     async def __aenter__(self) -> MCPToolProvider:
         self._client = Client(build_mcp())
@@ -83,14 +93,25 @@ class MCPToolProvider(ToolProvider):
             inject_notes=self._inject_notes,
             no_discovery=self._no_discovery,
         )
+        if self._exec_tool:
+            self._session = PythonSession()
+            await self._session.start()
+            self.tools = [*self.tools, EXECUTE_PYTHON_TOOL]
         return self
 
     async def __aexit__(self, *exc) -> bool:
+        if self._session is not None:
+            await self._session.close()
+            self._session = None
         if self._client is not None:
             await self._client.__aexit__(*exc)
         return False
 
     async def call(self, name: str, args: dict[str, Any]) -> tuple[Any, bool]:
+        if name == "execute_python":
+            assert self._session is not None, "execute_python called with exec_tool=False"
+            res = await self._session.run(str(args.get("code", "")))
+            return asdict(res), res.error is not None
         assert self._client is not None
         result = await self._client.call_tool(name, args, raise_on_error=False)
         return _result_payload(result)
@@ -184,10 +205,12 @@ class RawWebToolProvider(ToolProvider):
 
 
 def make_provider(
-    arm: str, *, inject_notes: bool = True, no_discovery: bool = False
+    arm: str, *, inject_notes: bool = True, no_discovery: bool = False, exec_tool: bool = True
 ) -> ToolProvider:
     if arm == "mcp":
-        return MCPToolProvider(inject_notes=inject_notes, no_discovery=no_discovery)
+        return MCPToolProvider(
+            inject_notes=inject_notes, no_discovery=no_discovery, exec_tool=exec_tool
+        )
     if arm == "raw_tap":
         return RawTapToolProvider()
     if arm == "raw_web":
