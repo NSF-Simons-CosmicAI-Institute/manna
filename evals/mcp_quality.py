@@ -80,7 +80,15 @@ def _aggregate(runs: list[TaskRun], accs: list[bool | None]) -> dict[str, Any]:
         "mean_input_tokens": round(mean([r.input_tokens for r in ok])),
         "mean_output_tokens": round(mean([r.output_tokens for r in ok])),
         "mean_latency_s": round(mean([r.latency_s for r in ok]), 1),
-        "tool_error_calls": sum(c.is_error for r in runs for c in r.trace),
+        # execute_python is a harness-side tool (see _pyexec.py), not one of MANNA's — a
+        # model bug in generated Python isn't a server-curation failure, so it's tallied
+        # separately from tool_error_calls (where server failures concentrate).
+        "tool_error_calls": sum(
+            c.is_error for r in runs for c in r.trace if c.tool != "execute_python"
+        ),
+        "exec_error_calls": sum(
+            c.is_error for r in runs for c in r.trace if c.tool == "execute_python"
+        ),
     }
 
 
@@ -93,6 +101,7 @@ _COLS = [
     ("mean_output_tokens", "out-tok"),
     ("mean_latency_s", "lat(s)"),
     ("tool_error_calls", "tool-err"),
+    ("exec_error_calls", "exec-err"),
 ]
 
 
@@ -149,7 +158,12 @@ def _print_breakdown(bd: dict[str, dict[str, list[int]]]) -> None:
 
 
 def _print_diff(
-    cur: dict[str, dict], cur_version: str, base: dict, arms: list[str], cur_tasks: list[str]
+    cur: dict[str, dict],
+    cur_version: str,
+    base: dict,
+    arms: list[str],
+    cur_tasks: list[str],
+    exec_tool: bool,
 ) -> None:
     base_arms = base.get("per_arm", {})
     print(
@@ -161,6 +175,13 @@ def _print_diff(
         print(
             f"  ⚠ task suite CHANGED since baseline ({len(base_tasks)} → {len(cur_tasks)} "
             "tasks) — metrics are NOT directly comparable; re-baseline with --set-baseline."
+        )
+    base_exec = bool(base.get("mcp_exec", False))
+    if base_exec != exec_tool:
+        print(
+            "  ⚠ mcp arm exec_tool differs from baseline "
+            f"(baseline={'on' if base_exec else 'off'}, this run={'on' if exec_tool else 'off'}) "
+            "— mcp metrics are not directly comparable; re-cut the baseline with --set-baseline"
         )
     for arm in arms:
         if arm not in base_arms:
@@ -199,14 +220,17 @@ async def _main(args: argparse.Namespace) -> int:
     arms = args.arm or ARMS
     version = _server_version()
     print(f"Model: {cfg.label}  |  server: {version}  |  judge: {judge.label if judge else 'none'}")
-    print(f"arms: {', '.join(arms)}  |  N={args.n}  |  {len(tasks)} tasks\n")
+    print(
+        f"arms: {', '.join(arms)}  |  N={args.n}  |  {len(tasks)} tasks  |  "
+        f"exec: {'on' if args.exec_tool else 'off'}\n"
+    )
 
     sem = asyncio.Semaphore(args.concurrency)
 
     async def one(arm: str, task: dict[str, Any]) -> tuple[str, TaskRun, bool | None]:
         async with sem:
             try:
-                run = await run_task(task, cfg, "full", arm=arm)
+                run = await run_task(task, cfg, "full", arm=arm, exec_tool=args.exec_tool)
             except Exception as exc:
                 run = TaskRun(task["id"], task["tier"], "full", cfg.label, arm=arm)
                 run.error = f"{type(exc).__name__}: {exc}"
@@ -242,7 +266,12 @@ async def _main(args: argparse.Namespace) -> int:
     baseline_path = Path(args.baseline) if args.baseline else BASELINE_PATH
     if baseline_path.exists():
         _print_diff(
-            per_arm, version, json.loads(baseline_path.read_text()), arms, [t["id"] for t in tasks]
+            per_arm,
+            version,
+            json.loads(baseline_path.read_text()),
+            arms,
+            [t["id"] for t in tasks],
+            args.exec_tool,
         )
     elif not args.set_baseline:
         print(f"\n(no baseline at {baseline_path.name}; run --set-baseline to record one)")
@@ -250,6 +279,7 @@ async def _main(args: argparse.Namespace) -> int:
     record = {
         "server_version": version,
         "model": cfg.label,
+        "mcp_exec": args.exec_tool,
         "timestamp": time.strftime("%Y%m%dT%H%M%S"),
         "per_arm": {a: per_arm[a] for a in arms},
         "task_ids": [t["id"] for t in tasks],
@@ -277,6 +307,12 @@ def main() -> int:
     p.add_argument("--n", type=int, default=1, help="reps per (approach, task)")
     p.add_argument("--arm", action="append", choices=ARMS, help="restrict approaches; repeatable")
     p.add_argument("--task", action="append", help="restrict to these task ids; repeatable")
+    p.add_argument(
+        "--no-exec",
+        dest="exec_tool",
+        action="store_false",
+        help="withhold the harness-side execute_python tool from the mcp arm (pre-2026-09-22 behaviour)",
+    )
     p.add_argument("--concurrency", type=int, default=2)
     p.add_argument(
         "--baseline", help="results JSON to diff against (default: mcp-quality-baseline.json)"

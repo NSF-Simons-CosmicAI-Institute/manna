@@ -339,6 +339,7 @@ async def run_task(
     inject_notes: bool = True,
     no_discovery: bool = False,
     arm: str = "mcp",
+    exec_tool: bool = True,
 ) -> TaskRun:
     """Run one task end-to-end under the given context condition and tool approach.
 
@@ -346,6 +347,8 @@ async def run_task(
     (the MCP-quality no-curation baselines). inject_notes/no_discovery apply to 'mcp'.
     inject_notes defaults True to mirror production; False strips the server's
     cheatsheet of up-front notes back off.
+    exec_tool (mcp only) serves the harness-side execute_python tool; False reproduces
+    pre-2026-09-22 runs.
     """
     from evals.model_backends import make_backend
     from evals.providers import make_provider
@@ -363,7 +366,9 @@ async def run_task(
     max_steps, poll_sleep = _max_steps(), _poll_sleep()
     try:
         with ctx():
-            provider = make_provider(arm, inject_notes=inject_notes, no_discovery=no_discovery)
+            provider = make_provider(
+                arm, inject_notes=inject_notes, no_discovery=no_discovery, exec_tool=exec_tool
+            )
             async with provider, make_backend(cfg) as model:
                 tools = provider.tools
                 # Neutral conversation the backend translates to its own wire format.
