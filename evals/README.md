@@ -83,6 +83,7 @@ cp evals/.env.example evals/.env    # then edit evals/.env
 | `EVAL_MODEL_THINKING` (+ `EVAL_JUDGE_THINKING`) | Messages API `thinking.type` to send (`adaptive`); unset omits the parameter. Sonnet 5 thinks by default, Opus 4.8 does not, Haiku 4.5 rejects `adaptive`, so set it per model |
 | `EVAL_JUDGE_NAME` / `_API_KEY` (+ `_BASE_URL` / `_CUSTOM_HEADERS`) | the rubric **judge** |
 | `EVAL_MAX_STEPS` / `EVAL_ASYNC_POLL_SLEEP` | optional run knobs |
+| `EVAL_EXEC_TIMEOUT` | per-call time limit (seconds) for the mcp arm's `execute_python` tool; default 120 |
 
 The judge config is **independent** of the model-under-test (it does *not* inherit the
 proxy `ANTHROPIC_*`/`EVAL_MODEL_*` vars), so a **hosted Claude Haiku** judge (`EVAL_JUDGE_NAME=claude-haiku-4-5-20251001`
@@ -160,6 +161,14 @@ uv run python -m evals.mcp_quality --set-baseline  # record results/mcp-quality-
 > error-as-payload results (`error_class` present), which the `mcp` approach
 > previously could never register. Re-record baselines (`--set-baseline`)
 > before trusting version-over-version diffs that span this change.
+
+The `mcp` approach also carries a harness-side `execute_python` tool (persistent
+per-task Python, so models can run the `fetch_recipe` / `load_recipe` / `save_recipe`
+snippets MANNA hands them, the same as a Jupyter or Claude Code client would).
+`--no-exec` withholds it to reproduce earlier runs, and results record `mcp_exec`
+(`true`/`false`) so a diff can tell the two apart — existing baselines predate this
+tool and are effectively exec-off; re-cut them with `--set-baseline` before trusting
+a version-over-version diff against the `mcp` arm.
 
 **2 — model × harness matrix** (`model_backends.py`, `personas.py`, `persona_run.py`,
 `scorecard.py`): how well do different **models** and **harnesses** work with the server?

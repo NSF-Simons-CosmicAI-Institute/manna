@@ -84,6 +84,7 @@ async def test_timeout_kills_and_restarts_the_session():
 
 @pytest.mark.asyncio
 async def test_timeout_default_and_env_override(monkeypatch):
+    monkeypatch.delenv("EVAL_EXEC_TIMEOUT", raising=False)
     assert PythonSession().timeout_s == DEFAULT_TIMEOUT_S == 120.0
     monkeypatch.setenv("EVAL_EXEC_TIMEOUT", "7.5")
     assert PythonSession().timeout_s == 7.5
@@ -157,6 +158,31 @@ async def test_corrupted_reply_line_restarts_the_session(monkeypatch):
         assert (await s.run("print(3)")).stdout == "3\n"
     finally:
         await s.close()
+
+
+@pytest.mark.asyncio
+async def test_huge_stdout_is_capped_in_the_child_and_session_stays_in_sync(session):
+    """A snippet that prints well past asyncio's 64 KiB readline default must not
+    escape run() as a ValueError or desync the reply stream."""
+    res = await session.run("print('a' * 200_000 + 'END')")
+    assert res.error is None
+    assert res.restarted is False
+    assert len(res.stdout) <= OUTPUT_CAP_CHARS + 60
+    assert res.stdout.rstrip().endswith("END")
+    again = await session.run("print(1)")
+    assert again.stdout == "1\n"
+    assert again.restarted is False
+
+
+@pytest.mark.asyncio
+async def test_huge_error_is_capped_in_the_child(session):
+    res = await session.run("raise ValueError('x' * 100_000)")
+    assert res.error is not None
+    assert "ValueError" in res.error
+    assert len(res.error) <= 8100
+    assert res.restarted is False
+    again = await session.run("print(2)")
+    assert again.stdout == "2\n"
 
 
 @pytest.mark.asyncio

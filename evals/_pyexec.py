@@ -35,12 +35,45 @@ DEFAULT_TIMEOUT_S = 120.0
 # request loop we dup the original fd 1 to a private `reply` handle used only for
 # JSON replies, then repoint fd 1 at /dev/null so any fd-level write is discarded.
 # Python-level print() is still captured by redirect_stdout during exec.
-REPL_SOURCE = r"""
+#
+# The reply is capped IN THE CHILD, not the parent: asyncio's StreamReader.readline()
+# has a 64 KiB default buffer, and a snippet that prints past it raises ValueError out
+# of the parent's run() and leaves the pipe mid-line, desyncing later replies. Bounding
+# stdout/stderr/error here means the JSON line the parent reads is never the cause of
+# that — the parent's oversize handling (see PythonSession.run) is then only a
+# defense-in-depth net for a genuinely corrupted line.
+REPL_SOURCE = rf"""
 import io, json, os, sys, traceback
 from contextlib import redirect_stderr, redirect_stdout
+
+CAP = {OUTPUT_CAP_CHARS}
+
+
+def _cap(s):
+    if len(s) <= CAP:
+        return s
+    omitted = len(s) - CAP
+    return "... [truncated: " + str(omitted) + " chars omitted]\n" + s[-CAP:]
+
+
+def _error_tail(tb, lines=20):
+    if not tb:
+        return None
+    tb = "\n".join(tb.rstrip().splitlines()[-lines:])
+    if len(tb) <= CAP:
+        return tb
+    # Head-keep, not tail-keep like _cap: the exception type/frames are what a
+    # caller needs, and they live at the front — a huge single-line message (e.g.
+    # a giant repr) would otherwise push the useful part off the end.
+    omitted = len(tb) - CAP
+    return tb[:CAP] + "\n... [truncated: " + str(omitted) + " chars omitted]"
+
+
 reply = os.fdopen(os.dup(1), "w")
-os.dup2(os.open(os.devnull, os.O_WRONLY), 1)
-ns = {"__name__": "__main__"}
+fd = os.open(os.devnull, os.O_WRONLY)
+os.dup2(fd, 1)
+os.close(fd)
+ns = {{"__name__": "__main__"}}
 for line in sys.stdin:
     req = json.loads(line)
     out, err, error = io.StringIO(), io.StringIO(), None
@@ -49,31 +82,41 @@ for line in sys.stdin:
             exec(compile(req["code"], "<execute_python>", "exec"), ns)
         except BaseException:
             error = traceback.format_exc()
-    reply.write(json.dumps({"stdout": out.getvalue(), "stderr": err.getvalue(), "error": error}) + "\n")
+    reply.write(json.dumps({{
+        "stdout": _cap(out.getvalue()),
+        "stderr": _cap(err.getvalue()),
+        "error": _error_tail(error),
+    }}) + "\n")
     reply.flush()
 """
 
-EXECUTE_PYTHON_TOOL: dict = {
-    "name": "execute_python",
-    "description": (
-        "Run Python in a persistent session for this task — variables survive between "
-        "calls, like notebook cells. Use it to execute the fetch_recipe / load_recipe / "
-        "save_recipe code carried on tool results, and to inspect the resulting `table`. "
-        "pyvo and astropy are importable. Only printed output is returned, so print what "
-        "you need to see. Each call has a time limit (120 s by default); a call that "
-        "exceeds it is killed and the session restarts with its variables lost."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "code": {
-                "type": "string",
-                "description": "Python source to run in the persistent session.",
-            }
+
+def execute_python_tool(timeout_s: float) -> dict:
+    """Build the ``execute_python`` tool schema, naming the live per-call timeout."""
+    return {
+        "name": "execute_python",
+        "description": (
+            "Run Python in a persistent session for this task — variables survive between "
+            "calls, like notebook cells. Use it to execute the fetch_recipe / load_recipe / "
+            "save_recipe code carried on tool results, and to inspect the resulting `table`. "
+            "pyvo and astropy are importable. Only printed output is returned, so print what "
+            f"you need to see. Each call has a time limit ({timeout_s:g} s); a call that "
+            "exceeds it is killed and the session restarts with its variables lost."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "Python source to run in the persistent session.",
+                }
+            },
+            "required": ["code"],
         },
-        "required": ["code"],
-    },
-}
+    }
+
+
+EXECUTE_PYTHON_TOOL: dict = execute_python_tool(DEFAULT_TIMEOUT_S)
 
 
 def _timeout_s() -> float:
@@ -81,6 +124,7 @@ def _timeout_s() -> float:
 
 
 def _cap(text: str) -> str:
+    """No-op safety net: the child already caps this field before it crosses the pipe."""
     if len(text) <= OUTPUT_CAP_CHARS:
         return text
     omitted = len(text) - OUTPUT_CAP_CHARS
@@ -88,6 +132,7 @@ def _cap(text: str) -> str:
 
 
 def _error_tail(tb: str | None, lines: int = 20) -> str | None:
+    """No-op safety net: the child already tails this field before it crosses the pipe."""
     if not tb:
         return None
     return "\n".join(tb.rstrip().splitlines()[-lines:])
@@ -127,6 +172,7 @@ class PythonSession:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
             cwd=self.cwd,
+            limit=1024 * 1024,
         )
 
     async def run(self, code: str) -> ExecResult:
@@ -148,6 +194,19 @@ class PythonSession:
             )
         except (BrokenPipeError, ConnectionResetError):
             line = b""
+        except ValueError:
+            # asyncio.StreamReader.readline() catches its internal LimitOverrunError
+            # (a reply line past the stream's buffer limit) and re-raises it as
+            # ValueError. The child caps every field before it writes a reply, so this
+            # is a defense-in-depth net, not the primary guard.
+            await self._restart()
+            return ExecResult(
+                "",
+                "",
+                "session output was corrupted; session restarted, variables lost",
+                round(time.monotonic() - t0, 1),
+                restarted=True,
+            )
         if not line:
             await self._restart()
             return ExecResult(
@@ -159,7 +218,7 @@ class PythonSession:
             )
         try:
             reply = json.loads(line)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             await self._restart()
             return ExecResult(
                 "",

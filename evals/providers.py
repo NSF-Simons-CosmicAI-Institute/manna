@@ -20,7 +20,7 @@ from typing import Any
 
 from fastmcp import Client
 
-from evals._pyexec import EXECUTE_PYTHON_TOOL, PythonSession
+from evals._pyexec import PythonSession, execute_python_tool
 from evals.harness import _anthropic_tools, _result_payload
 from manna.app import build_mcp
 
@@ -71,7 +71,10 @@ class MCPToolProvider(ToolProvider):
     """The full MANNA server — the 'mcp' approach (arm='mcp').
 
     Also serves ``execute_python`` (harness-side, see _pyexec.py) so the model can run
-    the recipes MANNA hands it, as a Jupyter or Claude Code client would.
+    the recipes MANNA hands it, as a Jupyter or Claude Code client would. A failing
+    execute_python call is reported to the model as a tool error like any other, but
+    tallied separately from server tool errors in mcp_quality.py's metrics — it is
+    model/generated-code failure, not a signal about the server's curation.
     """
 
     label = "mcp"
@@ -88,28 +91,35 @@ class MCPToolProvider(ToolProvider):
     async def __aenter__(self) -> MCPToolProvider:
         self._client = Client(build_mcp())
         await self._client.__aenter__()
-        self.tools = _anthropic_tools(
-            await self._client.list_tools(),
-            inject_notes=self._inject_notes,
-            no_discovery=self._no_discovery,
-        )
-        if self._exec_tool:
-            self._session = PythonSession()
-            await self._session.start()
-            self.tools = [*self.tools, EXECUTE_PYTHON_TOOL]
+        try:
+            self.tools = _anthropic_tools(
+                await self._client.list_tools(),
+                inject_notes=self._inject_notes,
+                no_discovery=self._no_discovery,
+            )
+            if self._exec_tool:
+                self._session = PythonSession()
+                await self._session.start()
+                self.tools = [*self.tools, execute_python_tool(self._session.timeout_s)]
+        except BaseException:
+            await self._client.__aexit__(None, None, None)
+            raise
         return self
 
     async def __aexit__(self, *exc) -> bool:
-        if self._session is not None:
-            await self._session.close()
-            self._session = None
-        if self._client is not None:
-            await self._client.__aexit__(*exc)
+        try:
+            if self._session is not None:
+                await self._session.close()
+                self._session = None
+        finally:
+            if self._client is not None:
+                await self._client.__aexit__(*exc)
         return False
 
     async def call(self, name: str, args: dict[str, Any]) -> tuple[Any, bool]:
         if name == "execute_python":
-            assert self._session is not None, "execute_python called with exec_tool=False"
+            if self._session is None:
+                return {"error": "execute_python is not available in this run"}, True
             res = await self._session.run(str(args.get("code", "")))
             return asdict(res), res.error is not None
         assert self._client is not None

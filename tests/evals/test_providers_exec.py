@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
+from fastmcp import Client
 
 from evals.providers import (
     MCPToolProvider,
@@ -59,7 +62,6 @@ async def test_session_is_closed_on_exit():
     async with p:
         cwd = p._session.cwd
         assert cwd is not None
-    import os
 
     assert not os.path.exists(cwd)
     assert p._session is None
@@ -76,3 +78,44 @@ def test_make_provider_passes_exec_tool_through():
     assert make_provider("mcp", exec_tool=False)._exec_tool is False
     assert make_provider("mcp")._exec_tool is True
     assert not hasattr(make_provider("raw_tap"), "_exec_tool")
+
+
+@pytest.mark.asyncio
+async def test_no_exec_hallucinated_call_returns_error_not_assert():
+    async with MCPToolProvider(exec_tool=False) as p:
+        payload, is_error = await p.call("execute_python", {"code": "print(1)"})
+    assert is_error is True
+    assert payload == {"error": "execute_python is not available in this run"}
+
+
+@pytest.mark.asyncio
+async def test_tool_description_names_the_configured_timeout(monkeypatch):
+    monkeypatch.setenv("EVAL_EXEC_TIMEOUT", "7")
+    async with MCPToolProvider() as p:
+        desc = next(t for t in p.tools if t["name"] == "execute_python")["description"]
+    assert "7 s" in desc
+
+
+@pytest.mark.asyncio
+async def test_failed_session_start_exits_the_mcp_client(monkeypatch):
+    from evals._pyexec import PythonSession
+
+    async def _boom(self):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(PythonSession, "start", _boom)
+
+    exited = {"called": False}
+    real_aexit = Client.__aexit__
+
+    async def spy_aexit(self, *exc):
+        exited["called"] = True
+        return await real_aexit(self, *exc)
+
+    monkeypatch.setattr(Client, "__aexit__", spy_aexit)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        async with MCPToolProvider():
+            pass
+
+    assert exited["called"] is True
