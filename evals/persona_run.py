@@ -84,6 +84,12 @@ def _same_model_persona(base_label: str) -> tuple[dict[str, str], str, str]:
 
 async def _main(args: argparse.Namespace) -> int:
     tasks = load_tasks(TASKS_PATH)
+    from evals.score import partition_by_archive, print_skipped
+
+    # Same paused-archive skip as mcp_quality, so the two harnesses run the same task set.
+    tasks, skipped = partition_by_archive(tasks)
+    if skipped:
+        print_skipped(skipped)
     if args.limit:
         tasks = tasks[: args.limit]
     judge = judge_from_env()
@@ -176,6 +182,7 @@ async def _main(args: argparse.Namespace) -> int:
             "system_prompt": args.system_prompt,
             "summary": summary,
             "runs": [r.to_dict() for r in runs],
+            "skipped": [t["id"] for t, _ in skipped],
         },
         prefix=f"persona-{args.persona}",
     )
