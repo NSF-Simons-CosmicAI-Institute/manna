@@ -23,8 +23,9 @@ from pathlib import Path
 import httpx
 
 from evals._common import is_manna_tool, judge_from_env, write_results
-from evals.mcp_quality import _accuracy
-from evals.personas import PersonaConfig, make_persona
+from evals.harness import _max_steps
+from evals.mcp_quality import _accuracy, _server_version
+from evals.personas import PersonaConfig, _default_timeout_s, make_persona
 from evals.score import load_tasks, score_task
 
 TASKS_PATH = Path(__file__).with_name("mcp_quality_tasks.yaml")
@@ -90,15 +91,27 @@ async def _main(args: argparse.Namespace) -> int:
     p_env, p_model, p_label = {}, args.model, args.persona
     if args.same_model:
         p_env, p_model, p_label = _same_model_persona(args.persona)
+    timeout_s = args.timeout if args.timeout is not None else _default_timeout_s()
+    max_turns = args.max_turns if args.max_turns is not None else _max_steps()
     persona = make_persona(
-        base_name, PersonaConfig(label=p_label, model=p_model, env=p_env, cwd=_SCRATCH)
+        base_name,
+        PersonaConfig(
+            label=p_label,
+            model=p_model,
+            env=p_env,
+            cwd=_SCRATCH,
+            isolate=args.isolate,
+            timeout_s=timeout_s,
+            max_turns=max_turns,
+        ),
     )
     args.persona = p_label
     mcp_url = f"http://127.0.0.1:{args.port}/mcp/"
 
     print(
         f"persona: {args.persona}  |  judge: {judge.label if judge else 'none'}  |  "
-        f"{len(tasks)} tasks  |  booting MCP server on :{args.port} …"
+        f"isolate: {'on' if args.isolate else 'off'}  |  timeout: {timeout_s:g}s  |  "
+        f"max_turns: {max_turns}  |  {len(tasks)} tasks  |  booting MCP server on :{args.port} …"
     )
     server = await _serve(args.port)
     runs, accs = [], []
@@ -140,14 +153,27 @@ async def _main(args: argparse.Namespace) -> int:
         "tool_use_rate": round(sum(_used_mcp(r) for r in runs) / len(runs), 3),
         "mean_mcp_calls": mean([sum(is_manna_tool(c.tool) for c in r.trace) for r in runs]),
         "mean_turns": mean([r.steps for r in runs]),
+        "mean_input_tokens": mean([r.input_tokens for r in ok]),
         "mean_output_tokens": mean([r.output_tokens for r in ok]),
+        "total_cost_usd": round(sum(r.cost_usd or 0 for r in runs), 4),
+        "mean_cost_usd": mean([r.cost_usd for r in runs if r.cost_usd is not None]),
         "mean_latency_s": mean([r.latency_s for r in ok]),
     }
     for k, v in summary.items():
         print(f"  {k:20s} {v}")
 
+    model_used = next((r.persona_model for r in runs if r.persona_model), None)
     out = write_results(
-        {"persona": args.persona, "summary": summary, "runs": [r.to_dict() for r in runs]},
+        {
+            "persona": args.persona,
+            "model": model_used,
+            "server_version": _server_version(),
+            "isolated": args.isolate,
+            "max_turns": max_turns,
+            "timeout_s": timeout_s,
+            "summary": summary,
+            "runs": [r.to_dict() for r in runs],
+        },
         prefix=f"persona-{args.persona}",
     )
     print(f"\nWrote {out}")
@@ -176,6 +202,25 @@ def main() -> int:
     )
     p.add_argument(
         "--limit", type=int, default=None, help="run only the first N tasks (cost control)"
+    )
+    p.add_argument(
+        "--no-isolate",
+        dest="isolate",
+        action="store_false",
+        help="keep the developer's global hooks/plugins/settings active inside the persona "
+        "(default: isolated)",
+    )
+    p.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="wall-clock cap per task, in seconds (default: EVAL_PERSONA_TIMEOUT env, or 600)",
+    )
+    p.add_argument(
+        "--max-turns",
+        type=int,
+        default=None,
+        help="--max-turns cap passed to the persona (default: EVAL_MAX_STEPS env, or 20)",
     )
     p.add_argument("--port", type=int, default=8127)
     p.add_argument("--concurrency", type=int, default=2)

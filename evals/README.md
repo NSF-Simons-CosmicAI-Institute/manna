@@ -183,6 +183,14 @@ uv run python -m evals.persona_run --same-model --limit 3  # persona at the same
 uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/persona-*.json
 ```
 
+The persona run is isolated from your own Claude Code plugins/hooks/session by default
+(`--setting-sources ""` + `--no-session-persistence`); pass `--no-isolate` to keep them active.
+Each task is capped by a wall-clock timeout (`--timeout` / `EVAL_PERSONA_TIMEOUT`, default 600s)
+and a turn budget (`--max-turns` / `EVAL_MAX_STEPS`, default 20, matching the custom loop) so a
+run never hangs. Results carry `cost_usd` and `persona_model` (from the transcript's `result`
+event) plus `server_version` (the MANNA git SHA under test); `input_tokens` is the full context
+size including cache reads/writes, so it's comparable to the custom loop's `input_tokens`.
+
 **3 — archive note regression** (`audit.py`): keep the archive notes honest. **Model-free** — one
 live ADQL probe per each probeable `Note` audit, keyed to `archives/<archive>.py ::
 <note_id>`, reporting STILL-TRUE / STALE / ENDPT-DEAD / UNREACHABLE. Notes whose claims

@@ -20,10 +20,14 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from evals.harness import TaskRun, ToolCall
+from evals.harness import TaskRun, ToolCall, _max_steps
 
 _MCP_SERVER_NAME = "manna"
 _MCP_PREFIX = f"mcp__{_MCP_SERVER_NAME}__"
+
+
+def _default_timeout_s() -> float:
+    return float(os.getenv("EVAL_PERSONA_TIMEOUT", "600"))
 
 
 @dataclass
@@ -32,6 +36,13 @@ class PersonaConfig:
     model: str | None = None  # --model override (else the persona's default)
     env: dict[str, str] = field(default_factory=dict)  # extra env (e.g. point at a different model)
     cwd: str | None = None  # neutral working dir so it doesn't inherit a repo's CLAUDE.md
+    # Isolate the persona from the developer's global plugins/hooks/settings (default: on).
+    isolate: bool = True
+    # Wall-clock cap on one run; None -> EVAL_PERSONA_TIMEOUT env (default 600s), resolved in run().
+    timeout_s: float | None = None
+    # --max-turns cap; None -> EVAL_MAX_STEPS (harness._max_steps()), resolved in run() for
+    # parity with the custom loop.
+    max_turns: int | None = None
 
 
 class Persona(Protocol):
@@ -83,8 +94,17 @@ def _parse_stream_json(task: dict[str, Any], stdout: str, label: str) -> TaskRun
             run.steps = e.get("num_turns") or 0
             run.latency_s = (e.get("duration_ms") or 0) / 1000
             u = e.get("usage") or {}
-            run.input_tokens = u.get("input_tokens", 0)
+            # Claude Code reports uncached input separately from cache reads/writes; the
+            # custom loop's input_tokens is total context, so summing here makes them comparable.
+            run.input_tokens = (
+                u.get("input_tokens", 0)
+                + u.get("cache_creation_input_tokens", 0)
+                + u.get("cache_read_input_tokens", 0)
+            )
             run.output_tokens = u.get("output_tokens", 0)
+            run.cost_usd = e.get("total_cost_usd")
+            mu = e.get("modelUsage") or {}
+            run.persona_model = next(iter(mu), None)  # keyed by model id, e.g. claude-opus-4-8
             if e.get("is_error"):
                 run.error = f"persona result is_error (stop_reason={e.get('stop_reason')})"
 
@@ -123,8 +143,16 @@ class ClaudeCodePersona:
             "--strict-mcp-config",
             "--dangerously-skip-permissions",
         ]
+        if self.cfg.isolate:
+            # Verified on 2.1.259: --setting-sources "" stops the developer's global plugin
+            # SessionStart hooks from running inside the persona; --no-session-persistence
+            # stops each run writing a transcript under ~/.claude/projects/.
+            cmd += ["--setting-sources", "", "--no-session-persistence"]
         if self.cfg.model:
             cmd += ["--model", self.cfg.model]
+        max_turns = self.cfg.max_turns if self.cfg.max_turns is not None else _max_steps()
+        cmd += ["--max-turns", str(max_turns)]
+        timeout_s = self.cfg.timeout_s if self.cfg.timeout_s is not None else _default_timeout_s()
         env = {**os.environ, **self.cfg.env}
         # When redirecting to a custom model endpoint, drop inherited creds that would
         # otherwise win over (or collide with) the endpoint's own auth.
@@ -140,10 +168,17 @@ class ClaudeCodePersona:
                 cwd=self.cfg.cwd,
                 env=env,
             )
-            out, err = await proc.communicate()
         except Exception as exc:
             r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm="claude-code")
             r.error = f"persona launch failed: {type(exc).__name__}: {exc}"
+            return r
+        try:
+            out, err = await asyncio.wait_for(proc.communicate(), timeout_s)
+        except TimeoutError:
+            proc.kill()
+            await proc.wait()
+            r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm="claude-code")
+            r.error = f"persona timed out after {timeout_s:g} s"
             return r
         run = _parse_stream_json(task, out.decode("utf-8", "replace"), self.cfg.label)
         if proc.returncode != 0 and not run.error:

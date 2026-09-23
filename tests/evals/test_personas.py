@@ -3,10 +3,12 @@ tool-name normalization, and the registry. No subprocess is spawned."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
 
+from evals import personas as personas_mod
 from evals.personas import (
     ClaudeCodePersona,
     PersonaConfig,
@@ -15,7 +17,7 @@ from evals.personas import (
     make_persona,
 )
 
-_TASK = {"id": "mq-coords-m87", "tier": 1}
+_TASK = {"id": "mq-coords-m87", "tier": 1, "prompt": "resolve M87"}
 
 
 def test_tool_name_strips_mcp_prefix_only():
@@ -107,6 +109,134 @@ def test_parse_stream_json_ignores_non_json_lines():
     stdout = "not json\n" + _stream({"type": "result", "result": "ok", "num_turns": 1})
     run = _parse_stream_json(_TASK, stdout, "cc")
     assert run.final_answer == "ok"
+
+
+def test_parse_stream_json_totals_cache_tokens_and_cost():
+    stdout = _stream(
+        {
+            "type": "result",
+            "result": "ok",
+            "num_turns": 1,
+            "usage": {
+                "input_tokens": 10,
+                "cache_creation_input_tokens": 9007,
+                "cache_read_input_tokens": 13613,
+                "output_tokens": 29,
+            },
+            "total_cost_usd": 0.0976515,
+            "modelUsage": {"claude-opus-4-8": {"inputTokens": 10}},
+        }
+    )
+    run = _parse_stream_json(_TASK, stdout, "claude-code")
+    assert run.input_tokens == 22630  # 10 + 9007 + 13613 (uncached + cache write + cache read)
+    assert run.output_tokens == 29
+    assert run.cost_usd == 0.0976515
+    assert run.persona_model == "claude-opus-4-8"
+
+
+def test_parse_stream_json_missing_usage_leaves_cost_and_model_none():
+    stdout = _stream({"type": "result", "result": "ok", "num_turns": 1})
+    run = _parse_stream_json(_TASK, stdout, "claude-code")
+    assert run.input_tokens == 0
+    assert run.cost_usd is None
+    assert run.persona_model is None
+
+
+# --------------------------------------------------------------------------- #
+# ClaudeCodePersona.run — command construction, isolation, timeout
+# --------------------------------------------------------------------------- #
+class _FakeProc:
+    """Stand-in for asyncio.subprocess.Process: communicate()/kill()/wait()/returncode."""
+
+    def __init__(self, stdout: bytes = b"", stderr: bytes = b"", sleep_s: float | None = None):
+        self._stdout = stdout
+        self._stderr = stderr
+        self.returncode = 0
+        self._sleep_s = sleep_s
+        self.killed = False
+        self.waited = False
+
+    async def communicate(self):
+        if self._sleep_s is not None:
+            await asyncio.sleep(self._sleep_s)
+        return self._stdout, self._stderr
+
+    def kill(self):
+        self.killed = True
+
+    async def wait(self):
+        self.waited = True
+        return self.returncode
+
+
+def _flag_value(cmd, flag):
+    cmd = list(cmd)
+    return cmd[cmd.index(flag) + 1] if flag in cmd else None
+
+
+_OK_STDOUT = b'{"type":"result","result":"x","num_turns":1}\n'
+
+
+async def test_run_isolates_and_caps_turns_by_default(monkeypatch):
+    monkeypatch.delenv("EVAL_MAX_STEPS", raising=False)
+    captured = {}
+
+    async def fake_exec(*cmd, **kwargs):
+        captured["cmd"] = cmd
+        return _FakeProc(stdout=_OK_STDOUT)
+
+    monkeypatch.setattr(personas_mod.asyncio, "create_subprocess_exec", fake_exec)
+    persona = ClaudeCodePersona(PersonaConfig(label="x"))
+    await persona.run(_TASK, "http://127.0.0.1:9/mcp")
+    cmd = captured["cmd"]
+    assert _flag_value(cmd, "--setting-sources") == ""
+    assert "--no-session-persistence" in cmd
+    assert _flag_value(cmd, "--max-turns") == "20"
+
+
+async def test_run_no_isolate_omits_isolation_flags(monkeypatch):
+    captured = {}
+
+    async def fake_exec(*cmd, **kwargs):
+        captured["cmd"] = cmd
+        return _FakeProc(stdout=_OK_STDOUT)
+
+    monkeypatch.setattr(personas_mod.asyncio, "create_subprocess_exec", fake_exec)
+    persona = ClaudeCodePersona(PersonaConfig(label="x", isolate=False))
+    await persona.run(_TASK, "http://127.0.0.1:9/mcp")
+    cmd = captured["cmd"]
+    assert "--setting-sources" not in cmd
+    assert "--no-session-persistence" not in cmd
+
+
+async def test_run_honors_max_turns_override(monkeypatch):
+    captured = {}
+
+    async def fake_exec(*cmd, **kwargs):
+        captured["cmd"] = cmd
+        return _FakeProc(stdout=_OK_STDOUT)
+
+    monkeypatch.setattr(personas_mod.asyncio, "create_subprocess_exec", fake_exec)
+    persona = ClaudeCodePersona(PersonaConfig(label="x", max_turns=7))
+    await persona.run(_TASK, "http://127.0.0.1:9/mcp")
+    assert _flag_value(captured["cmd"], "--max-turns") == "7"
+
+
+async def test_run_times_out_and_kills_process(monkeypatch):
+    proc_holder = {}
+
+    async def fake_exec(*cmd, **kwargs):
+        proc = _FakeProc(sleep_s=5)
+        proc_holder["proc"] = proc
+        return proc
+
+    monkeypatch.setattr(personas_mod.asyncio, "create_subprocess_exec", fake_exec)
+    persona = ClaudeCodePersona(PersonaConfig(label="x", timeout_s=0.2))
+    run = await persona.run(_TASK, "http://127.0.0.1:9/mcp")
+    assert run.error is not None
+    assert "timed out after 0.2 s" in run.error
+    assert proc_holder["proc"].killed is True
+    assert proc_holder["proc"].waited is True
 
 
 # --------------------------------------------------------------------------- #
