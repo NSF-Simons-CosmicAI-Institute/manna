@@ -185,6 +185,8 @@ uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/
 
 The persona run is isolated from your own Claude Code plugins/hooks/session by default
 (`--setting-sources ""` + `--no-session-persistence`); pass `--no-isolate` to keep them active.
+The custom loop's `SYSTEM_PROMPT` is appended to the persona by default so the two harnesses
+differ only in the agent loop; `--no-system-prompt` measures raw Claude Code instead.
 Each task is capped by a wall-clock timeout (`--timeout` / `EVAL_PERSONA_TIMEOUT`, default 600s)
 and a turn budget (`--max-turns` / `EVAL_MAX_STEPS`, default 20, matching the custom loop) so a
 run never hangs. Results carry `cost_usd` and `persona_model` (from the transcript's `result`

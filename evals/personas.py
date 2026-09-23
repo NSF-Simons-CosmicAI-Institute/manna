@@ -43,6 +43,8 @@ class PersonaConfig:
     # --max-turns cap; None -> EVAL_MAX_STEPS (harness._max_steps()), resolved in run() for
     # parity with the custom loop.
     max_turns: int | None = None
+    # Appended to Claude Code's system prompt (--append-system-prompt); None = raw persona.
+    system_prompt: str | None = None
 
 
 class Persona(Protocol):
@@ -148,6 +150,8 @@ class ClaudeCodePersona:
             # SessionStart hooks from running inside the persona; --no-session-persistence
             # stops each run writing a transcript under ~/.claude/projects/.
             cmd += ["--setting-sources", "", "--no-session-persistence"]
+        if self.cfg.system_prompt:
+            cmd += ["--append-system-prompt", self.cfg.system_prompt]
         if self.cfg.model:
             cmd += ["--model", self.cfg.model]
         max_turns = self.cfg.max_turns if self.cfg.max_turns is not None else _max_steps()
@@ -179,6 +183,7 @@ class ClaudeCodePersona:
             await proc.wait()
             r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm="claude-code")
             r.error = f"persona timed out after {timeout_s:g} s"
+            r.latency_s = timeout_s
             return r
         run = _parse_stream_json(task, out.decode("utf-8", "replace"), self.cfg.label)
         if proc.returncode != 0 and not run.error:

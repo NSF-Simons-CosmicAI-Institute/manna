@@ -194,6 +194,22 @@ async def test_run_isolates_and_caps_turns_by_default(monkeypatch):
     assert _flag_value(cmd, "--max-turns") == "20"
 
 
+async def test_run_appends_system_prompt_only_when_set(monkeypatch):
+    captured = {}
+
+    async def fake_exec(*cmd, **kwargs):
+        captured["cmd"] = cmd
+        return _FakeProc(stdout=_OK_STDOUT)
+
+    monkeypatch.setattr(personas_mod.asyncio, "create_subprocess_exec", fake_exec)
+    await ClaudeCodePersona(PersonaConfig(label="x", system_prompt="Use the tools.")).run(
+        _TASK, "http://127.0.0.1:9/mcp"
+    )
+    assert _flag_value(captured["cmd"], "--append-system-prompt") == "Use the tools."
+    await ClaudeCodePersona(PersonaConfig(label="x")).run(_TASK, "http://127.0.0.1:9/mcp")
+    assert "--append-system-prompt" not in captured["cmd"]
+
+
 async def test_run_no_isolate_omits_isolation_flags(monkeypatch):
     captured = {}
 

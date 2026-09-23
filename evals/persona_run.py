@@ -23,7 +23,7 @@ from pathlib import Path
 import httpx
 
 from evals._common import is_manna_tool, judge_from_env, write_results
-from evals.harness import _max_steps
+from evals.harness import SYSTEM_PROMPT, _max_steps
 from evals.mcp_quality import _accuracy, _server_version
 from evals.personas import PersonaConfig, _default_timeout_s, make_persona
 from evals.score import load_tasks, score_task
@@ -103,6 +103,7 @@ async def _main(args: argparse.Namespace) -> int:
             isolate=args.isolate,
             timeout_s=timeout_s,
             max_turns=max_turns,
+            system_prompt=SYSTEM_PROMPT if args.system_prompt else None,
         ),
     )
     args.persona = p_label
@@ -111,7 +112,8 @@ async def _main(args: argparse.Namespace) -> int:
     print(
         f"persona: {args.persona}  |  judge: {judge.label if judge else 'none'}  |  "
         f"isolate: {'on' if args.isolate else 'off'}  |  timeout: {timeout_s:g}s  |  "
-        f"max_turns: {max_turns}  |  {len(tasks)} tasks  |  booting MCP server on :{args.port} …"
+        f"max_turns: {max_turns}  |  prompt: {'parity' if args.system_prompt else 'none'}  |  "
+        f"{len(tasks)} tasks  |  booting MCP server on :{args.port} …"
     )
     server = await _serve(args.port)
     runs, accs = [], []
@@ -171,6 +173,7 @@ async def _main(args: argparse.Namespace) -> int:
             "isolated": args.isolate,
             "max_turns": max_turns,
             "timeout_s": timeout_s,
+            "system_prompt": args.system_prompt,
             "summary": summary,
             "runs": [r.to_dict() for r in runs],
         },
@@ -221,6 +224,13 @@ def main() -> int:
         type=int,
         default=None,
         help="--max-turns cap passed to the persona (default: EVAL_MAX_STEPS env, or 20)",
+    )
+    p.add_argument(
+        "--no-system-prompt",
+        dest="system_prompt",
+        action="store_false",
+        help="do not append the custom loop's SYSTEM_PROMPT to the persona (default: appended, "
+        "so the loop-vs-persona comparison differs only in the harness)",
     )
     p.add_argument("--port", type=int, default=8127)
     p.add_argument("--concurrency", type=int, default=2)
