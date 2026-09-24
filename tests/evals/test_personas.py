@@ -350,3 +350,50 @@ def test_persona_run_suites_resolve_to_existing_task_files():
     tiers = load_tasks(SUITES["tiers"])
     assert {t["tier"] for t in tiers} == {1, 2, 3, 4}
     assert all("expect_tools" in t or "expect_any_of" in t or "rubric" in t for t in tiers)
+
+
+def test_parse_stream_json_drops_client_persisted_path_but_keeps_the_fact():
+    """Claude Code swaps an oversize MCP result for a note carrying a LOCAL path; the
+    trace must record that it happened without the client's path (which the tier-4 leak
+    scan would otherwise flag as a MANNA leak)."""
+    persisted = (
+        "<persisted-output>\nOutput too large (68KB). Full output saved to: "
+        "/Users/someone/.claude/projects/x/tool-results/abc.txt\n\nPreview (first 2KB):\n{...}"
+    )
+    stdout = _stream(
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "t1",
+                        "name": "mcp__manna__search_ivoa_registry",
+                        "input": {"keywords": ["CADC"]},
+                    }
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [{"type": "tool_result", "tool_use_id": "t1", "content": persisted}]
+            },
+        },
+        {"type": "result", "result": "ok", "num_turns": 2},
+    )
+    run = _parse_stream_json(_TASK, stdout, "claude-code")
+    assert run.trace[0].tool == "search_ivoa_registry"
+    assert "/Users/" not in json.dumps(run.trace[0].result)
+    assert "persisted oversize tool result (68KB)" in json.dumps(run.trace[0].result)
+
+
+def test_leak_scan_covers_manna_results_only():
+    from evals.harness import TaskRun, ToolCall
+    from evals.score import _leaked
+
+    run = TaskRun("t", 4, "full", "x", arm="claude-code")
+    run.trace.append(ToolCall("Bash", {"command": "which python3"}, "/Users/me/bin/python3", False))
+    assert _leaked(run) is None
+    run.trace.append(ToolCall("list_archives", {}, "Traceback (most recent call last)", False))
+    assert _leaked(run) == "Traceback (most recent call last)"

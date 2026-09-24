@@ -76,6 +76,36 @@ def _tool_name(raw: str) -> str:
     return raw[len(_MCP_PREFIX) :] if raw.startswith(_MCP_PREFIX) else raw
 
 
+_PERSISTED_MARK = "<persisted-output>"
+
+
+def _normalize_persisted(content: Any) -> Any:
+    """Claude Code replaces an oversize tool result with a note + a LOCAL FILE PATH
+    (``<persisted-output>\nOutput too large (68KB). Full output saved to: /Users/...``) and
+    expects the model to ``Read`` it. That path is the client's, not the server's, so keep
+    the fact (for the persisted-result count) but drop the path from the recorded result.
+    """
+
+    def fix(text: str) -> str:
+        if not text.startswith(_PERSISTED_MARK):
+            return text
+        head = text.split("\n", 2)[1] if "\n" in text else ""
+        size = head.split("(")[-1].split(")")[0] if "(" in head else "?"
+        return f"[client persisted oversize tool result ({size}) to a local file]"
+
+    if isinstance(content, str):
+        return fix(content)
+    if isinstance(content, list):
+        out = []
+        for item in content:
+            if isinstance(item, dict) and isinstance(item.get("text"), str):
+                out.append({**item, "text": fix(item["text"])})
+            else:
+                out.append(item)
+        return out
+    return content
+
+
 def _dominant_model(model_usage: dict[str, dict]) -> str | None:
     """The model id that carried the run: highest costUSD, then outputTokens, then
     order. Claude Code's result event lists a cheap Haiku side-call before the main model."""
@@ -115,7 +145,7 @@ def _parse_stream_json(
             for b in e.get("message", {}).get("content", []):
                 if b.get("type") == "tool_result":
                     results[b["tool_use_id"]] = {
-                        "content": b.get("content"),
+                        "content": _normalize_persisted(b.get("content")),
                         "is_error": bool(b.get("is_error")),
                     }
         elif etype == "result":

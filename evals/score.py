@@ -231,8 +231,16 @@ def _ground_truth_ok(gt: dict[str, Any], answer: str) -> bool:
 
 
 def _leaked(run: TaskRun) -> str | None:
-    """Return the first leak pattern found in any tool result, else None."""
-    blob = json.dumps([c.result for c in run.trace], default=str)
+    """Return the first leak pattern found in any MANNA tool result, else None.
+
+    The redaction invariant is about what the *server* returns. A real client (Claude Code)
+    adds its own tools whose results legitimately carry paths — ``Bash`` output, ``Read`` of
+    a local file — so only the server's results are scanned. (No-op for the custom loop's
+    mcp arm, where every tool but ``execute_python`` is a MANNA tool.)
+    """
+    from evals._common import is_manna_tool  # local: _common imports from this module's peers
+
+    blob = json.dumps([c.result for c in run.trace if is_manna_tool(c.tool)], default=str)
     for pat in _LEAK_PATTERNS:
         if pat in blob:
             return pat
