@@ -338,3 +338,15 @@ def test_make_persona_unknown_raises_with_available():
     with pytest.raises(ValueError) as exc:
         make_persona("gemini", PersonaConfig())
     assert "claude-code" in str(exc.value)  # lists what's available
+
+
+def test_persona_run_suites_resolve_to_existing_task_files():
+    from evals.persona_run import SUITES
+    from evals.score import load_tasks
+
+    assert set(SUITES) == {"mcp-quality", "tiers"}
+    for path in SUITES.values():
+        assert path.exists(), path
+    tiers = load_tasks(SUITES["tiers"])
+    assert {t["tier"] for t in tiers} == {1, 2, 3, 4}
+    assert all("expect_tools" in t or "expect_any_of" in t or "rubric" in t for t in tiers)

@@ -29,6 +29,13 @@ from evals.personas import PersonaConfig, _default_timeout_s, make_persona
 from evals.score import load_tasks, score_task
 
 TASKS_PATH = Path(__file__).with_name("mcp_quality_tasks.yaml")
+# The two suites a persona can work. "mcp-quality" = the value comparison (verdict: answer
+# accuracy, as mcp_quality.py). "tiers" = the tool-use evaluation (tasks.yaml; verdict:
+# TaskScore.passed — every programmatic check + rubric, as run.py).
+SUITES = {
+    "mcp-quality": TASKS_PATH,
+    "tiers": Path(__file__).with_name("tasks.yaml"),
+}
 _SCRATCH = os.environ.get("TMPDIR", "/tmp")  # neutral cwd for the persona subprocess
 
 
@@ -85,7 +92,9 @@ def _same_model_persona(base_label: str) -> tuple[dict[str, str], str, str]:
 
 
 async def _main(args: argparse.Namespace) -> int:
-    tasks = load_tasks(TASKS_PATH)
+    tasks = load_tasks(SUITES[args.suite])
+    if args.tier:
+        tasks = [t for t in tasks if t["tier"] in args.tier]
     from evals.score import partition_by_archive, print_skipped
 
     # Same paused-archive skip as mcp_quality, so the two harnesses run the same task set.
@@ -105,6 +114,8 @@ async def _main(args: argparse.Namespace) -> int:
         if not args.mcp:
             raise SystemExit("--condition ablated needs the MANNA server; drop --no-mcp")
         p_label += "-ablated"  # notes stripped: results file says so
+    if args.suite == "tiers":
+        p_label = "tiers-" + p_label  # results file names the suite
     timeout_s = args.timeout if args.timeout is not None else _default_timeout_s()
     max_turns = args.max_turns if args.max_turns is not None else _max_steps()
     persona = make_persona(
@@ -129,7 +140,7 @@ async def _main(args: argparse.Namespace) -> int:
         f"persona: {args.persona}  |  judge: {judge.label if judge else 'none'}  |  "
         f"isolate: {'on' if args.isolate else 'off'}  |  timeout: {timeout_s:g}s  |  "
         f"max_turns: {max_turns}  |  prompt: {'parity' if args.system_prompt else 'none'}  |  "
-        f"{len(tasks)} tasks  |  "
+        f"suite: {args.suite}  |  {len(tasks)} tasks  |  "
         + (
             f"condition: {args.condition}  |  booting MCP server on :{args.port} …"
             if args.mcp
@@ -144,17 +155,23 @@ async def _main(args: argparse.Namespace) -> int:
         async def one(task):
             async with sem:
                 run = await persona.run(task, mcp_url)
-            acc = _accuracy(await score_task(task, run, judge))
+            score = await score_task(task, run, judge)
+            # Tool-use evaluation: every check must hold (tools, args, leak scan, rubric).
+            # Value comparison: answer accuracy only, as mcp_quality.py.
+            acc = score.passed if args.suite == "tiers" else _accuracy(score)
             tag = {True: "PASS", False: "FAIL", None: "····"}[acc]
+            failed = [k for k, v in score.checks.items() if v is False]
             print(
                 f"  [{tag}] {task['id']:26s} calls={run.num_tool_calls} "
                 f"mcp={'y' if _used_mcp(run) else 'n'} turns={run.steps}"
+                + (f"  failed={','.join(failed)}" if failed and args.suite == "tiers" else "")
             )
-            return run, acc
+            return run, acc, score
 
         results = await asyncio.gather(*(one(t) for t in tasks))
-        runs = [r for r, _ in results]
-        accs = [a for _, a in results]
+        runs = [r for r, _, _ in results]
+        accs = [a for _, a, _ in results]
+        scores = [sc for _, _, sc in results]
     finally:
         if server is not None:
             server.terminate()
@@ -183,6 +200,17 @@ async def _main(args: argparse.Namespace) -> int:
         "mean_cost_usd": mean([r.cost_usd for r in runs if r.cost_usd is not None]),
         "mean_latency_s": mean([r.latency_s for r in ok]),
     }
+    if args.suite == "tiers":
+        # Per-tier pass rates, as run.py reports them.
+        tiers = sorted({sc.tier for sc in scores})
+        summary["by_tier"] = {
+            f"tier{t}": round(
+                sum(sc.passed for sc in scores if sc.tier == t)
+                / len([sc for sc in scores if sc.tier == t]),
+                3,
+            )
+            for t in tiers
+        }
     for k, v in summary.items():
         print(f"  {k:20s} {v}")
 
@@ -199,8 +227,10 @@ async def _main(args: argparse.Namespace) -> int:
             "mcp": args.mcp,
             "arm": "claude-code" if args.mcp else "claude-code-raw",
             "condition": args.condition,
+            "suite": args.suite,
             "summary": summary,
             "runs": [r.to_dict() for r in runs],
+            "scores": [sc.to_dict() for sc in scores],
             "skipped": [t["id"] for t, _ in skipped],
         },
         prefix=f"persona-{args.persona}",
@@ -264,6 +294,19 @@ def main() -> int:
         action="store_false",
         help="the without-MANNA approach: run the persona with only its built-in tools and an "
         "empty strict MCP config (no server is booted); arm=claude-code-raw",
+    )
+    p.add_argument(
+        "--suite",
+        default="mcp-quality",
+        choices=sorted(SUITES),
+        help="mcp-quality = value comparison (mcp_quality_tasks.yaml, verdict = answer accuracy); "
+        "tiers = tool-use evaluation (tasks.yaml, verdict = every check passes)",
+    )
+    p.add_argument(
+        "--tier",
+        type=int,
+        action="append",
+        help="tiers suite only: run just these tiers (repeatable)",
     )
     p.add_argument(
         "--condition",
