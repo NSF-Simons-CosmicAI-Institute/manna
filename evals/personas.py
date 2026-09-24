@@ -45,6 +45,14 @@ class PersonaConfig:
     max_turns: int | None = None
     # Appended to Claude Code's system prompt (--append-system-prompt); None = raw persona.
     system_prompt: str | None = None
+    # Attach the MANNA server (the with-MANNA approach). False = the without-MANNA approach:
+    # Claude Code with only its built-in tools (Bash, WebFetch, ...) and an EMPTY strict MCP
+    # config, so a developer's globally configured servers cannot leak in. arm="claude-code-raw".
+    mcp: bool = True
+
+
+def _arm(cfg: PersonaConfig) -> str:
+    return "claude-code" if cfg.mcp else "claude-code-raw"
 
 
 class Persona(Protocol):
@@ -65,8 +73,24 @@ def _tool_name(raw: str) -> str:
     return raw[len(_MCP_PREFIX) :] if raw.startswith(_MCP_PREFIX) else raw
 
 
-def _parse_stream_json(task: dict[str, Any], stdout: str, label: str) -> TaskRun:
-    run = TaskRun(task["id"], task["tier"], "full", label, arm="claude-code")
+def _dominant_model(model_usage: dict[str, dict]) -> str | None:
+    """The model id that carried the run: highest costUSD, then outputTokens, then
+    order. Claude Code's result event lists a cheap Haiku side-call before the main model."""
+    if not model_usage:
+        return None
+    return max(
+        model_usage,
+        key=lambda m: (
+            (model_usage[m] or {}).get("costUSD") or 0,
+            (model_usage[m] or {}).get("outputTokens") or 0,
+        ),
+    )
+
+
+def _parse_stream_json(
+    task: dict[str, Any], stdout: str, label: str, arm: str = "claude-code"
+) -> TaskRun:
+    run = TaskRun(task["id"], task["tier"], "full", label, arm=arm)
     uses: dict[str, dict[str, Any]] = {}  # tool_use_id -> {name, input}
     results: dict[str, dict[str, Any]] = {}  # tool_use_id -> {content, is_error}
     order: list[str] = []
@@ -105,8 +129,11 @@ def _parse_stream_json(task: dict[str, Any], stdout: str, label: str) -> TaskRun
             )
             run.output_tokens = u.get("output_tokens", 0)
             run.cost_usd = e.get("total_cost_usd")
+            # modelUsage is keyed by model id. Claude Code also bills a small Haiku
+            # side-call (title/classification, ~1K tokens) and lists it FIRST, so the first
+            # key mislabels every non-Haiku run: take the model that did the work instead.
             mu = e.get("modelUsage") or {}
-            run.persona_model = next(iter(mu), None)  # keyed by model id, e.g. claude-opus-4-8
+            run.persona_model = _dominant_model(mu)
             if e.get("is_error"):
                 run.error = f"persona result is_error (stop_reason={e.get('stop_reason')})"
 
@@ -130,9 +157,8 @@ class ClaudeCodePersona:
         self.cfg = cfg or PersonaConfig()
 
     async def run(self, task: dict[str, Any], mcp_url: str) -> TaskRun:
-        mcp_config = json.dumps(
-            {"mcpServers": {_MCP_SERVER_NAME: {"type": "http", "url": mcp_url}}}
-        )
+        servers = {_MCP_SERVER_NAME: {"type": "http", "url": mcp_url}} if self.cfg.mcp else {}
+        mcp_config = json.dumps({"mcpServers": servers})
         cmd = [
             "claude",
             "-p",
@@ -173,7 +199,7 @@ class ClaudeCodePersona:
                 env=env,
             )
         except Exception as exc:
-            r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm="claude-code")
+            r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm=_arm(self.cfg))
             r.error = f"persona launch failed: {type(exc).__name__}: {exc}"
             return r
         try:
@@ -181,11 +207,13 @@ class ClaudeCodePersona:
         except TimeoutError:
             proc.kill()
             await proc.wait()
-            r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm="claude-code")
+            r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm=_arm(self.cfg))
             r.error = f"persona timed out after {timeout_s:g} s"
             r.latency_s = timeout_s
             return r
-        run = _parse_stream_json(task, out.decode("utf-8", "replace"), self.cfg.label)
+        run = _parse_stream_json(
+            task, out.decode("utf-8", "replace"), self.cfg.label, arm=_arm(self.cfg)
+        )
         if proc.returncode != 0 and not run.error:
             run.error = f"claude exited {proc.returncode}: {err.decode('utf-8', 'replace')[:200]}"
         return run

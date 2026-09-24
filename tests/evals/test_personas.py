@@ -134,6 +134,30 @@ def test_parse_stream_json_totals_cache_tokens_and_cost():
     assert run.persona_model == "claude-opus-4-8"
 
 
+def test_parse_stream_json_persona_model_ignores_haiku_side_call():
+    """Claude Code bills a small Haiku side-call (title/classification) and lists it FIRST
+    in modelUsage; the label must name the model that did the work, not the first key.
+    Observed 2026-09-23: a --model claude-sonnet-5 run labelled claude-haiku-4-5-20251001."""
+    stdout = _stream(
+        {
+            "type": "result",
+            "result": "ok",
+            "num_turns": 1,
+            "total_cost_usd": 0.0603,
+            "modelUsage": {
+                "claude-haiku-4-5-20251001": {
+                    "inputTokens": 898,
+                    "outputTokens": 9,
+                    "costUSD": 0.0009,
+                },
+                "claude-sonnet-5": {"inputTokens": 2, "outputTokens": 4, "costUSD": 0.0594},
+            },
+        }
+    )
+    run = _parse_stream_json(_TASK, stdout, "claude-code")
+    assert run.persona_model == "claude-sonnet-5"
+
+
 def test_parse_stream_json_missing_usage_leaves_cost_and_model_none():
     stdout = _stream({"type": "result", "result": "ok", "num_turns": 1})
     run = _parse_stream_json(_TASK, stdout, "claude-code")
@@ -223,6 +247,39 @@ async def test_run_no_isolate_omits_isolation_flags(monkeypatch):
     cmd = captured["cmd"]
     assert "--setting-sources" not in cmd
     assert "--no-session-persistence" not in cmd
+
+
+async def test_run_without_mcp_passes_empty_strict_config_and_raw_arm(monkeypatch):
+    """The without-MANNA approach: no MANNA server in --mcp-config, but --strict-mcp-config
+    is KEPT with an empty server map so a developer's global MCP servers cannot leak in."""
+    captured = {}
+
+    async def fake_exec(*cmd, **kwargs):
+        captured["cmd"] = cmd
+        return _FakeProc(stdout=_OK_STDOUT)
+
+    monkeypatch.setattr(personas_mod.asyncio, "create_subprocess_exec", fake_exec)
+    run = await ClaudeCodePersona(PersonaConfig(label="x", mcp=False)).run(
+        _TASK, "http://127.0.0.1:9/mcp"
+    )
+    cmd = captured["cmd"]
+    assert json.loads(_flag_value(cmd, "--mcp-config")) == {"mcpServers": {}}
+    assert "--strict-mcp-config" in cmd
+    assert run.arm == "claude-code-raw"
+
+
+async def test_run_with_mcp_names_manna_server_and_default_arm(monkeypatch):
+    captured = {}
+
+    async def fake_exec(*cmd, **kwargs):
+        captured["cmd"] = cmd
+        return _FakeProc(stdout=_OK_STDOUT)
+
+    monkeypatch.setattr(personas_mod.asyncio, "create_subprocess_exec", fake_exec)
+    run = await ClaudeCodePersona(PersonaConfig(label="x")).run(_TASK, "http://127.0.0.1:9/mcp")
+    cfg = json.loads(_flag_value(captured["cmd"], "--mcp-config"))
+    assert cfg["mcpServers"]["manna"]["url"] == "http://127.0.0.1:9/mcp"
+    assert run.arm == "claude-code"
 
 
 async def test_run_honors_max_turns_override(monkeypatch):

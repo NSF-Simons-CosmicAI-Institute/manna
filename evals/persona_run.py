@@ -97,6 +97,8 @@ async def _main(args: argparse.Namespace) -> int:
     p_env, p_model, p_label = {}, args.model, args.persona
     if args.same_model:
         p_env, p_model, p_label = _same_model_persona(args.persona)
+    if not args.mcp:
+        p_label += "-raw"  # without-MANNA approach: results file + arm say so
     timeout_s = args.timeout if args.timeout is not None else _default_timeout_s()
     max_turns = args.max_turns if args.max_turns is not None else _max_steps()
     persona = make_persona(
@@ -110,6 +112,7 @@ async def _main(args: argparse.Namespace) -> int:
             timeout_s=timeout_s,
             max_turns=max_turns,
             system_prompt=SYSTEM_PROMPT if args.system_prompt else None,
+            mcp=args.mcp,
         ),
     )
     args.persona = p_label
@@ -119,9 +122,10 @@ async def _main(args: argparse.Namespace) -> int:
         f"persona: {args.persona}  |  judge: {judge.label if judge else 'none'}  |  "
         f"isolate: {'on' if args.isolate else 'off'}  |  timeout: {timeout_s:g}s  |  "
         f"max_turns: {max_turns}  |  prompt: {'parity' if args.system_prompt else 'none'}  |  "
-        f"{len(tasks)} tasks  |  booting MCP server on :{args.port} …"
+        f"{len(tasks)} tasks  |  "
+        + (f"booting MCP server on :{args.port} …" if args.mcp else "WITHOUT MANNA (no MCP server)")
     )
-    server = await _serve(args.port)
+    server = await _serve(args.port) if args.mcp else None
     runs, accs = [], []
     try:
         sem = asyncio.Semaphore(args.concurrency)
@@ -141,8 +145,9 @@ async def _main(args: argparse.Namespace) -> int:
         runs = [r for r, _ in results]
         accs = [a for _, a in results]
     finally:
-        server.terminate()
-        await server.wait()
+        if server is not None:
+            server.terminate()
+            await server.wait()
 
     ok = [r for r in runs if not r.error]
     scored = [a for a in accs if a is not None]
@@ -180,6 +185,8 @@ async def _main(args: argparse.Namespace) -> int:
             "max_turns": max_turns,
             "timeout_s": timeout_s,
             "system_prompt": args.system_prompt,
+            "mcp": args.mcp,
+            "arm": "claude-code" if args.mcp else "claude-code-raw",
             "summary": summary,
             "runs": [r.to_dict() for r in runs],
             "skipped": [t["id"] for t, _ in skipped],
@@ -238,6 +245,13 @@ def main() -> int:
         action="store_false",
         help="do not append the custom loop's SYSTEM_PROMPT to the persona (default: appended, "
         "so the loop-vs-persona comparison differs only in the harness)",
+    )
+    p.add_argument(
+        "--no-mcp",
+        dest="mcp",
+        action="store_false",
+        help="the without-MANNA approach: run the persona with only its built-in tools and an "
+        "empty strict MCP config (no server is booted); arm=claude-code-raw",
     )
     p.add_argument("--port", type=int, default=8127)
     p.add_argument("--concurrency", type=int, default=2)
