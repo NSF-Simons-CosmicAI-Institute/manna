@@ -282,6 +282,19 @@ async def test_run_with_mcp_names_manna_server_and_default_arm(monkeypatch):
     assert run.arm == "claude-code"
 
 
+async def test_run_records_condition_on_every_task_run(monkeypatch):
+    async def fake_exec(*cmd, **kwargs):
+        return _FakeProc(stdout=_OK_STDOUT)
+
+    monkeypatch.setattr(personas_mod.asyncio, "create_subprocess_exec", fake_exec)
+    run = await ClaudeCodePersona(PersonaConfig(label="x", condition="ablated")).run(
+        _TASK, "http://127.0.0.1:9/mcp"
+    )
+    assert run.condition == "ablated"
+    run = await ClaudeCodePersona(PersonaConfig(label="x")).run(_TASK, "http://127.0.0.1:9/mcp")
+    assert run.condition == "full"
+
+
 async def test_run_honors_max_turns_override(monkeypatch):
     captured = {}
 

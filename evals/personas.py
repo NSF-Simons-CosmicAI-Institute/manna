@@ -49,6 +49,9 @@ class PersonaConfig:
     # Claude Code with only its built-in tools (Bash, WebFetch, ...) and an EMPTY strict MCP
     # config, so a developer's globally configured servers cannot leak in. arm="claude-code-raw".
     mcp: bool = True
+    # "full" | "ablated" — which server the persona was pointed at (persona_run boots the
+    # ablated one via evals._ablated_server). Recorded on every TaskRun.
+    condition: str = "full"
 
 
 def _arm(cfg: PersonaConfig) -> str:
@@ -88,9 +91,9 @@ def _dominant_model(model_usage: dict[str, dict]) -> str | None:
 
 
 def _parse_stream_json(
-    task: dict[str, Any], stdout: str, label: str, arm: str = "claude-code"
+    task: dict[str, Any], stdout: str, label: str, arm: str = "claude-code", condition: str = "full"
 ) -> TaskRun:
-    run = TaskRun(task["id"], task["tier"], "full", label, arm=arm)
+    run = TaskRun(task["id"], task["tier"], condition, label, arm=arm)
     uses: dict[str, dict[str, Any]] = {}  # tool_use_id -> {name, input}
     results: dict[str, dict[str, Any]] = {}  # tool_use_id -> {content, is_error}
     order: list[str] = []
@@ -199,7 +202,9 @@ class ClaudeCodePersona:
                 env=env,
             )
         except Exception as exc:
-            r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm=_arm(self.cfg))
+            r = TaskRun(
+                task["id"], task["tier"], self.cfg.condition, self.cfg.label, arm=_arm(self.cfg)
+            )
             r.error = f"persona launch failed: {type(exc).__name__}: {exc}"
             return r
         try:
@@ -207,12 +212,18 @@ class ClaudeCodePersona:
         except TimeoutError:
             proc.kill()
             await proc.wait()
-            r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm=_arm(self.cfg))
+            r = TaskRun(
+                task["id"], task["tier"], self.cfg.condition, self.cfg.label, arm=_arm(self.cfg)
+            )
             r.error = f"persona timed out after {timeout_s:g} s"
             r.latency_s = timeout_s
             return r
         run = _parse_stream_json(
-            task, out.decode("utf-8", "replace"), self.cfg.label, arm=_arm(self.cfg)
+            task,
+            out.decode("utf-8", "replace"),
+            self.cfg.label,
+            arm=_arm(self.cfg),
+            condition=self.cfg.condition,
         )
         if proc.returncode != 0 and not run.error:
             run.error = f"claude exited {proc.returncode}: {err.decode('utf-8', 'replace')[:200]}"

@@ -32,13 +32,15 @@ TASKS_PATH = Path(__file__).with_name("mcp_quality_tasks.yaml")
 _SCRATCH = os.environ.get("TMPDIR", "/tmp")  # neutral cwd for the persona subprocess
 
 
-async def _serve(port: int):
+async def _serve(port: int, condition: str = "full"):
+    # The ablated server is the same app booted inside evals.context.ablated_context.
+    module = "evals._ablated_server" if condition == "ablated" else "manna"
     proc = await asyncio.create_subprocess_exec(
         "uv",
         "run",
         "python",
         "-m",
-        "manna",
+        module,
         env={**os.environ, "MANNA_PORT": str(port)},
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
@@ -99,6 +101,10 @@ async def _main(args: argparse.Namespace) -> int:
         p_env, p_model, p_label = _same_model_persona(args.persona)
     if not args.mcp:
         p_label += "-raw"  # without-MANNA approach: results file + arm say so
+    if args.condition == "ablated":
+        if not args.mcp:
+            raise SystemExit("--condition ablated needs the MANNA server; drop --no-mcp")
+        p_label += "-ablated"  # notes stripped: results file says so
     timeout_s = args.timeout if args.timeout is not None else _default_timeout_s()
     max_turns = args.max_turns if args.max_turns is not None else _max_steps()
     persona = make_persona(
@@ -113,6 +119,7 @@ async def _main(args: argparse.Namespace) -> int:
             max_turns=max_turns,
             system_prompt=SYSTEM_PROMPT if args.system_prompt else None,
             mcp=args.mcp,
+            condition=args.condition,
         ),
     )
     args.persona = p_label
@@ -123,9 +130,13 @@ async def _main(args: argparse.Namespace) -> int:
         f"isolate: {'on' if args.isolate else 'off'}  |  timeout: {timeout_s:g}s  |  "
         f"max_turns: {max_turns}  |  prompt: {'parity' if args.system_prompt else 'none'}  |  "
         f"{len(tasks)} tasks  |  "
-        + (f"booting MCP server on :{args.port} …" if args.mcp else "WITHOUT MANNA (no MCP server)")
+        + (
+            f"condition: {args.condition}  |  booting MCP server on :{args.port} …"
+            if args.mcp
+            else "WITHOUT MANNA (no MCP server)"
+        )
     )
-    server = await _serve(args.port) if args.mcp else None
+    server = await _serve(args.port, args.condition) if args.mcp else None
     runs, accs = [], []
     try:
         sem = asyncio.Semaphore(args.concurrency)
@@ -187,6 +198,7 @@ async def _main(args: argparse.Namespace) -> int:
             "system_prompt": args.system_prompt,
             "mcp": args.mcp,
             "arm": "claude-code" if args.mcp else "claude-code-raw",
+            "condition": args.condition,
             "summary": summary,
             "runs": [r.to_dict() for r in runs],
             "skipped": [t["id"] for t, _ in skipped],
@@ -252,6 +264,13 @@ def main() -> int:
         action="store_false",
         help="the without-MANNA approach: run the persona with only its built-in tools and an "
         "empty strict MCP config (no server is booted); arm=claude-code-raw",
+    )
+    p.add_argument(
+        "--condition",
+        default="full",
+        choices=["full", "ablated"],
+        help="ablated = boot the server with its archive notes stripped (usage_notes, "
+        "cheatsheet, error hints, describe_table entries) — the with-and-without comparison",
     )
     p.add_argument("--port", type=int, default=8127)
     p.add_argument("--concurrency", type=int, default=2)
