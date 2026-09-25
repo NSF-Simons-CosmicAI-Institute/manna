@@ -197,7 +197,9 @@
       # q3c_radial_query (preferred true cone) OR a ra/dec BETWEEN bounding box.
       - { arg: adql, op: not_contains, value: "CONTAINS(", match: all }
       - { arg: adql, op: not_contains, value: "CIRCLE(", match: all }
-      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
+      # q3c, or a ra/dec bounding box written either as BETWEEN or as >= / <= comparisons
+      # (both avoid the untranslated ADQL geometry; the comparison form was mis-scored, manna#36).
+      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between|\\b(ra|dec)\\s*(>=|<=|<|>)\\s*-?[0-9])", match: all }
 
 # =====================================================================
 # Tier 3 — with-and-without comparison (pitfall avoidance)
@@ -246,7 +248,9 @@
     run_adql_query:
       - { arg: adql, op: not_contains, value: "CONTAINS(", match: all }
       - { arg: adql, op: not_contains, value: "CIRCLE(", match: all }
-      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
+      # q3c, or a ra/dec bounding box written either as BETWEEN or as >= / <= comparisons
+      # (both avoid the untranslated ADQL geometry; the comparison form was mis-scored, manna#36).
+      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between|\\b(ra|dec)\\s*(>=|<=|<|>)\\s*-?[0-9])", match: all }
 
 - id: t3-nrao-lowerupper
   tier: 3
