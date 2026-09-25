@@ -106,11 +106,15 @@ def _normalize_persisted(content: Any) -> Any:
     return content
 
 
-def _dominant_model(model_usage: dict[str, dict]) -> str | None:
-    """The model id that carried the run: highest costUSD, then outputTokens, then
-    order. Claude Code's result event lists a cheap Haiku side-call before the main model."""
+def _dominant_model(model_usage: dict[str, dict], expected: str | None = None) -> str | None:
+    """The model id that carried the run. If the model the run was launched with (`expected`)
+    appears in modelUsage, that is the answer — on a one-line reply the main model's call can
+    cost LESS than Claude Code's Haiku side-call, so cost alone mislabels it. Otherwise: highest
+    costUSD, then outputTokens, then order (the side-call is listed first)."""
     if not model_usage:
         return None
+    if expected and expected in model_usage:
+        return expected
     return max(
         model_usage,
         key=lambda m: (
@@ -121,7 +125,12 @@ def _dominant_model(model_usage: dict[str, dict]) -> str | None:
 
 
 def _parse_stream_json(
-    task: dict[str, Any], stdout: str, label: str, arm: str = "claude-code", condition: str = "full"
+    task: dict[str, Any],
+    stdout: str,
+    label: str,
+    arm: str = "claude-code",
+    condition: str = "full",
+    expected_model: str | None = None,
 ) -> TaskRun:
     run = TaskRun(task["id"], task["tier"], condition, label, arm=arm)
     uses: dict[str, dict[str, Any]] = {}  # tool_use_id -> {name, input}
@@ -166,7 +175,7 @@ def _parse_stream_json(
             # side-call (title/classification, ~1K tokens) and lists it FIRST, so the first
             # key mislabels every non-Haiku run: take the model that did the work instead.
             mu = e.get("modelUsage") or {}
-            run.persona_model = _dominant_model(mu)
+            run.persona_model = _dominant_model(mu, expected_model)
             if e.get("is_error"):
                 run.error = f"persona result is_error (stop_reason={e.get('stop_reason')})"
 
@@ -254,6 +263,7 @@ class ClaudeCodePersona:
             self.cfg.label,
             arm=_arm(self.cfg),
             condition=self.cfg.condition,
+            expected_model=self.cfg.model,
         )
         if proc.returncode != 0 and not run.error:
             run.error = f"claude exited {proc.returncode}: {err.decode('utf-8', 'replace')[:200]}"

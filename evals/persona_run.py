@@ -214,7 +214,12 @@ async def _main(args: argparse.Namespace) -> int:
     for k, v in summary.items():
         print(f"  {k:20s} {v}")
 
-    model_used = next((r.persona_model for r in runs if r.persona_model), None)
+    # The file's model label is the majority across runs (a single run can be mislabelled by
+    # Claude Code's Haiku side-call when the main model's own call was tiny).
+    from collections import Counter
+
+    seen = Counter(r.persona_model for r in runs if r.persona_model)
+    model_used = seen.most_common(1)[0][0] if seen else None
     out = write_results(
         {
             "persona": args.persona,

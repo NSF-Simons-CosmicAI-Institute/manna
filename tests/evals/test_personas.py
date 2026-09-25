@@ -397,3 +397,19 @@ def test_leak_scan_covers_manna_results_only():
     assert _leaked(run) is None
     run.trace.append(ToolCall("list_archives", {}, "Traceback (most recent call last)", False))
     assert _leaked(run) == "Traceback (most recent call last)"
+
+
+def test_dominant_model_prefers_the_launched_model_over_cost():
+    """A one-line Sonnet reply can cost less than Claude Code's Haiku side-call; the launched
+    model wins whenever it appears in modelUsage. Observed 2026-09-25 (2 of 23 Sonnet runs)."""
+    from evals.personas import _dominant_model
+
+    mu = {
+        "claude-haiku-4-5-20251001": {"costUSD": 0.004, "outputTokens": 40},
+        "claude-sonnet-5": {"costUSD": 0.002, "outputTokens": 12},
+    }
+    assert _dominant_model(mu, "claude-sonnet-5") == "claude-sonnet-5"
+    assert _dominant_model(mu, None) == "claude-haiku-4-5-20251001"  # cost fallback
+    assert (
+        _dominant_model(mu, "claude-opus-4-8") == "claude-haiku-4-5-20251001"
+    )  # absent -> fallback
