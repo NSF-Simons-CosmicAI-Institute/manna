@@ -153,6 +153,8 @@ class TaskRun:
     output_tokens: int = 0
     error: str | None = None  # harness-level failure (not a tool error)
     async_incomplete: bool = False  # ran out of budget polling a live async job
+    cost_usd: float | None = None  # persona-reported spend; custom-loop runners leave this None
+    persona_model: str | None = None  # persona-reported model id; ditto
 
     @property
     def num_tool_calls(self) -> int:
@@ -172,6 +174,8 @@ class TaskRun:
             "tokens": {"input": self.input_tokens, "output": self.output_tokens},
             "error": self.error,
             "async_incomplete": self.async_incomplete,
+            "cost_usd": self.cost_usd,
+            "persona_model": self.persona_model,
             "trace": [
                 {
                     "tool": c.tool,

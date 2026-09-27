@@ -20,10 +20,14 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from evals.harness import TaskRun, ToolCall
+from evals.harness import TaskRun, ToolCall, _max_steps
 
 _MCP_SERVER_NAME = "manna"
 _MCP_PREFIX = f"mcp__{_MCP_SERVER_NAME}__"
+
+
+def _default_timeout_s() -> float:
+    return float(os.getenv("EVAL_PERSONA_TIMEOUT", "600"))
 
 
 @dataclass
@@ -32,6 +36,26 @@ class PersonaConfig:
     model: str | None = None  # --model override (else the persona's default)
     env: dict[str, str] = field(default_factory=dict)  # extra env (e.g. point at a different model)
     cwd: str | None = None  # neutral working dir so it doesn't inherit a repo's CLAUDE.md
+    # Isolate the persona from the developer's global plugins/hooks/settings (default: on).
+    isolate: bool = True
+    # Wall-clock cap on one run; None -> EVAL_PERSONA_TIMEOUT env (default 600s), resolved in run().
+    timeout_s: float | None = None
+    # --max-turns cap; None -> EVAL_MAX_STEPS (harness._max_steps()), resolved in run() for
+    # parity with the custom loop.
+    max_turns: int | None = None
+    # Appended to Claude Code's system prompt (--append-system-prompt); None = raw persona.
+    system_prompt: str | None = None
+    # Attach the MANNA server (the with-MANNA approach). False = the without-MANNA approach:
+    # Claude Code with only its built-in tools (Bash, WebFetch, ...) and an EMPTY strict MCP
+    # config, so a developer's globally configured servers cannot leak in. arm="claude-code-raw".
+    mcp: bool = True
+    # "full" | "ablated" — which server the persona was pointed at (persona_run boots the
+    # ablated one via evals._ablated_server). Recorded on every TaskRun.
+    condition: str = "full"
+
+
+def _arm(cfg: PersonaConfig) -> str:
+    return "claude-code" if cfg.mcp else "claude-code-raw"
 
 
 class Persona(Protocol):
@@ -52,8 +76,63 @@ def _tool_name(raw: str) -> str:
     return raw[len(_MCP_PREFIX) :] if raw.startswith(_MCP_PREFIX) else raw
 
 
-def _parse_stream_json(task: dict[str, Any], stdout: str, label: str) -> TaskRun:
-    run = TaskRun(task["id"], task["tier"], "full", label, arm="claude-code")
+_PERSISTED_MARK = "<persisted-output>"
+
+
+def _normalize_persisted(content: Any) -> Any:
+    """Claude Code replaces an oversize tool result with a note + a LOCAL FILE PATH
+    (``<persisted-output>\nOutput too large (68KB). Full output saved to: /Users/...``) and
+    expects the model to ``Read`` it. That path is the client's, not the server's, so keep
+    the fact (for the persisted-result count) but drop the path from the recorded result.
+    """
+
+    def fix(text: str) -> str:
+        if not text.startswith(_PERSISTED_MARK):
+            return text
+        head = text.split("\n", 2)[1] if "\n" in text else ""
+        size = head.split("(")[-1].split(")")[0] if "(" in head else "?"
+        return f"[client persisted oversize tool result ({size}) to a local file]"
+
+    if isinstance(content, str):
+        return fix(content)
+    if isinstance(content, list):
+        out = []
+        for item in content:
+            if isinstance(item, dict) and isinstance(item.get("text"), str):
+                out.append({**item, "text": fix(item["text"])})
+            else:
+                out.append(item)
+        return out
+    return content
+
+
+def _dominant_model(model_usage: dict[str, dict], expected: str | None = None) -> str | None:
+    """The model id that carried the run. If the model the run was launched with (`expected`)
+    appears in modelUsage, that is the answer — on a one-line reply the main model's call can
+    cost LESS than Claude Code's Haiku side-call, so cost alone mislabels it. Otherwise: highest
+    costUSD, then outputTokens, then order (the side-call is listed first)."""
+    if not model_usage:
+        return None
+    if expected and expected in model_usage:
+        return expected
+    return max(
+        model_usage,
+        key=lambda m: (
+            (model_usage[m] or {}).get("costUSD") or 0,
+            (model_usage[m] or {}).get("outputTokens") or 0,
+        ),
+    )
+
+
+def _parse_stream_json(
+    task: dict[str, Any],
+    stdout: str,
+    label: str,
+    arm: str = "claude-code",
+    condition: str = "full",
+    expected_model: str | None = None,
+) -> TaskRun:
+    run = TaskRun(task["id"], task["tier"], condition, label, arm=arm)
     uses: dict[str, dict[str, Any]] = {}  # tool_use_id -> {name, input}
     results: dict[str, dict[str, Any]] = {}  # tool_use_id -> {content, is_error}
     order: list[str] = []
@@ -75,7 +154,7 @@ def _parse_stream_json(task: dict[str, Any], stdout: str, label: str) -> TaskRun
             for b in e.get("message", {}).get("content", []):
                 if b.get("type") == "tool_result":
                     results[b["tool_use_id"]] = {
-                        "content": b.get("content"),
+                        "content": _normalize_persisted(b.get("content")),
                         "is_error": bool(b.get("is_error")),
                     }
         elif etype == "result":
@@ -83,8 +162,20 @@ def _parse_stream_json(task: dict[str, Any], stdout: str, label: str) -> TaskRun
             run.steps = e.get("num_turns") or 0
             run.latency_s = (e.get("duration_ms") or 0) / 1000
             u = e.get("usage") or {}
-            run.input_tokens = u.get("input_tokens", 0)
+            # Claude Code reports uncached input separately from cache reads/writes; the
+            # custom loop's input_tokens is total context, so summing here makes them comparable.
+            run.input_tokens = (
+                u.get("input_tokens", 0)
+                + u.get("cache_creation_input_tokens", 0)
+                + u.get("cache_read_input_tokens", 0)
+            )
             run.output_tokens = u.get("output_tokens", 0)
+            run.cost_usd = e.get("total_cost_usd")
+            # modelUsage is keyed by model id. Claude Code also bills a small Haiku
+            # side-call (title/classification, ~1K tokens) and lists it FIRST, so the first
+            # key mislabels every non-Haiku run: take the model that did the work instead.
+            mu = e.get("modelUsage") or {}
+            run.persona_model = _dominant_model(mu, expected_model)
             if e.get("is_error"):
                 run.error = f"persona result is_error (stop_reason={e.get('stop_reason')})"
 
@@ -108,9 +199,8 @@ class ClaudeCodePersona:
         self.cfg = cfg or PersonaConfig()
 
     async def run(self, task: dict[str, Any], mcp_url: str) -> TaskRun:
-        mcp_config = json.dumps(
-            {"mcpServers": {_MCP_SERVER_NAME: {"type": "http", "url": mcp_url}}}
-        )
+        servers = {_MCP_SERVER_NAME: {"type": "http", "url": mcp_url}} if self.cfg.mcp else {}
+        mcp_config = json.dumps({"mcpServers": servers})
         cmd = [
             "claude",
             "-p",
@@ -123,8 +213,18 @@ class ClaudeCodePersona:
             "--strict-mcp-config",
             "--dangerously-skip-permissions",
         ]
+        if self.cfg.isolate:
+            # Verified on 2.1.259: --setting-sources "" stops the developer's global plugin
+            # SessionStart hooks from running inside the persona; --no-session-persistence
+            # stops each run writing a transcript under ~/.claude/projects/.
+            cmd += ["--setting-sources", "", "--no-session-persistence"]
+        if self.cfg.system_prompt:
+            cmd += ["--append-system-prompt", self.cfg.system_prompt]
         if self.cfg.model:
             cmd += ["--model", self.cfg.model]
+        max_turns = self.cfg.max_turns if self.cfg.max_turns is not None else _max_steps()
+        cmd += ["--max-turns", str(max_turns)]
+        timeout_s = self.cfg.timeout_s if self.cfg.timeout_s is not None else _default_timeout_s()
         env = {**os.environ, **self.cfg.env}
         # When redirecting to a custom model endpoint, drop inherited creds that would
         # otherwise win over (or collide with) the endpoint's own auth.
@@ -140,12 +240,31 @@ class ClaudeCodePersona:
                 cwd=self.cfg.cwd,
                 env=env,
             )
-            out, err = await proc.communicate()
         except Exception as exc:
-            r = TaskRun(task["id"], task["tier"], "full", self.cfg.label, arm="claude-code")
+            r = TaskRun(
+                task["id"], task["tier"], self.cfg.condition, self.cfg.label, arm=_arm(self.cfg)
+            )
             r.error = f"persona launch failed: {type(exc).__name__}: {exc}"
             return r
-        run = _parse_stream_json(task, out.decode("utf-8", "replace"), self.cfg.label)
+        try:
+            out, err = await asyncio.wait_for(proc.communicate(), timeout_s)
+        except TimeoutError:
+            proc.kill()
+            await proc.wait()
+            r = TaskRun(
+                task["id"], task["tier"], self.cfg.condition, self.cfg.label, arm=_arm(self.cfg)
+            )
+            r.error = f"persona timed out after {timeout_s:g} s"
+            r.latency_s = timeout_s
+            return r
+        run = _parse_stream_json(
+            task,
+            out.decode("utf-8", "replace"),
+            self.cfg.label,
+            arm=_arm(self.cfg),
+            condition=self.cfg.condition,
+            expected_model=self.cfg.model,
+        )
         if proc.returncode != 0 and not run.error:
             run.error = f"claude exited {proc.returncode}: {err.decode('utf-8', 'replace')[:200]}"
         return run

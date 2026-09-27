@@ -163,13 +163,16 @@
   prompt: >-
     Locate a FITS image covering the galaxy M51 in the CADC archive and report its direct
     access URL (the URL a client would open to load the FITS).
-  expect_tools: [search_images_by_position]
+  # Completion tier: the bare SIA connection OR the workflow tool that wraps resolve + SIA
+  # both count (manna#36 — the suite predates the 0.9.0 workflow tools).
+  expect_any_of: [[search_images_by_position], [find_observations_of_target]]
   rubric: >-
-    Passes if the model resolved/located M51, searched CADC for images with search_images_by_position,
-    and reported a specific image's access_url. In 0.4.0 the server does not download images
-    (vo_sia_fetch was removed); CADC SIA2 access_urls point at a DataLink document, so full
-    credit follows that indirection to the real FITS URL. Success is the fetchable URL, not
-    a resource_uri or raw bytes.
+    Graded on the OUTCOME, not the tool chosen: passes if the model located M51 in CADC via the
+    server's image search (search_images_by_position or find_observations_of_target) and reported
+    a specific, fetchable FITS URL for it. The server does not download images; CADC SIA2
+    access_urls point at a DataLink document, so full credit follows that indirection to the
+    real FITS URL (a URL ending in .fits or served as application/fits). Fails if it reports only
+    a resource_uri / DataLink document, fabricates a URL, or gives up.
 
 - id: t2-schema-bound-query
   tier: 2
@@ -194,7 +197,9 @@
       # q3c_radial_query (preferred true cone) OR a ra/dec BETWEEN bounding box.
       - { arg: adql, op: not_contains, value: "CONTAINS(", match: all }
       - { arg: adql, op: not_contains, value: "CIRCLE(", match: all }
-      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
+      # q3c, or a ra/dec bounding box written either as BETWEEN or as >= / <= comparisons
+      # (both avoid the untranslated ADQL geometry; the comparison form was mis-scored, manna#36).
+      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between|\\b(ra|dec)\\s*(>=|<=|<|>)\\s*-?[0-9])", match: all }
 
 # =====================================================================
 # Tier 3 — with-and-without comparison (pitfall avoidance)
@@ -233,12 +238,19 @@
   probes_pitfall: "Data Lab does not translate ADQL geometry -> use q3c_radial_query or bounding box"
   prompt: >-
     Using Astro Data Lab, count nsc_dr2.object rows within 0.1 degrees of RA=180, Dec=-30.
+    Write and run the ADQL yourself with run_adql_query (do not use a counting helper tool):
+    this is a check of the query you write.
+  # The pitfall lives in hand-written ADQL; the count workflow tool applies q3c internally and
+  # would hide it (manna#36), so it is forbidden here and the prompt says so.
   expect_tools: [run_adql_query]
+  forbid_tools: [count_observations_near_target]
   arg_checks:
     run_adql_query:
       - { arg: adql, op: not_contains, value: "CONTAINS(", match: all }
       - { arg: adql, op: not_contains, value: "CIRCLE(", match: all }
-      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between)", match: all }
+      # q3c, or a ra/dec bounding box written either as BETWEEN or as >= / <= comparisons
+      # (both avoid the untranslated ADQL geometry; the comparison form was mis-scored, manna#36).
+      - { arg: adql, op: regex, value: "(?is)(q3c_radial_query|q3c_ellipse_query|between|\\b(ra|dec)\\s*(>=|<=|<|>)\\s*-?[0-9])", match: all }
 
 - id: t3-nrao-lowerupper
   tier: 3
@@ -316,10 +328,33 @@
     Run this ADQL against Astro Data Lab: SELECT TOP FROM smash_dr2.object
     (I think it's slightly wrong — fix it if needed and get me 5 rows.)
   expect_tools: [run_adql_query]
+  # Graded on the outcome: the user has flagged the query as wrong, so repairing it BEFORE
+  # running it is the correct behaviour and must pass (manna#36). The error-hint path is
+  # exercised by t4-bad-adql-blind below.
   rubric: >-
-    Passes if the model hits a query error, reads the error_class/retry_strategy, repairs
-    the ADQL (e.g. SELECT TOP 5 ... with a column list), and returns rows. Fails if it
-    gives up or fabricates data.
+    Passes if the model ends with a corrected, valid ADQL (e.g. SELECT TOP 5 <columns> FROM
+    smash_dr2.object), runs it with run_adql_query, and reports real returned rows — whether it
+    fixed the query up front or after seeing an error. Fails if it gives up, reports rows it did
+    not actually get from the tool, or returns the unfixed query's error as its answer.
+
+- id: t4-bad-adql-blind
+  tier: 4
+  prompt: >-
+    Run this ADQL against Astro Data Lab and give me the 5 rows it returns:
+    SELECT TOP FROM smash_dr2.object
+  expect_tools: [run_adql_query]
+  arg_checks:
+    run_adql_query:
+      # The final query must be repaired: TOP with a count and a column list / star.
+      - { arg: adql, op: regex, value: "(?is)SELECT\\s+TOP\\s+\\d+\\s+\\S", match: last }
+  # No hint that the query is broken: the model should run it, receive the server's error
+  # (error_class + retry_strategy + hint), repair, and re-run. This is the error-hint channel.
+  rubric: >-
+    Passes if the model's FINAL run_adql_query used a corrected query (SELECT TOP 5 with a
+    column list or *) and it reports the real rows that call returned. Full credit whether the
+    model discovered the fault from the tool's error or spotted it first; the arg check above
+    enforces that the last query was valid. Fails if it gives up after the error, fabricates
+    rows, or answers with the error text alone.
 
 - id: t4-unknown-archive
   tier: 4
