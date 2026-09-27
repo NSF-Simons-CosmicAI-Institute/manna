@@ -68,6 +68,11 @@ class ModelConfig:
     max_tokens: int = DEFAULT_MAX_TOKENS
     label: str = "model"
     backend: str = "anthropic"  # "anthropic" | "openai" (model-under-test API shape)
+    # Value of the Messages API `thinking.type` to send ("adaptive"); None omits the
+    # parameter. Omitting is not neutral across models: Sonnet 5 thinks adaptively by
+    # default, Opus 4.8 runs thinking-off, Haiku 4.5 rejects the adaptive form. Set
+    # EVAL_MODEL_THINKING=adaptive to put Opus 4.8 on the same footing as Sonnet 5.
+    thinking: str | None = None
 
     @classmethod
     def from_env(cls, prefix: str = "EVAL_MODEL") -> ModelConfig:
@@ -85,6 +90,7 @@ class ModelConfig:
           {PREFIX}_BASE_URL[/ ANTHROPIC_BASE_URL]        -> endpoint (omit for hosted)
           {PREFIX}_API_KEY[/ ANTHROPIC_API_KEY]          -> auth token
           {PREFIX}_CUSTOM_HEADERS[/ ANTHROPIC_CUSTOM_HEADERS] -> "Header: v; Header2: v2"
+          {PREFIX}_THINKING                              -> `thinking.type` ("adaptive"); unset omits it
         (the ANTHROPIC_* fallbacks in brackets apply to EVAL_MODEL only.)
         """
         inherit = prefix == "EVAL_MODEL"
@@ -106,6 +112,7 @@ class ModelConfig:
             extra_headers=_parse_custom_headers(raw_headers),
             label=os.getenv(f"{prefix}_LABEL", name),
             backend=os.getenv(f"{prefix}_BACKEND", "anthropic"),
+            thinking=os.getenv(f"{prefix}_THINKING") or None,
         )
 
 
@@ -146,6 +153,8 @@ class TaskRun:
     output_tokens: int = 0
     error: str | None = None  # harness-level failure (not a tool error)
     async_incomplete: bool = False  # ran out of budget polling a live async job
+    cost_usd: float | None = None  # persona-reported spend; custom-loop runners leave this None
+    persona_model: str | None = None  # persona-reported model id; ditto
 
     @property
     def num_tool_calls(self) -> int:
@@ -165,6 +174,8 @@ class TaskRun:
             "tokens": {"input": self.input_tokens, "output": self.output_tokens},
             "error": self.error,
             "async_incomplete": self.async_incomplete,
+            "cost_usd": self.cost_usd,
+            "persona_model": self.persona_model,
             "trace": [
                 {
                     "tool": c.tool,
@@ -332,6 +343,7 @@ async def run_task(
     inject_notes: bool = True,
     no_discovery: bool = False,
     arm: str = "mcp",
+    exec_tool: bool = True,
 ) -> TaskRun:
     """Run one task end-to-end under the given context condition and tool approach.
 
@@ -339,6 +351,8 @@ async def run_task(
     (the MCP-quality no-curation baselines). inject_notes/no_discovery apply to 'mcp'.
     inject_notes defaults True to mirror production; False strips the server's
     cheatsheet of up-front notes back off.
+    exec_tool (mcp only) serves the harness-side execute_python tool; False reproduces
+    pre-2026-09-22 runs.
     """
     from evals.model_backends import make_backend
     from evals.providers import make_provider
@@ -356,7 +370,9 @@ async def run_task(
     max_steps, poll_sleep = _max_steps(), _poll_sleep()
     try:
         with ctx():
-            provider = make_provider(arm, inject_notes=inject_notes, no_discovery=no_discovery)
+            provider = make_provider(
+                arm, inject_notes=inject_notes, no_discovery=no_discovery, exec_tool=exec_tool
+            )
             async with provider, make_backend(cfg) as model:
                 tools = provider.tools
                 # Neutral conversation the backend translates to its own wire format.
@@ -367,7 +383,13 @@ async def run_task(
                     run.input_tokens += comp.input_tokens
                     run.output_tokens += comp.output_tokens
                     convo.append(
-                        {"role": "assistant", "text": comp.text, "tool_uses": comp.tool_uses}
+                        {
+                            "role": "assistant",
+                            "text": comp.text,
+                            "tool_uses": comp.tool_uses,
+                            # Verbatim blocks (thinking included) for backends that replay them.
+                            "raw_content": comp.raw_content,
+                        }
                     )
                     if not comp.tool_uses:
                         run.final_answer = comp.text

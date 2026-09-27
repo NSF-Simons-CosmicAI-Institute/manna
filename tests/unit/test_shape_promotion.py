@@ -80,3 +80,33 @@ def test_shape_promotion_omits_tabular_keys():
     )
     for key in ("rows", "columns", "preview", "resource_uri", "row_count"):
         assert key not in env, f"{key} must not appear in promotion envelope"
+
+
+def test_shape_promotion_completed_skips_the_poll_step():
+    # A job that finished inside the server-side wait window must send the
+    # model straight to get_async_job_results, not to a redundant status poll.
+    env = shape_promotion(
+        job_url=_JOB_URL,
+        archive="alma",
+        phase="COMPLETED",
+        submitted_at=datetime.now(UTC),
+    )
+    assert env["phase"] == "COMPLETED"
+    first = env["next_steps"][0]
+    assert first.startswith("The job has already finished")
+    assert "get_async_job_results(job_url)" in first
+    assert "get_async_job_status" not in first
+    assert len(env["next_steps"]) == 2
+    assert not any(s.startswith("When COMPLETED") for s in env["next_steps"])
+
+
+def test_shape_promotion_running_first_step_says_status_call_waits():
+    env = shape_promotion(
+        job_url=_JOB_URL,
+        archive="alma",
+        phase="EXECUTING",
+        submitted_at=datetime.now(UTC),
+    )
+    first = env["next_steps"][0]
+    assert "get_async_job_status(job_url)" in first
+    assert "waits server-side" in first

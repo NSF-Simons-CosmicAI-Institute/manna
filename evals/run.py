@@ -45,10 +45,16 @@ async def _run_one(
     sem: asyncio.Semaphore,
     inject_notes: bool = True,
     no_discovery: bool = False,
+    exec_tool: bool = True,
 ) -> tuple[TaskRun, TaskScore]:
     async with sem:
         run = await run_task(
-            task, cfg, condition, inject_notes=inject_notes, no_discovery=no_discovery
+            task,
+            cfg,
+            condition,
+            inject_notes=inject_notes,
+            no_discovery=no_discovery,
+            exec_tool=exec_tool,
         )
     score = await score_task(task, run, judge)
     status = "PASS" if score.passed else "FAIL"
@@ -186,6 +192,7 @@ async def _main_async(args: argparse.Namespace) -> int:
             sem,
             inject_notes=not args.no_inject_notes,
             no_discovery=args.no_discovery,
+            exec_tool=args.exec_tool,
         )
         for t in tasks
         for cond in _conditions_for(t, args.condition)
@@ -200,6 +207,7 @@ async def _main_async(args: argparse.Namespace) -> int:
     out = write_results(
         {
             "model": cfg.label,
+            "mcp_exec": args.exec_tool,
             "summary": summary,
             "scores": [s.to_dict() for s in scores],
             "runs": [r.to_dict() for r in runs],
@@ -258,6 +266,12 @@ def main() -> int:
         "--no-discovery",
         action="store_true",
         help="withhold list_archives + describe_table (isolate description-injection).",
+    )
+    p.add_argument(
+        "--no-exec",
+        dest="exec_tool",
+        action="store_false",
+        help="withhold the harness-side execute_python tool (pre-2026-09-22 behaviour).",
     )
     args = p.parse_args()
     return asyncio.run(_main_async(args))

@@ -80,8 +80,10 @@ cp evals/.env.example evals/.env    # then edit evals/.env
 |-----|---------|
 | `EVAL_MODEL_NAME` / `_BASE_URL` / `_API_KEY` / `_CUSTOM_HEADERS` | the **model under test** (a local vLLM endpoint by default) |
 | `EVAL_MODEL_BACKEND` (+ `EVAL_JUDGE_BACKEND`) | wire shape: `anthropic` (default) or `openai` |
+| `EVAL_MODEL_THINKING` (+ `EVAL_JUDGE_THINKING`) | Messages API `thinking.type` to send (`adaptive`); unset omits the parameter. Sonnet 5 thinks by default, Opus 4.8 does not, Haiku 4.5 rejects `adaptive`, so set it per model |
 | `EVAL_JUDGE_NAME` / `_API_KEY` (+ `_BASE_URL` / `_CUSTOM_HEADERS`) | the rubric **judge** |
 | `EVAL_MAX_STEPS` / `EVAL_ASYNC_POLL_SLEEP` | optional run knobs |
+| `EVAL_EXEC_TIMEOUT` | per-call time limit (seconds) for the mcp arm's `execute_python` tool; default 120 |
 
 The judge config is **independent** of the model-under-test (it does *not* inherit the
 proxy `ANTHROPIC_*`/`EVAL_MODEL_*` vars), so a **hosted Claude Haiku** judge (`EVAL_JUDGE_NAME=claude-haiku-4-5-20251001`
@@ -160,6 +162,14 @@ uv run python -m evals.mcp_quality --set-baseline  # record results/mcp-quality-
 > previously could never register. Re-record baselines (`--set-baseline`)
 > before trusting version-over-version diffs that span this change.
 
+The `mcp` approach also carries a harness-side `execute_python` tool (persistent
+per-task Python, so models can run the `fetch_recipe` / `load_recipe` / `save_recipe`
+snippets MANNA hands them, the same as a Jupyter or Claude Code client would).
+`--no-exec` withholds it to reproduce earlier runs, and results record `mcp_exec`
+(`true`/`false`) so a diff can tell the two apart — existing baselines predate this
+tool and are effectively exec-off; re-cut them with `--set-baseline` before trusting
+a version-over-version diff against the `mcp` arm.
+
 **2 — model × harness matrix** (`model_backends.py`, `personas.py`, `persona_run.py`,
 `scorecard.py`): how well do different **models** and **harnesses** work with the server?
 `make_backend` drives Anthropic (Messages) **or** OpenAI (Chat Completions) models via one
@@ -172,6 +182,16 @@ uv run python -m evals.persona_run --limit 3               # Claude Code persona
 uv run python -m evals.persona_run --same-model --limit 3  # persona at the same served model (free)
 uv run python -m evals.scorecard evals/results/mcp-quality-*.json evals/results/persona-*.json
 ```
+
+The persona run is isolated from your own Claude Code plugins/hooks/session by default
+(`--setting-sources ""` + `--no-session-persistence`); pass `--no-isolate` to keep them active.
+The custom loop's `SYSTEM_PROMPT` is appended to the persona by default so the two harnesses
+differ only in the agent loop; `--no-system-prompt` measures raw Claude Code instead.
+Each task is capped by a wall-clock timeout (`--timeout` / `EVAL_PERSONA_TIMEOUT`, default 600s)
+and a turn budget (`--max-turns` / `EVAL_MAX_STEPS`, default 20, matching the custom loop) so a
+run never hangs. Results carry `cost_usd` and `persona_model` (from the transcript's `result`
+event) plus `server_version` (the MANNA git SHA under test); `input_tokens` is the full context
+size including cache reads/writes, so it's comparable to the custom loop's `input_tokens`.
 
 **3 — archive note regression** (`audit.py`): keep the archive notes honest. **Model-free** — one
 live ADQL probe per each probeable `Note` audit, keyed to `archives/<archive>.py ::
