@@ -3,7 +3,7 @@
 <!-- mcp-name: io.github.NSF-Simons-CosmicAI-Institute/manna -->
 [![Documentation](https://readthedocs.org/projects/manna/badge/?version=latest)](https://manna.readthedocs.io/en/latest/)
 
-**MANNA** — *MCP Architecture for NOIRLab, NRAO, and Additional Archives.*
+**MANNA** — *MCP Architecture for NOIRLab, NRAO, and additional Archives.*
 
 An MCP server exposing IVOA-compliant astronomical archives (NOIRLab Astro Data Lab,
 NRAO/ALMA, CADC, ESO, Gaia, …) to LLM clients.
