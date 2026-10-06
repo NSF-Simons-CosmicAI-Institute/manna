@@ -39,10 +39,10 @@ manna                        # HTTP server on http://localhost:8000
 program. `uvx` needs a command named after the package, which is why the
 `manna-mcp` alias exists.
 
-Tool names changed in 0.9.0 (they lost the `vo_` prefix — see the
-README's "Renamed in 0.9.0" section). These pages describe 0.9.0 or later;
-check what you have with `pip show manna-mcp` or the `/health` endpoint,
-which reports the version.
+Tool names changed in 0.9.0 (they lost the `vo_` prefix; see
+[Tool names before 0.9.0](#tool-names-before-0-9-0) below). These pages
+describe 0.9.0 or later; check what you have with `pip show manna-mcp` or the
+`/health` endpoint, which reports the version.
 
 ## From GitHub
 
@@ -129,3 +129,27 @@ step.
 The Inspector call lists 15 tools, beginning with `list_archives`. `POST /mcp`
 redirects to `/mcp/`; the Inspector follows the redirect, plain `curl` does not,
 so use the trailing slash when you call the endpoint yourself.
+
+(tool-names-before-0-9-0)=
+## Tool names before 0.9.0
+
+0.9.0 dropped the `vo_` prefix for verb-first, descriptive names. A client
+pinned to the old names must update.
+
+| Before 0.9.0 | Now |
+|---|---|
+| `vo_archive_list` | `list_archives` |
+| `vo_schema_describe` | `describe_table` |
+| `vo_inspect_table` | `preview_table` |
+| `vo_target_resolve` | `resolve_target_name` |
+| `vo_tap_query` | `run_adql_query` |
+| `vo_tap_status` | `get_async_job_status` |
+| `vo_tap_results` | `get_async_job_results` |
+| `vo_tap_abort` | `abort_async_job` |
+| `vo_registry_search` | `search_ivoa_registry` |
+| `vo_registry_describe` | `describe_ivoa_service` |
+| `vo_cone_search` | `search_catalog_by_position` |
+| `vo_sia_search` | `search_images_by_position` |
+| `vo_find_observations` | `find_observations_of_target` |
+| `vo_count_observations` | `count_observations_near_target` |
+| `vo_survey_target` | `survey_archives_for_target` |
