@@ -5,7 +5,8 @@ IVOA-compliant astronomical archives (NOIRLab Astro Data Lab, NRAO/ALMA, …) to
 clients. STABLE summer project (CosmicAI). Current version: 0.11.0 (FastMCP 4:
 stateless MCP 2026-07-28 over HTTP, with the 2025-11-25 session protocol still
 served to older clients). 0.10.0 is the version the research note's evals ran
-against. 0.9.0 renamed the tools (a breaking change for clients; see README "Renamed in 0.9.0").
+against. 0.9.0 renamed the tools (a breaking change for clients; the old-to-new table is in
+docs/getting-started/installation.md, "Tool names before 0.9.0").
 
 ## Terminology
 
