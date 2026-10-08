@@ -26,7 +26,7 @@ async def test_default_tool_surface_never_mentions_nrao(mcp_server):
 
     offenders: list[str] = []
     for t in tools:
-        surface = " ".join([t.name, t.description or "", json.dumps(t.inputSchema)])
+        surface = " ".join([t.name, t.description or "", json.dumps(t.input_schema)])
         surface = surface.replace(_ALLOWED_HOST, "")
         if _FORBIDDEN.search(surface):
             offenders.append(t.name)

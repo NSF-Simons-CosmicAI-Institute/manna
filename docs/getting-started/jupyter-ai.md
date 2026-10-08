@@ -30,8 +30,7 @@ mkdir -p <jupyterlab-root>/.jupyter
 :language: json
 ```
 
-Keep the trailing slash on the URL: `POST /mcp` redirects to `/mcp/`, and not
-every MCP client follows redirects.
+The endpoint answers at both `/mcp/` and `/mcp`.
 
 ## 3. Ask
 
