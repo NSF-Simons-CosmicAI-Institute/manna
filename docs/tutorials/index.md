@@ -24,7 +24,7 @@ async with client:
 4. {doc}`04-archive-notes-and-errors` — preview a table, a classic Data Lab
    mistake, the error envelope, the up-front note, `truncated=true`.
 
-Recorded against MANNA 0.9.0 on 2026-09-16. The outputs are committed; the
+Recorded against MANNA 0.11.0 on 2026-10-08. The outputs are committed; the
 site never re-runs them. To re-record, see
 {doc}`../contributing/development`.
 
