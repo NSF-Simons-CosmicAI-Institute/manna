@@ -58,6 +58,24 @@ class RequestIdMiddleware:
             current_request_id.reset(token)
 
 
+class McpTrailingSlashMiddleware:
+    """Pure ASGI middleware: serve ``/mcp`` as ``/mcp/`` instead of redirecting.
+
+    The FastMCP app is mounted under ``/mcp``, and Starlette's ``Mount`` answers
+    the bare path with a 307 to ``/mcp/``. Clients that do not follow redirects
+    on POST (plain ``curl``, some MCP clients) never reach the server, so the
+    bare path is rewritten before routing. Only the exact path is touched.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"] == "/mcp":
+            scope = {**scope, "path": "/mcp/", "raw_path": b"/mcp/"}
+        return await self.app(scope, receive, send)
+
+
 # Closed-world: reads only the in-process archive notes. Open-world: hits live services.
 _LOCAL = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 _REMOTE = ToolAnnotations(read_only_hint=True, open_world_hint=True)
@@ -135,6 +153,6 @@ def build_app() -> Starlette:
             Route("/ready", ready),
             Mount("/mcp", app=mcp_app),
         ],
-        middleware=[Middleware(RequestIdMiddleware)],
+        middleware=[Middleware(RequestIdMiddleware), Middleware(McpTrailingSlashMiddleware)],
         lifespan=mcp_app.lifespan,
     )

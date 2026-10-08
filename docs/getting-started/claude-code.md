@@ -45,7 +45,7 @@ Start the server (`manna`, Docker, or a deployment), then:
 claude mcp add --transport http manna http://localhost:8000/mcp/
 ```
 
-Keep the trailing slash: `POST /mcp` answers with a redirect to `/mcp/`.
+The endpoint answers at both `/mcp/` and `/mcp`.
 
 ## Verify
 

@@ -126,6 +126,5 @@ above prints literally; check the running server's actual version against
 the installed package (`pip show manna-mcp`) if the two ever look out of
 step.
 
-The Inspector call lists 15 tools, beginning with `list_archives`. `POST /mcp`
-redirects to `/mcp/`; the Inspector follows the redirect, plain `curl` does not,
-so use the trailing slash when you call the endpoint yourself.
+The Inspector call lists 15 tools, beginning with `list_archives`. The endpoint
+answers at both `/mcp/` and `/mcp`.
