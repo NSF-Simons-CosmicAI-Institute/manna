@@ -291,7 +291,7 @@ def _anthropic_tools(
             {
                 "name": t.name,
                 "description": desc,
-                "input_schema": t.inputSchema or {"type": "object", "properties": {}},
+                "input_schema": t.input_schema or {"type": "object", "properties": {}},
             }
         )
     return out

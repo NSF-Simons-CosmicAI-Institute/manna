@@ -59,15 +59,15 @@ class RequestIdMiddleware:
 
 
 # Closed-world: reads only the in-process archive notes. Open-world: hits live services.
-_LOCAL = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
-_REMOTE = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
+_LOCAL = ToolAnnotations(read_only_hint=True, open_world_hint=False)
+_REMOTE = ToolAnnotations(read_only_hint=True, open_world_hint=True)
 # abort_async_job DELETEs an upstream UWS job — not read-only, but idempotent
 # (deleting an already-gone job is a no-op) and destructive.
 _ABORT = ToolAnnotations(
-    readOnlyHint=False,
-    destructiveHint=True,
-    idempotentHint=True,
-    openWorldHint=True,
+    read_only_hint=False,
+    destructive_hint=True,
+    idempotent_hint=True,
+    open_world_hint=True,
 )
 
 

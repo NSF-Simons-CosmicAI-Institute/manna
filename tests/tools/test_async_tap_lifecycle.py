@@ -302,7 +302,7 @@ async def test_status_schema_exposes_wait_seconds(mcp_server):
     async with Client(mcp_server) as client:
         tools = {t.name: t for t in await client.list_tools()}
 
-    props = tools["get_async_job_status"].inputSchema["properties"]
+    props = tools["get_async_job_status"].input_schema["properties"]
     assert "wait_seconds" in props
     assert "clamped" in props["wait_seconds"]["description"]
     assert props["wait_seconds"]["anyOf"][0].get("minimum") == 0
