@@ -4,7 +4,7 @@
 # why it exists). Bare `manna` is admin-prohibited on PyPI (name-retention
 # blocklist); a release request is on file with pypi/support.
 name = "manna-mcp"
-version = "0.10.0"
+version = "0.11.0"
 description = "MANNA — MCP Architecture for NOIRLab, NRAO, and Additional Archives"
 requires-python = ">=3.12"
 readme = "README.md"
@@ -32,12 +32,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Astronomy",
 ]
 dependencies = [
-    "fastmcp>=3.0,<4.0",
+    "fastmcp>=4.0,<5.0",
     "pyvo>=1.8,<2.0",
     "astropy>=6.0",
-    "pydantic>=2.7",
+    "pydantic>=2.12",
     "pydantic-settings>=2.5",
-    "starlette>=0.40",
+    "starlette>=1.0.1",
     "uvicorn[standard]>=0.32",
     "httpx>=0.27",
 ]

@@ -6,7 +6,7 @@
 [![CI](https://github.com/NSF-Simons-CosmicAI-Institute/manna/actions/workflows/ci.yml/badge.svg)](https://github.com/NSF-Simons-CosmicAI-Institute/manna/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/NSF-Simons-CosmicAI-Institute/manna/blob/main/LICENSE)
 
-**MANNA** (*MCP Architecture for NOIRLab, NRAO, and Additional Archives*) is an
+**MANNA** (*MCP Architecture for NOIRLab, NRAO, and additional Archives*) is an
 [MCP](https://modelcontextprotocol.io) server that gives LLM clients such as
 Claude Code, Claude Desktop, and Jupyter AI access to astronomical archives
 through the standard IVOA interfaces: TAP/ADQL, SIA image search, cone search,
@@ -63,7 +63,7 @@ Claude Desktop, or any client with a JSON config:
 ```
 
 For a shared HTTP server or Jupyter AI, run `manna` and point the client at
-`http://localhost:8000/mcp/` (keep the trailing slash).
+`http://localhost:8000/mcp/`.
 
 Guides:
 [Claude Code](https://manna.readthedocs.io/en/latest/getting-started/claude-code.html),
