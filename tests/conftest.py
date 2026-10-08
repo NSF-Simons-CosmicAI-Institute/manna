@@ -95,3 +95,33 @@ if not getattr(VCRHTTPResponse, "_decode_content_patched", False):
     VCRHTTPResponse.read = _read  # type: ignore[assignment]
     VCRHTTPResponse.read1 = _read1  # type: ignore[assignment]
     VCRHTTPResponse._decode_content_patched = True  # type: ignore[attr-defined]
+
+
+class FakeWaitClock:
+    """Deterministic stand-in for the sleep/monotonic pair in tools/tap.py."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+@pytest.fixture(autouse=True)
+def wait_clock(monkeypatch):
+    """Make the async wait loop instant and deterministic in every test.
+
+    tools/tap.py sleeps for real between job re-reads. Unpatched, any test that
+    promotes to async or polls a still-running fake job would block for the
+    configured budget (20 s by default). Tests that care about the timing
+    request this fixture by name and inspect ``sleeps`` / ``now``.
+    """
+    clock = FakeWaitClock()
+    monkeypatch.setattr("manna.tools.tap._sleep", clock.sleep)
+    monkeypatch.setattr("manna.tools.tap._monotonic", clock.monotonic)
+    return clock

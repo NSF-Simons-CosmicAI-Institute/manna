@@ -29,9 +29,11 @@ common case for cone and SIA searches).
 
 - `sync` — TAP `/sync` only. An oversize result raises `validation_error`
   telling the caller to use `async`; a timeout is an `archive_error`.
-- `async` — submit to TAP `/async` and return a **promotion envelope** at once.
+- `async` — submit to TAP `/async`, wait up to the server's default window
+  (`MANNA_ASYNC_WAIT_SECONDS`, 20 s), and return a **promotion envelope**. A
+  job that finishes inside the window comes back with `phase: COMPLETED`.
 - `auto` (default) — try `/sync`; on timeout or an oversize result, re-submit
-  as an async job and return the promotion envelope.
+  as an async job, wait the same window, and return the promotion envelope.
 
 A promotion envelope:
 
@@ -43,13 +45,21 @@ A promotion envelope:
   "submitted_at": "2026-09-15T14:02:11+00:00",
   "archive": "alma",
   "next_steps": [
-    "Poll get_async_job_status(job_url) until phase is COMPLETED or ERROR — pass back the job_url from this response, verbatim.",
+    "Poll get_async_job_status(job_url) until phase is COMPLETED or ERROR — pass back the job_url from this response, verbatim. Each call waits server-side for the job before answering, so call it once and follow its next_steps rather than polling in a loop.",
     "When COMPLETED, call get_async_job_results(job_url) to get the result_url and a fetch_recipe.",
     "Then execute the fetch_recipe code with your code-execution tool to load the data — do not abandon the job or re-submit the query."
   ],
   "fetch_recipe": {"module": "pyvo", "code": "import pyvo\njob = pyvo.dal.AsyncTAPJob('https://almascience.eso.org/tap/async/1234')\njob.raise_if_error()\ntable = job.fetch_result().to_table()"}
 }
 ```
+
+`get_async_job_status(job_url, wait_seconds=...)` blocks server-side for up to
+`wait_seconds` (default `MANNA_ASYNC_WAIT_SECONDS`, clamped to
+`MANNA_ASYNC_WAIT_MAX_SECONDS`) re-reading the job every 2 s, and answers as
+soon as the phase is terminal. Its payload carries `waited_seconds` and a
+`next_steps` line for the phase seen — "still EXECUTING, call again with
+`wait_seconds=30`", "COMPLETED, call `get_async_job_results`", and so on. The
+wait is a loop inside one request; nothing is held between calls.
 
 The job is addressed by its upstream `job_url`. There is no server-side job id
 and no registry: `get_async_job_status`, `get_async_job_results`, and

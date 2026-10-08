@@ -29,6 +29,6 @@ async def test_async_lifecycle_tools_take_a_job_url_parameter(mcp_server):
         tools = {t.name: t for t in await client.list_tools()}
 
     for name in ("get_async_job_status", "get_async_job_results", "abort_async_job"):
-        props = tools[name].inputSchema["properties"]
+        props = tools[name].input_schema["properties"]
         assert "job_url" in props, f"{name} does not accept job_url"
         assert "job_id" not in props, f"{name} still accepts job_id"

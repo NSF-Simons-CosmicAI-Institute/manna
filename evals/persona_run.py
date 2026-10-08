@@ -23,21 +23,31 @@ from pathlib import Path
 import httpx
 
 from evals._common import is_manna_tool, judge_from_env, write_results
-from evals.mcp_quality import _accuracy
-from evals.personas import PersonaConfig, make_persona
+from evals.harness import SYSTEM_PROMPT, _max_steps
+from evals.mcp_quality import _accuracy, _server_version
+from evals.personas import PersonaConfig, _default_timeout_s, make_persona
 from evals.score import load_tasks, score_task
 
 TASKS_PATH = Path(__file__).with_name("mcp_quality_tasks.yaml")
+# The two suites a persona can work. "mcp-quality" = the value comparison (verdict: answer
+# accuracy, as mcp_quality.py). "tiers" = the tool-use evaluation (tasks.yaml; verdict:
+# TaskScore.passed — every programmatic check + rubric, as run.py).
+SUITES = {
+    "mcp-quality": TASKS_PATH,
+    "tiers": Path(__file__).with_name("tasks.yaml"),
+}
 _SCRATCH = os.environ.get("TMPDIR", "/tmp")  # neutral cwd for the persona subprocess
 
 
-async def _serve(port: int):
+async def _serve(port: int, condition: str = "full"):
+    # The ablated server is the same app booted inside evals.context.ablated_context.
+    module = "evals._ablated_server" if condition == "ablated" else "manna"
     proc = await asyncio.create_subprocess_exec(
         "uv",
         "run",
         "python",
         "-m",
-        "manna",
+        module,
         env={**os.environ, "MANNA_PORT": str(port)},
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
@@ -82,7 +92,15 @@ def _same_model_persona(base_label: str) -> tuple[dict[str, str], str, str]:
 
 
 async def _main(args: argparse.Namespace) -> int:
-    tasks = load_tasks(TASKS_PATH)
+    tasks = load_tasks(SUITES[args.suite])
+    if args.tier:
+        tasks = [t for t in tasks if t["tier"] in args.tier]
+    from evals.score import partition_by_archive, print_skipped
+
+    # Same paused-archive skip as mcp_quality, so the two harnesses run the same task set.
+    tasks, skipped = partition_by_archive(tasks)
+    if skipped:
+        print_skipped(skipped)
     if args.limit:
         tasks = tasks[: args.limit]
     judge = judge_from_env()
@@ -90,17 +108,46 @@ async def _main(args: argparse.Namespace) -> int:
     p_env, p_model, p_label = {}, args.model, args.persona
     if args.same_model:
         p_env, p_model, p_label = _same_model_persona(args.persona)
+    if not args.mcp:
+        p_label += "-raw"  # without-MANNA approach: results file + arm say so
+    if args.condition == "ablated":
+        if not args.mcp:
+            raise SystemExit("--condition ablated needs the MANNA server; drop --no-mcp")
+        p_label += "-ablated"  # notes stripped: results file says so
+    if args.suite == "tiers":
+        p_label = "tiers-" + p_label  # results file names the suite
+    timeout_s = args.timeout if args.timeout is not None else _default_timeout_s()
+    max_turns = args.max_turns if args.max_turns is not None else _max_steps()
     persona = make_persona(
-        base_name, PersonaConfig(label=p_label, model=p_model, env=p_env, cwd=_SCRATCH)
+        base_name,
+        PersonaConfig(
+            label=p_label,
+            model=p_model,
+            env=p_env,
+            cwd=_SCRATCH,
+            isolate=args.isolate,
+            timeout_s=timeout_s,
+            max_turns=max_turns,
+            system_prompt=SYSTEM_PROMPT if args.system_prompt else None,
+            mcp=args.mcp,
+            condition=args.condition,
+        ),
     )
     args.persona = p_label
     mcp_url = f"http://127.0.0.1:{args.port}/mcp/"
 
     print(
         f"persona: {args.persona}  |  judge: {judge.label if judge else 'none'}  |  "
-        f"{len(tasks)} tasks  |  booting MCP server on :{args.port} …"
+        f"isolate: {'on' if args.isolate else 'off'}  |  timeout: {timeout_s:g}s  |  "
+        f"max_turns: {max_turns}  |  prompt: {'parity' if args.system_prompt else 'none'}  |  "
+        f"suite: {args.suite}  |  {len(tasks)} tasks  |  "
+        + (
+            f"condition: {args.condition}  |  booting MCP server on :{args.port} …"
+            if args.mcp
+            else "WITHOUT MANNA (no MCP server)"
+        )
     )
-    server = await _serve(args.port)
+    server = await _serve(args.port, args.condition) if args.mcp else None
     runs, accs = [], []
     try:
         sem = asyncio.Semaphore(args.concurrency)
@@ -108,20 +155,27 @@ async def _main(args: argparse.Namespace) -> int:
         async def one(task):
             async with sem:
                 run = await persona.run(task, mcp_url)
-            acc = _accuracy(await score_task(task, run, judge))
+            score = await score_task(task, run, judge)
+            # Tool-use evaluation: every check must hold (tools, args, leak scan, rubric).
+            # Value comparison: answer accuracy only, as mcp_quality.py.
+            acc = score.passed if args.suite == "tiers" else _accuracy(score)
             tag = {True: "PASS", False: "FAIL", None: "····"}[acc]
+            failed = [k for k, v in score.checks.items() if v is False]
             print(
                 f"  [{tag}] {task['id']:26s} calls={run.num_tool_calls} "
                 f"mcp={'y' if _used_mcp(run) else 'n'} turns={run.steps}"
+                + (f"  failed={','.join(failed)}" if failed and args.suite == "tiers" else "")
             )
-            return run, acc
+            return run, acc, score
 
         results = await asyncio.gather(*(one(t) for t in tasks))
-        runs = [r for r, _ in results]
-        accs = [a for _, a in results]
+        runs = [r for r, _, _ in results]
+        accs = [a for _, a, _ in results]
+        scores = [sc for _, _, sc in results]
     finally:
-        server.terminate()
-        await server.wait()
+        if server is not None:
+            server.terminate()
+            await server.wait()
 
     ok = [r for r in runs if not r.error]
     scored = [a for a in accs if a is not None]
@@ -140,14 +194,50 @@ async def _main(args: argparse.Namespace) -> int:
         "tool_use_rate": round(sum(_used_mcp(r) for r in runs) / len(runs), 3),
         "mean_mcp_calls": mean([sum(is_manna_tool(c.tool) for c in r.trace) for r in runs]),
         "mean_turns": mean([r.steps for r in runs]),
+        "mean_input_tokens": mean([r.input_tokens for r in ok]),
         "mean_output_tokens": mean([r.output_tokens for r in ok]),
+        "total_cost_usd": round(sum(r.cost_usd or 0 for r in runs), 4),
+        "mean_cost_usd": mean([r.cost_usd for r in runs if r.cost_usd is not None]),
         "mean_latency_s": mean([r.latency_s for r in ok]),
     }
+    if args.suite == "tiers":
+        # Per-tier pass rates, as run.py reports them.
+        tiers = sorted({sc.tier for sc in scores})
+        summary["by_tier"] = {
+            f"tier{t}": round(
+                sum(sc.passed for sc in scores if sc.tier == t)
+                / len([sc for sc in scores if sc.tier == t]),
+                3,
+            )
+            for t in tiers
+        }
     for k, v in summary.items():
         print(f"  {k:20s} {v}")
 
+    # The file's model label is the majority across runs (a single run can be mislabelled by
+    # Claude Code's Haiku side-call when the main model's own call was tiny).
+    from collections import Counter
+
+    seen = Counter(r.persona_model for r in runs if r.persona_model)
+    model_used = seen.most_common(1)[0][0] if seen else None
     out = write_results(
-        {"persona": args.persona, "summary": summary, "runs": [r.to_dict() for r in runs]},
+        {
+            "persona": args.persona,
+            "model": model_used,
+            "server_version": _server_version(),
+            "isolated": args.isolate,
+            "max_turns": max_turns,
+            "timeout_s": timeout_s,
+            "system_prompt": args.system_prompt,
+            "mcp": args.mcp,
+            "arm": "claude-code" if args.mcp else "claude-code-raw",
+            "condition": args.condition,
+            "suite": args.suite,
+            "summary": summary,
+            "runs": [r.to_dict() for r in runs],
+            "scores": [sc.to_dict() for sc in scores],
+            "skipped": [t["id"] for t, _ in skipped],
+        },
         prefix=f"persona-{args.persona}",
     )
     print(f"\nWrote {out}")
@@ -176,6 +266,59 @@ def main() -> int:
     )
     p.add_argument(
         "--limit", type=int, default=None, help="run only the first N tasks (cost control)"
+    )
+    p.add_argument(
+        "--no-isolate",
+        dest="isolate",
+        action="store_false",
+        help="keep the developer's global hooks/plugins/settings active inside the persona "
+        "(default: isolated)",
+    )
+    p.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="wall-clock cap per task, in seconds (default: EVAL_PERSONA_TIMEOUT env, or 600)",
+    )
+    p.add_argument(
+        "--max-turns",
+        type=int,
+        default=None,
+        help="--max-turns cap passed to the persona (default: EVAL_MAX_STEPS env, or 20)",
+    )
+    p.add_argument(
+        "--no-system-prompt",
+        dest="system_prompt",
+        action="store_false",
+        help="do not append the custom loop's SYSTEM_PROMPT to the persona (default: appended, "
+        "so the loop-vs-persona comparison differs only in the harness)",
+    )
+    p.add_argument(
+        "--no-mcp",
+        dest="mcp",
+        action="store_false",
+        help="the without-MANNA approach: run the persona with only its built-in tools and an "
+        "empty strict MCP config (no server is booted); arm=claude-code-raw",
+    )
+    p.add_argument(
+        "--suite",
+        default="mcp-quality",
+        choices=sorted(SUITES),
+        help="mcp-quality = value comparison (mcp_quality_tasks.yaml, verdict = answer accuracy); "
+        "tiers = tool-use evaluation (tasks.yaml, verdict = every check passes)",
+    )
+    p.add_argument(
+        "--tier",
+        type=int,
+        action="append",
+        help="tiers suite only: run just these tiers (repeatable)",
+    )
+    p.add_argument(
+        "--condition",
+        default="full",
+        choices=["full", "ablated"],
+        help="ablated = boot the server with its archive notes stripped (usage_notes, "
+        "cheatsheet, error hints, describe_table entries) — the with-and-without comparison",
     )
     p.add_argument("--port", type=int, default=8127)
     p.add_argument("--concurrency", type=int, default=2)

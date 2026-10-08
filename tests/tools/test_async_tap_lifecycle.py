@@ -50,12 +50,17 @@ class _FakeAsyncJob:
 
 
 class _FakeTapClient:
-    """Holds a single fake job; load_job returns it regardless of URL."""
+    """Holds a single fake job; load_job returns it regardless of URL.
+
+    Set ``phase_sequence`` to have successive load_job calls advance the job's
+    phase (the last entry repeats) — that is how a job completing mid-wait is
+    simulated."""
 
     def __init__(self, job=None):
         self.job = job or _FakeAsyncJob()
         self.submitted = []
         self.load_raises = None
+        self.phase_sequence: list[str] | None = None
 
     def submit_async(self, *, endpoint, adql, maxrec):
         self.submitted.append((endpoint, adql, maxrec))
@@ -64,6 +69,12 @@ class _FakeTapClient:
     def load_job(self, job_url):
         if self.load_raises is not None:
             raise self.load_raises
+        if self.phase_sequence:
+            self.job.phase = (
+                self.phase_sequence.pop(0)
+                if len(self.phase_sequence) > 1
+                else self.phase_sequence[0]
+            )
         return self.job
 
     def abort_job(self, job_url):
@@ -211,3 +222,87 @@ async def test_abort_is_idempotent_on_already_deleted_job(mcp_server, fake_tap):
         assert payload["phase"] == "ABORTED"
         assert payload["job_url"] == DATALAB_JOB
         assert payload["archive"] == "datalab"
+
+
+@pytest.mark.asyncio
+async def test_status_waits_default_budget_when_job_still_running(mcp_server, fake_tap, wait_clock):
+    fake_tap.job = _FakeAsyncJob(phase="EXECUTING")
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("get_async_job_status", {"job_url": DATALAB_JOB})
+        payload = result.structured_content
+
+    assert payload["phase"] == "EXECUTING"
+    assert payload["waited_seconds"] == 20.0
+    assert sum(wait_clock.sleeps) == 20.0
+    # Imperative, names the exact next call, and forbids the resubmit loop.
+    step = payload["next_steps"][0]
+    assert "waiting 20 s" in step
+    assert "get_async_job_status(job_url, wait_seconds=30)" in step
+    assert "do not re-submit" in step
+
+
+@pytest.mark.asyncio
+async def test_status_wait_seconds_is_clamped_to_server_max(mcp_server, fake_tap, wait_clock):
+    fake_tap.job = _FakeAsyncJob(phase="EXECUTING")
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "get_async_job_status", {"job_url": DATALAB_JOB, "wait_seconds": 300}
+        )
+
+    assert result.structured_content["waited_seconds"] == 30.0
+
+
+@pytest.mark.asyncio
+async def test_status_zero_wait_reads_once(mcp_server, fake_tap, wait_clock):
+    fake_tap.job = _FakeAsyncJob(phase="EXECUTING")
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool(
+            "get_async_job_status", {"job_url": DATALAB_JOB, "wait_seconds": 0}
+        )
+
+    assert result.structured_content["waited_seconds"] == 0.0
+    assert wait_clock.sleeps == []
+
+
+@pytest.mark.asyncio
+async def test_status_returns_as_soon_as_job_completes(mcp_server, fake_tap, wait_clock):
+    fake_tap.phase_sequence = ["EXECUTING", "EXECUTING", "COMPLETED"]
+
+    async with Client(mcp_server) as client:
+        result = await client.call_tool("get_async_job_status", {"job_url": DATALAB_JOB})
+        payload = result.structured_content
+
+    assert payload["phase"] == "COMPLETED"
+    assert payload["waited_seconds"] == 4.0
+    assert "get_async_job_results(job_url)" in payload["next_steps"][0]
+
+
+@pytest.mark.asyncio
+async def test_status_next_steps_for_error_and_aborted(mcp_server, fake_tap):
+    async with Client(mcp_server) as client:
+        fake_tap.job = _FakeAsyncJob(phase="ERROR", uws=_uws_error("Syntax error near 'bogus'."))
+        err = (
+            await client.call_tool("get_async_job_status", {"job_url": ALMA_JOB})
+        ).structured_content
+        fake_tap.job = _FakeAsyncJob(phase="ABORTED")
+        aborted = (
+            await client.call_tool("get_async_job_status", {"job_url": ALMA_JOB})
+        ).structured_content
+
+    assert "Syntax error" in err["next_steps"][0]
+    assert "re-submit" in err["next_steps"][0]
+    assert "will not complete" in aborted["next_steps"][0]
+
+
+@pytest.mark.asyncio
+async def test_status_schema_exposes_wait_seconds(mcp_server):
+    async with Client(mcp_server) as client:
+        tools = {t.name: t for t in await client.list_tools()}
+
+    props = tools["get_async_job_status"].input_schema["properties"]
+    assert "wait_seconds" in props
+    assert "clamped" in props["wait_seconds"]["description"]
+    assert props["wait_seconds"]["anyOf"][0].get("minimum") == 0

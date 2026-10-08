@@ -8,6 +8,8 @@ MANNA_ALLOWED_HOSTS has equivalent coverage in tests/unit/test_url_guard.py,
 which drives it through the environment rather than stubbing Settings.
 """
 
+from types import SimpleNamespace
+
 import manna.config as config
 from manna.tools import tap as tap_tools
 
@@ -38,6 +40,9 @@ def test_promote_async_records_no_server_side_state(monkeypatch):
     class _FakeTap:
         def submit_async(self, *, endpoint, adql, maxrec):
             return "https://datalab.noirlab.edu/tap/async/abc"
+
+        def load_job(self, job_url):
+            return SimpleNamespace(phase="EXECUTING")
 
     monkeypatch.setattr(tap_tools, "_get_tap", lambda: _FakeTap())
 

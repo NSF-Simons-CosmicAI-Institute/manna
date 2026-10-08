@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     # pending envelope with the job_url.
     count_async_budget_seconds: float = Field(default=15.0, gt=0)
     count_async_poll_interval_seconds: float = Field(default=1.0, gt=0)
+    # Bounded server-side wait on async TAP jobs (tools/tap.py::_wait_for_phase).
+    # get_async_job_status blocks up to async_wait_seconds when the call omits
+    # wait_seconds; a caller-supplied value is clamped to async_wait_max_seconds.
+    # The run_adql_query async promotion waits the default before returning its
+    # envelope. Keep the max under the MCP SDK's 60 s client request timeout —
+    # the worst single call is a 20 s sync attempt plus the promotion wait.
+    async_wait_seconds: float = Field(default=20.0, ge=0)
+    async_wait_max_seconds: float = Field(default=30.0, ge=0)
     # Inline response caps (results.py). A TAP result larger than EITHER limit
     # is routed to an async job whose result the client fetches itself (the
     # server never holds the bytes); discovery tools (cone / SIA search)
@@ -50,6 +58,14 @@ class Settings(BaseSettings):
     # ~127k tokens of tables × columns) from overflowing the model context. See
     # shape_registry_describe_result.
     registry_describe_byte_limit: int = 48 * 1024
+
+    @model_validator(mode="after")
+    def _async_wait_default_within_max(self) -> "Settings":
+        if self.async_wait_seconds > self.async_wait_max_seconds:
+            raise ValueError(
+                "MANNA_ASYNC_WAIT_SECONDS must not exceed MANNA_ASYNC_WAIT_MAX_SECONDS"
+            )
+        return self
 
 
 @lru_cache(maxsize=1)
