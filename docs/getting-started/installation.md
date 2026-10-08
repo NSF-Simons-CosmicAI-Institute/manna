@@ -117,16 +117,12 @@ record directly; the pages that follow show the same configuration by hand for
 ```bash
 manna &                      # HTTP mode
 curl -s http://localhost:8000/health
-# {"status":"ok","version":"{{ release }}"}
+# {"status":"ok","version":"0.11.0"}  # your installed version
 npx -y @modelcontextprotocol/inspector --cli http://localhost:8000/mcp --method tools/list
 ```
 
-MyST substitutions don't expand inside fenced code blocks, so the version
-above prints literally; check the running server's actual version against
-the installed package (`pip show manna-mcp`) if the two ever look out of
-step.
-
-The Inspector call lists 15 tools, beginning with `list_archives`. The endpoint
+The Inspector call lists every tool, beginning with `list_archives`; the
+{doc}`../reference/tools` page is generated from the same list. The endpoint
 answers at both `/mcp/` and `/mcp`.
 
 (tool-names-before-0-9-0)=
