@@ -19,7 +19,7 @@ from manna.archives._pitfalls import error_hint_for, upfront_note_cheatsheet
 class _FakeTool:
     name: str
     description: str
-    inputSchema: dict  # noqa: N815 — mirrors the MCP descriptor field name
+    input_schema: dict  # mirrors the MCP SDK v2 Tool field name
 
 
 def _tools():

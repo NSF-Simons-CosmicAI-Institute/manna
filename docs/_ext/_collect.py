@@ -134,13 +134,13 @@ def collect_tools() -> list[ToolDoc]:
     tools = asyncio.run(_list_tools())
     docs: list[ToolDoc] = []
     for t in tools:
-        ann = t.annotations.model_dump(exclude_none=True) if t.annotations else {}
+        ann = t.annotations.model_dump(exclude_none=True, by_alias=True) if t.annotations else {}
         docs.append(
             ToolDoc(
                 name=t.name,
                 layers=LAYERS.get(t.name, ()),
                 description=_clean_description(t.description or ""),
-                params=_param_docs(t.inputSchema or {}),
+                params=_param_docs(t.input_schema or {}),
                 annotations=ann,
             )
         )

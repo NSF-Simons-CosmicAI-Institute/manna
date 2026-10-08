@@ -9,7 +9,7 @@ NOTE: ``httpx.ASGITransport`` does NOT run ASGI lifespan events on its own.
 We drive ``app.router.lifespan_context(app)`` manually so FastMCP's
 StreamableHTTPSessionManager task group is initialized before any request.
 Without this, hitting ``/mcp`` raises
-``RuntimeError(StreamableHTTPSessionManager task group was not initialized)``
+``RuntimeError(FastMCP's StreamableHTTPSessionManager task group was not initialized …)``
 — which is exactly the regression we are guarding against.
 """
 
@@ -75,3 +75,27 @@ async def test_mcp_endpoint_responds():
         # Defensive: explicit allowed set so we notice if FastMCP starts
         # returning 200 for empty requests.
         assert r.status_code in (200, 400, 405, 406, 415, 422), r.text
+
+
+async def test_mcp_without_trailing_slash_is_not_redirected():
+    """``POST /mcp`` is served in place, the same as ``POST /mcp/``.
+
+    The FastMCP app is mounted under ``/mcp``, and Starlette's ``Mount``
+    answers the bare path with a 307 to ``/mcp/``. Clients that do not follow
+    redirects on POST (plain ``curl``, some MCP clients) then never reach the
+    server. Both spellings must get the same non-redirect response.
+    """
+    app = build_app()
+    async with _client_for(app) as client:
+        responses = [
+            await client.post(
+                path,
+                headers={"Accept": "application/json, text/event-stream"},
+                json={},
+                follow_redirects=False,
+            )
+            for path in ("/mcp", "/mcp/")
+        ]
+    bare, slashed = responses
+    assert bare.status_code != 307, f"POST /mcp redirected to {bare.headers.get('location')}"
+    assert bare.status_code == slashed.status_code

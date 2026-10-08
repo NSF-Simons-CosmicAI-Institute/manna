@@ -10,7 +10,9 @@ In one PR to `dev`:
 
 - `pyproject.toml` — `version = "X.Y.Z"`
 - `server.json` — both `version` fields
-- `README.md` — if the release renames or adds tools, update the tool table
+- `README.md` — if the release changes installation, client setup, or the
+  tool groups, update the matching section (the tool reference on the docs
+  site is generated, so it needs no edit)
 
 The `release-pypi` job refuses a tag that does not match `pyproject.toml`, and
 `release-registry` refuses one that does not match `server.json`.

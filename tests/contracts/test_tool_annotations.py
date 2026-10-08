@@ -18,8 +18,8 @@ async def test_all_tools_are_annotated_read_only():
             ann = t.annotations
             assert ann is not None, f"{t.name} missing annotations"
             if t.name == "abort_async_job":
-                assert ann.readOnlyHint is False and ann.idempotentHint is True
+                assert ann.read_only_hint is False and ann.idempotent_hint is True
                 continue
-            assert ann.readOnlyHint is True, f"{t.name} must be readOnlyHint"
+            assert ann.read_only_hint is True, f"{t.name} must be readOnlyHint"
             expected_open = t.name not in _LOCAL_TOOLS
-            assert ann.openWorldHint is expected_open, t.name
+            assert ann.open_world_hint is expected_open, t.name
