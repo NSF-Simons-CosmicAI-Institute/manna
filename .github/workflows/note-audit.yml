@@ -1,0 +1,76 @@
+name: note-audit
+
+# Weekly re-check of the archive notes against the live archives
+# (evals/audit.py; "note audit" in the paper). Model-free: plain ADQL probes,
+# no secrets. Paused archives (nrao) are not probed. The audit exits non-zero
+# only on STALE or ENDPT-DEAD, so a transient UNREACHABLE does not fail the run.
+# On failure, opens an issue (or comments on the open one) listing the stale notes.
+
+on:
+  schedule:
+    - cron: "17 9 * * 1" # Mondays 09:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: note-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.4.30"
+          enable-cache: true
+      - name: Install Python
+        run: uv python install 3.12
+      - name: Sync deps
+        run: uv sync --python 3.12
+      - name: Run note audit
+        id: audit
+        run: |
+          set -o pipefail
+          uv run python -m evals.audit --probeable | tee audit-report.txt
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: note-audit-${{ github.run_id }}
+          path: |
+            audit-report.txt
+            evals/results/audit-*.json
+          if-no-files-found: warn
+      - name: Open or update an issue for stale notes
+        if: failure() && steps.audit.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Note audit: stale archive notes"
+          {
+            echo "The weekly note audit found archive notes whose checks no longer hold."
+            echo "Run: $RUN_URL (the JSON report is attached as an artifact)."
+            echo
+            echo '```'
+            # each STALE / ENDPT-DEAD row plus its "↳" detail and source lines
+            awk '/\[ *(STALE|ENDPT-DEAD) *\]/ {show=1; print; next}
+                 show && /↳/ {print; next}
+                 {show=0}' audit-report.txt
+            tail -n 4 audit-report.txt
+            echo '```'
+            echo
+            echo "Fix each note in src/manna/archives/<archive>.py (see docs/contributing/adding-an-archive.md, \"Evolving an archive\")."
+          } > issue-body.md
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file issue-body.md
+          else
+            gh issue create --title "$title" --body-file issue-body.md
+          fi

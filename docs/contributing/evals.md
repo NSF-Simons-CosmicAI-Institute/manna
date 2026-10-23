@@ -17,7 +17,11 @@ What is in there:
 - **A with-and-without comparison** (`condition: ablated`): the MANNA approach
   run with archive notes stripped, to measure what the notes contribute.
 - **Checks** (`evals/audit.py`): the live probes declared on every archive
-  note, run against the archives to re-verify each claim.
+  note, run against the archives to re-verify each claim. The checks need no
+  model and run weekly on GitHub Actions (`.github/workflows/note-audit.yml`,
+  Mondays, or on demand from the Actions tab). A stale note or dead endpoint
+  fails the run and opens an issue naming the note to fix; paused archives
+  are not probed.
 
 Offline unit tests for the harness live in `tests/evals/` and run with the
 normal test suite. Live runs need a model endpoint and take up to an hour;
